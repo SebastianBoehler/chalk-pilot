@@ -1,6 +1,6 @@
 # Typed Learning Artifacts
 
-**Status:** Approved design, pending written review  
+**Status:** Approved
 **Date:** 2026-07-23
 
 ## Purpose
