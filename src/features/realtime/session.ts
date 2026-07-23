@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  RealtimeAgent,
-  RealtimeSession,
-  type RealtimeItem,
-} from "@openai/agents/realtime";
+import { type RealtimeItem } from "@openai/agents/realtime";
 import { z } from "zod";
 import {
   CanvasJobClient,
@@ -13,10 +9,10 @@ import {
 import type { CanvasDelegationInput } from "@/features/canvas-worker/schema";
 import type { AgentState } from "@/features/display/protocol";
 import type { CanvasState } from "@/features/workspace/schema";
+import { RealtimeConnection } from "./connection";
 import { readableRealtimeTokenError, realtimeErrorMessage } from "./errors";
-import { chalkPilotInstructions } from "./instructions";
-import { createMicrophoneTransport } from "./microphone-transport";
 import { CHALKPILOT_REALTIME_MODEL } from "./model";
+import { createOpenAiSession } from "./openai-session";
 import { createChalkPilotTools, type BoardInspectionStatus } from "./tools";
 
 type Fetcher = (
@@ -73,7 +69,7 @@ export class ChalkPilotRealtime {
   private readonly fetcher: Fetcher;
   private readonly createSession: SessionFactory;
   private readonly canvasJobs: CanvasJobClient;
-  private session: RealtimeSessionPort | null = null;
+  private readonly connection: RealtimeConnection<RealtimeSessionPort>;
   private pending = Promise.resolve();
   private turnNumber = 0;
   private responseActive = false;
@@ -95,20 +91,35 @@ export class ChalkPilotRealtime {
         this.noteCanvasCompletion(jobId, summary),
       createJobId: options.createJobId,
     });
+    this.connection = new RealtimeConnection({
+      model: CHALKPILOT_REALTIME_MODEL,
+      loadToken: (signal) => this.loadToken(signal),
+      createSession: () => this.createRealtimeSession(),
+      onSession: (session) => this.bindEvents(session),
+      onConnecting: () => this.options.onState?.("thinking"),
+      onConnected: () => this.options.onState?.("listening"),
+      onConnectionError: () => this.options.onState?.("error"),
+    });
   }
 
-  async connect() {
-    this.options.onState?.("thinking");
+  connect(): Promise<void> {
+    return this.connection.connect();
+  }
+
+  private async loadToken(signal: AbortSignal) {
     const response = await this.fetcher("/api/realtime-token", {
       method: "POST",
+      signal,
     });
     if (!response.ok) {
       const error = await readableRealtimeTokenError(response);
-      this.options.onState?.("error");
       throw new Error(error);
     }
     const { value } = tokenSchema.parse(await response.json());
+    return value;
+  }
 
+  private createRealtimeSession() {
     const tools = createChalkPilotTools({
       sessionId: this.options.sessionId,
       delegateCanvas: (input) => this.delegateCanvasTask(input),
@@ -117,13 +128,7 @@ export class ChalkPilotRealtime {
       getEvidenceId: () => `turn-${Math.max(this.turnNumber, 1)}`,
       onCanvasChanged: this.options.onCanvasChanged,
     });
-    this.session = this.createSession(tools, this.options.microphone);
-    this.bindEvents(this.session);
-    await this.session.connect({
-      apiKey: value,
-      model: CHALKPILOT_REALTIME_MODEL,
-    });
-    this.options.onState?.("listening");
+    return this.createSession(tools, this.options.microphone);
   }
 
   async inspectBoardNow(): Promise<BoardInspectionStatus> {
@@ -144,8 +149,7 @@ export class ChalkPilotRealtime {
   }
 
   close() {
-    this.session?.close();
-    this.session = null;
+    this.connection.close();
     this.finishActiveResponse();
     this.options.onState?.("idle");
   }
@@ -164,6 +168,7 @@ export class ChalkPilotRealtime {
 
   private bindEvents(session: RealtimeSessionPort) {
     session.on("transport_event", (rawEvent) => {
+      if (!this.connection.isCurrent(session)) return;
       const event = rawEvent as { type?: string } | undefined;
       if (event?.type === "input_audio_buffer.speech_started") {
         this.options.onState?.("listening");
@@ -182,13 +187,25 @@ export class ChalkPilotRealtime {
         this.finishActiveResponse();
       }
     });
-    session.on("agent_start", () => this.options.onState?.("thinking"));
-    session.on("audio_start", () => this.options.onState?.("speaking"));
-    session.on("audio_stopped", () => this.options.onState?.("listening"));
-    session.on("history_updated", (history) =>
-      this.options.onTranscript?.(history as RealtimeItem[]),
-    );
-    session.on("error", (error) => this.handleError(error));
+    session.on("agent_start", () => {
+      if (this.connection.isCurrent(session))
+        this.options.onState?.("thinking");
+    });
+    session.on("audio_start", () => {
+      if (this.connection.isCurrent(session))
+        this.options.onState?.("speaking");
+    });
+    session.on("audio_stopped", () => {
+      if (this.connection.isCurrent(session))
+        this.options.onState?.("listening");
+    });
+    session.on("history_updated", (history) => {
+      if (this.connection.isCurrent(session))
+        this.options.onTranscript?.(history as RealtimeItem[]);
+    });
+    session.on("error", (error) => {
+      if (this.connection.isCurrent(session)) this.handleError(error);
+    });
   }
 
   private async finishSpokenTurn() {
@@ -226,14 +243,15 @@ export class ChalkPilotRealtime {
   }
 
   private requireSession() {
-    if (!this.session) {
+    const session = this.connection.currentSession;
+    if (!session) {
       throw new Error("The voice session is not connected.");
     }
-    return this.session;
+    return session;
   }
 
   private noteCanvasCompletion(jobId: string, summary: string) {
-    this.session?.transport.sendEvent({
+    this.connection.currentSession?.transport.sendEvent({
       type: "conversation.item.create",
       item: {
         type: "message",
@@ -255,37 +273,4 @@ export class ChalkPilotRealtime {
     this.options.onState?.("error");
     this.options.onError?.(realtimeErrorMessage(error));
   }
-}
-
-function createOpenAiSession(
-  tools: ToolSet,
-  microphone: MediaStream,
-): RealtimeSessionPort {
-  const agent = new RealtimeAgent({
-    name: "ChalkPilot",
-    voice: "marin",
-    instructions: chalkPilotInstructions,
-    tools,
-  });
-  const transport = createMicrophoneTransport(microphone);
-  return new RealtimeSession(agent, {
-    model: CHALKPILOT_REALTIME_MODEL,
-    transport,
-    config: {
-      outputModalities: ["audio"],
-      audio: {
-        input: {
-          noiseReduction: { type: "far_field" },
-          transcription: { model: "gpt-4o-mini-transcribe" },
-          turnDetection: {
-            type: "semantic_vad",
-            eagerness: "medium",
-            createResponse: false,
-            interruptResponse: true,
-          },
-        },
-        output: { voice: "marin" },
-      },
-    },
-  }) as unknown as RealtimeSessionPort;
 }

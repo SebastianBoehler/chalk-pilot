@@ -60,6 +60,7 @@ export function SessionController(props: SessionControllerProps) {
   }, [props.displayConnected]);
 
   useEffect(() => {
+    let active = true;
     dispatch({ type: "camera_ready" });
     const realtime = new ChalkPilotRealtime({
       sessionId,
@@ -67,30 +68,42 @@ export function SessionController(props: SessionControllerProps) {
       microphone,
       onCanvasChanged,
       onState: (agentState) => {
+        if (!active) return;
         dispatch({ type: "agent_state", state: agentState });
         onAgentState(agentState);
       },
       onError: (message) => {
+        if (!active) return;
         setError(message);
         dispatch({ type: "realtime_error" });
       },
-      onBoardSent: () =>
-        setBoardNotice("Corrected board shared with the learning partner."),
+      onBoardSent: () => {
+        if (active)
+          setBoardNotice("Corrected board shared with the learning partner.");
+      },
       onCanvasJobState: (jobState) => {
+        if (!active) return;
         setCanvasJobState(jobState);
         if (jobState === "building") setCanvasJobError(undefined);
       },
-      onCanvasJobError: setCanvasJobError,
-      onTranscript: (history) =>
+      onCanvasJobError: (message) => {
+        if (active) setCanvasJobError(message);
+      },
+      onTranscript: (history) => {
+        if (!active) return;
         persistTranscript(history, sessionId, persisted.current, (lines) =>
           setTranscript(lines),
-        ),
+        );
+      },
     });
     realtimeRef.current = realtime;
     void realtime
       .connect()
-      .then(() => dispatch({ type: "realtime_connected" }))
+      .then(() => {
+        if (active) dispatch({ type: "realtime_connected" });
+      })
       .catch((cause: unknown) => {
+        if (!active) return;
         setError(
           cause instanceof Error
             ? cause.message
@@ -99,6 +112,7 @@ export function SessionController(props: SessionControllerProps) {
         dispatch({ type: "realtime_error" });
       });
     return () => {
+      active = false;
       realtime.close();
       realtimeRef.current = null;
     };

@@ -9,6 +9,16 @@ const emptyCanvas: CanvasState = {
   sections: {},
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
 function createHarness(changed = true) {
   const order: string[] = [];
   const listeners = new Map<string, (value?: unknown) => void>();
@@ -112,6 +122,61 @@ describe("ChalkPilotRealtime", () => {
     await realtime.connect();
 
     expect(createSession).toHaveBeenCalledWith(expect.any(Array), microphone);
+  });
+
+  it("does not create a session when closed before the token resolves", async () => {
+    const { createSession, fetcher, realtime } = createHarness();
+    const token = deferred<Response>();
+    fetcher.mockReturnValue(token.promise);
+
+    const connecting = realtime.connect();
+    realtime.close();
+    token.resolve(Response.json({ value: "ek_test_secret" }));
+
+    await expect(connecting).rejects.toThrow(
+      "The voice session was closed before connecting.",
+    );
+    expect(createSession).not.toHaveBeenCalled();
+  });
+
+  it("closes a session whose connection resolves after close", async () => {
+    const { realtime, session } = createHarness();
+    const connection = deferred<void>();
+    vi.mocked(session.connect).mockReturnValue(connection.promise);
+
+    const connecting = realtime.connect();
+    await vi.waitFor(() => expect(session.connect).toHaveBeenCalledOnce());
+    realtime.close();
+    connection.resolve();
+
+    await expect(connecting).rejects.toThrow(
+      "The voice session was closed before connecting.",
+    );
+    expect(session.close).toHaveBeenCalledOnce();
+  });
+
+  it("shares one in-flight connection across duplicate connect calls", async () => {
+    const { createSession, realtime, session } = createHarness();
+    const connection = deferred<void>();
+    vi.mocked(session.connect).mockReturnValue(connection.promise);
+
+    const first = realtime.connect();
+    const second = realtime.connect();
+    await vi.waitFor(() => expect(session.connect).toHaveBeenCalledOnce());
+    connection.resolve();
+    await Promise.all([first, second]);
+
+    expect(createSession).toHaveBeenCalledOnce();
+  });
+
+  it("closes a failed active session and preserves its connection error", async () => {
+    const { realtime, session } = createHarness();
+    const failure = new Error("Realtime handshake failed");
+    vi.mocked(session.connect).mockRejectedValue(failure);
+
+    await expect(realtime.connect()).rejects.toBe(failure);
+
+    expect(session.close).toHaveBeenCalledOnce();
   });
 
   it("adds a changed board image before requesting the spoken-turn response", async () => {
