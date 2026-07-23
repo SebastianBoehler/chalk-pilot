@@ -46,4 +46,54 @@ describe("display reducer", () => {
     expect(next.agentState).toBe("thinking");
     expect(next.canvas).toEqual(emptyDisplayState.canvas);
   });
+
+  it("keeps trusted structured artifacts when a snapshot hydrates the display", () => {
+    const next = reduceDisplayState(emptyDisplayState, {
+      version: 1,
+      type: "snapshot",
+      payload: {
+        agentState: "thinking",
+        canvas: {
+          version: 1,
+          focusId: "learning-gain",
+          order: ["learning-gain"],
+          sections: {
+            "learning-gain": {
+              id: "learning-gain",
+              kind: "chart",
+              title: "Learning gain",
+              createdAt: "2026-07-23T10:00:00.000Z",
+              updatedAt: "2026-07-23T10:00:00.000Z",
+              data: {
+                variant: "line",
+                series: [
+                  {
+                    name: "Recall",
+                    points: [
+                      { x: 1, y: 32 },
+                      { x: 2, y: 61 },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(next).toMatchObject({
+      agentState: "thinking",
+      synchronized: true,
+      canvas: {
+        focusId: "learning-gain",
+        sections: {
+          "learning-gain": {
+            kind: "chart",
+            data: { variant: "line" },
+          },
+        },
+      },
+    });
+  });
 });
