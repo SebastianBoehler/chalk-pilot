@@ -166,6 +166,8 @@ export const learnerMemoryInputSchema = z
 
 export type CanvasSectionInput = z.infer<typeof canvasSectionInputSchema>;
 export type CanvasSection = z.infer<typeof canvasSectionSchema>;
+export type CanvasSectionMetadata = z.infer<typeof canvasSectionMetadataSchema>;
+export type StoredCanvasState = z.infer<typeof storedCanvasStateSchema>;
 export type CanvasState = z.infer<typeof canvasStateSchema>;
 export type SessionRecord = z.infer<typeof sessionRecordSchema>;
 export type TranscriptTurn = z.infer<typeof transcriptTurnSchema>;

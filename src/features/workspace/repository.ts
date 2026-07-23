@@ -10,9 +10,6 @@ import { randomUUID } from "node:crypto";
 import { getSessionPaths } from "./paths";
 import {
   canvasSectionInputSchema,
-  canvasSectionMetadataSchema,
-  canvasSectionSchema,
-  hasSectionContent,
   learnerMemoryInputSchema,
   learningEventSchema,
   sessionRecordSchema,
@@ -25,6 +22,11 @@ import {
   type LearnerMemoryInput,
   type SessionRecord,
 } from "./schema";
+import {
+  projectStoredCanvasState,
+  readTextSection,
+  requireTextSection,
+} from "./section-storage";
 
 const EMPTY_CANVAS: CanvasState = {
   version: 1,
@@ -82,21 +84,7 @@ export function createWorkspaceRepository(rootDirectory: string) {
         const metadata = stored.sections[id];
         if (!metadata)
           throw new Error(`Missing canvas section metadata: ${id}`);
-        if (
-          ["chart", "comparison", "sequence", "checkpoint"].includes(
-            metadata.kind,
-          )
-        ) {
-          throw new Error("Structured canvas sections are not available yet");
-        }
-        const content = await readFile(
-          join(paths.sectionsDirectory, `${id}.md`),
-          "utf8",
-        );
-        sections[id] = canvasSectionSchema.parse({
-          ...metadata,
-          content,
-        });
+        sections[id] = await readTextSection(paths.sectionsDirectory, metadata);
       }),
     );
     return { ...stored, sections };
@@ -104,24 +92,7 @@ export function createWorkspaceRepository(rootDirectory: string) {
 
   async function writeCanvasState(sessionId: string, canvas: CanvasState) {
     const paths = getSessionPaths(root, sessionId);
-    const metadata = {
-      ...canvas,
-      sections: Object.fromEntries(
-        Object.entries(canvas.sections).map(([id, section]) => {
-          const { createdAt, kind, title, updatedAt } = section;
-          return [
-            id,
-            canvasSectionMetadataSchema.parse({
-              id,
-              kind,
-              title,
-              createdAt,
-              updatedAt,
-            }),
-          ];
-        }),
-      ),
-    };
+    const metadata = projectStoredCanvasState(canvas);
     await atomicWrite(
       paths.canvasState,
       `${JSON.stringify(metadata, null, 2)}\n`,
@@ -152,10 +123,7 @@ export function createWorkspaceRepository(rootDirectory: string) {
   }
 
   async function appendSection(sessionId: string, raw: CanvasSectionInput) {
-    const input = canvasSectionInputSchema.parse(raw);
-    if (!hasSectionContent(input)) {
-      throw new Error("Structured canvas sections are not available yet");
-    }
+    const input = requireTextSection(canvasSectionInputSchema.parse(raw));
     return queue(sessionId, async () => {
       const canvas = await readCanvas(sessionId);
       if (canvas.sections[input.id]) {
@@ -186,18 +154,15 @@ export function createWorkspaceRepository(rootDirectory: string) {
       const canvas = await readCanvas(sessionId);
       const current = canvas.sections[input.id];
       if (!current) throw new Error(`Unknown canvas section: ${input.id}`);
-      if (!hasSectionContent(current)) {
-        throw new Error("Structured canvas sections are not available yet");
-      }
-      const parsed = canvasSectionInputSchema.parse({
-        id: current.id,
-        kind: current.kind,
-        title: input.title ?? current.title,
-        content: input.content ?? current.content,
-      });
-      if (!hasSectionContent(parsed)) {
-        throw new Error("Structured canvas sections are not available yet");
-      }
+      const textSection = requireTextSection(current);
+      const parsed = requireTextSection(
+        canvasSectionInputSchema.parse({
+          id: current.id,
+          kind: current.kind,
+          title: input.title ?? current.title,
+          content: input.content ?? textSection.content,
+        }),
+      );
       const section = {
         ...parsed,
         createdAt: current.createdAt,
