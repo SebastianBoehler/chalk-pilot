@@ -6,6 +6,7 @@ import { PresentationCanvas } from "@/components/canvas/presentation-canvas";
 import { Button } from "@/components/ui/button";
 import { ErrorPanel } from "@/components/ui/error-panel";
 import { StatusPill } from "@/components/ui/status-pill";
+import type { CanvasJobState } from "@/features/canvas-worker/client";
 import type { AgentState } from "@/features/display/protocol";
 import type { TranscriptLine } from "@/features/session/transcript";
 import type { CanvasState } from "@/features/workspace/schema";
@@ -13,6 +14,8 @@ import { RecordingControls } from "./recording-controls";
 
 interface LearningWorkspaceProps {
   canvas: CanvasState;
+  canvasJobState: CanvasJobState;
+  canvasJobError?: string;
   preview: string | null;
   video?: HTMLVideoElement;
   agentState: AgentState;
@@ -50,6 +53,16 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
               <StatusPill
                 label="Board input"
                 status={props.preview ? "ready" : "waiting"}
+              />
+              <StatusPill
+                label="Canvas worker"
+                status={
+                  props.canvasJobState === "error"
+                    ? "error"
+                    : props.canvasJobState === "building"
+                      ? "waiting"
+                      : "ready"
+                }
               />
             </div>
             <Button
@@ -93,6 +106,24 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
           <div className="mt-4">
             <ErrorPanel message={props.error} title="Session needs attention" />
           </div>
+        )}
+
+        {props.canvasJobError && (
+          <div className="mt-4">
+            <ErrorPanel
+              message={props.canvasJobError}
+              title="Canvas worker needs attention"
+            />
+          </div>
+        )}
+
+        {props.canvasJobState !== "idle" && !props.canvasJobError && (
+          <p
+            aria-live="polite"
+            className="border-border bg-surface-muted mt-4 rounded-xl border px-3 py-2 text-sm"
+          >
+            {canvasJobMessage(props.canvasJobState)}
+          </p>
         )}
 
         <section className="mt-5" aria-labelledby="board-input-title">
@@ -181,4 +212,10 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
       </aside>
     </div>
   );
+}
+
+function canvasJobMessage(state: CanvasJobState) {
+  if (state === "building") return "Building visual context…";
+  if (state === "complete") return "Visual context ready.";
+  return "The canvas worker needs attention.";
 }

@@ -28,6 +28,8 @@ describe("LearningWorkspace", () => {
         agentState="listening"
         boardNotice="Board images are sent only at turn boundaries."
         canvas={canvas}
+        canvasJobError={undefined}
+        canvasJobState="building"
         displayConnected
         error={undefined}
         onEnd={vi.fn()}
@@ -51,6 +53,8 @@ describe("LearningWorkspace", () => {
     expect(
       screen.getByRole("button", { name: "Inspect board now" }),
     ).toBeVisible();
+    expect(screen.getByText("Canvas worker")).toBeVisible();
+    expect(screen.getByText("Building visual context…")).toBeVisible();
     const recordingButton = screen.getByRole("button", {
       name: "Start 3 recordings",
     });

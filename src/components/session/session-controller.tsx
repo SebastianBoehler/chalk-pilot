@@ -3,6 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import type { BoardController } from "@/features/board/board-controller";
 import type { BoardCorners } from "@/features/board/types";
+import type { CanvasJobState } from "@/features/canvas-worker/client";
 import type { AgentState } from "@/features/display/protocol";
 import { ChalkPilotRealtime } from "@/features/realtime/session";
 import {
@@ -40,6 +41,9 @@ export function SessionController(props: SessionControllerProps) {
   );
   const [preview, setPreview] = useState(board.getLatestImage());
   const [error, setError] = useState<string>();
+  const [canvasJobError, setCanvasJobError] = useState<string>();
+  const [canvasJobState, setCanvasJobState] =
+    useState<CanvasJobState>("idle");
   const [boardNotice, setBoardNotice] = useState(
     "Board images are sent only at turn boundaries.",
   );
@@ -71,6 +75,11 @@ export function SessionController(props: SessionControllerProps) {
       },
       onBoardSent: () =>
         setBoardNotice("Corrected board shared with the learning partner."),
+      onCanvasJobState: (jobState) => {
+        setCanvasJobState(jobState);
+        if (jobState === "building") setCanvasJobError(undefined);
+      },
+      onCanvasJobError: setCanvasJobError,
       onTranscript: (history) =>
         persistTranscript(history, sessionId, persisted.current, (lines) =>
           setTranscript(lines),
@@ -155,6 +164,8 @@ export function SessionController(props: SessionControllerProps) {
       agentState={state.agentState}
       boardNotice={boardNotice}
       canvas={props.canvas}
+      canvasJobError={canvasJobError}
+      canvasJobState={canvasJobState}
       displayConnected={props.displayConnected}
       error={error}
       onEnd={props.onEnd}

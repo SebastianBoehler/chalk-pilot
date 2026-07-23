@@ -30,14 +30,16 @@ presentation canvas.
   OpenCV.js;
 - detects material board changes locally;
 - connects an OpenAI Realtime voice agent through WebRTC;
+- delegates durable visual work to a separate background canvas specialist so
+  voice remains responsive;
 - sends no board image until a completed turn or explicit inspection;
 - makes the agent-created learning canvas the primary post-onboarding
   workspace, with board context and transcript in a collapsible sidebar;
 - optionally opens a clean presentation window for a separate room display;
 - records the corrected board, a locally tracked speaker crop, and the selected
   canvas as three separate local WebM videos;
-- lets the agent append or update Markdown, math, Mermaid, image, and YouTube
-  sections;
+- lets the canvas specialist append or update Markdown, math, Mermaid, image,
+  and YouTube sections;
 - stores canvas sections, text transcripts, events, and evidence-linked learner
   notes locally.
 
@@ -68,6 +70,19 @@ Set the server-only key in `.env.local`:
 ```dotenv
 OPENAI_API_KEY=your_key_here
 ```
+
+The canvas worker defaults to `gpt-5-mini` through OpenAI and reuses that key.
+To route only the canvas worker through OpenRouter, add:
+
+```dotenv
+CANVAS_AGENT_PROVIDER=openrouter
+CANVAS_AGENT_MODEL=openai/gpt-5-mini
+OPENROUTER_API_KEY=your_openrouter_key
+```
+
+OpenRouter requests prioritize throughput and require tool-capable,
+zero-retention endpoints. ChalkPilot surfaces configuration or provider errors
+instead of silently changing providers.
 
 For development:
 
@@ -144,7 +159,7 @@ Expected result:
 | Data                  | Processing                                            | Persistence              |
 | --------------------- | ----------------------------------------------------- | ------------------------ |
 | Full camera view      | Browser only                                          | Never                    |
-| Rectified board image | OpenAI only at a turn boundary or explicit inspection | Never                    |
+| Rectified board image | Voice provider at a turn boundary; selected canvas provider when a canvas job is delegated | Never |
 | Microphone audio      | OpenAI Realtime WebRTC                                | Not stored by ChalkPilot |
 | Text transcript       | Browser and local server                              | `.chalkpilot/`           |
 | Canvas artifacts      | Browser and local server                              | `.chalkpilot/`           |
@@ -162,6 +177,9 @@ ChalkPilot is one Next.js App Router application:
   bounded change detection;
 - `src/features/realtime` owns ephemeral credentials, the Agents SDK adapter,
   learning instructions, and typed agent tools;
+- `src/features/canvas-worker` owns provider selection, the bounded Vercel AI
+  SDK tool loop, per-session job serialization, and asynchronous browser
+  completion handling;
 - `src/features/workspace` owns validated, queued, atomic local persistence;
 - `src/features/display` owns the versioned `BroadcastChannel` protocol;
 - `src/components/setup` and `src/components/session` compose the room flow.
@@ -208,6 +226,10 @@ controller. Both windows must use the same browser profile and origin.
 
 **OpenAI is red in the readiness screen.** Confirm `OPENAI_API_KEY` exists in
 `.env.local`, then restart the server.
+
+**The Canvas worker is red.** For the default OpenAI worker, check
+`OPENAI_API_KEY`. For OpenRouter, set `CANVAS_AGENT_PROVIDER`,
+`CANVAS_AGENT_MODEL`, and `OPENROUTER_API_KEY`, then restart the server.
 
 **The room has no network.** Realtime requires network access. Run `npm ci` and
 `npm run build` before traveling, but verify room Wi-Fi before the session.
