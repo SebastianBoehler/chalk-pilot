@@ -5,6 +5,8 @@ import {
 } from "@/features/workspace/schema";
 
 export const canvasArtifactSchema = z.enum([
+  "chart",
+  "checkpoint",
   "comparison",
   "diagram",
   "example",
@@ -12,6 +14,7 @@ export const canvasArtifactSchema = z.enum([
   "explanation",
   "formula",
   "mixed",
+  "sequence",
 ]);
 
 const boardImageSchema = z

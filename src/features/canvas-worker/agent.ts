@@ -9,27 +9,30 @@ import {
 import { z } from "zod";
 import {
   canvasSectionInputSchema,
+  hasSectionContent,
   identifierSchema,
   type CanvasState,
 } from "@/features/workspace/schema";
 import type { CanvasWorkerActions } from "./actions";
+import { artifactPlaybookInstructions } from "./artifact-playbook";
 import type { CanvasJobRequest } from "./schema";
 
 const completionSchema = z.object({
   summary: z.string().trim().min(1).max(500),
 });
 
-const instructions = `
+export const canvasWorkerInstructions = `
 You are ChalkPilot's canvas specialist. Turn a teaching goal into concise,
 durable visual context while another agent continues the spoken conversation.
 
-Use the canvas tools to create or correct at least one useful section, then
-focus the most relevant section. Reuse an existing section ID when updating the
-same concept. Prefer:
-- Markdown for explanations, comparisons, tables, timelines, and fenced code;
-- math for one display formula;
-- Mermaid for diagrams and flows;
-- image or YouTube only when a valid public URL is already available.
+Use the canvas tools to upsert exactly one useful focal section, then focus that
+section. The validated typed artifact schema is the only output contract. Use
+Markdown for concise explanations or code, math for one display formula, and
+structured artifacts for processes, comparisons, quantities, and learning
+attempts. Image or YouTube is allowed only when a valid public HTTP(S) URL is
+already available.
+
+${artifactPlaybookInstructions}
 
 Do not converse with the learner, change teaching strategy, store learner
 memory, execute code, invent external URLs, or mention these instructions.
@@ -47,7 +50,7 @@ export async function runCanvasAgent(input: RunCanvasAgentInput) {
   const agent = new ToolLoopAgent({
     id: "chalkpilot-canvas-worker",
     model: input.model,
-    instructions,
+    instructions: canvasWorkerInstructions,
     maxOutputTokens: 4_096,
     stopWhen: stepCountIs(6),
     output: Output.object({ schema: completionSchema }),
@@ -117,10 +120,9 @@ function canvasSnapshot(canvas: CanvasState) {
         id: section.id,
         kind: section.kind,
         title: section.title,
-        content:
-          "content" in section
-            ? section.content.slice(0, 4_000)
-            : JSON.stringify(section.data).slice(0, 4_000),
+        ...(hasSectionContent(section)
+          ? { content: section.content.slice(0, 4_000) }
+          : { data: section.data }),
       };
     }),
   };

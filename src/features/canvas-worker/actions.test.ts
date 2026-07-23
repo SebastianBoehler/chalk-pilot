@@ -103,4 +103,16 @@ describe("canvas worker actions", () => {
       }),
     ).toThrow();
   });
+
+  it("accepts structured artifact preferences from the voice agent", () => {
+    for (const artifact of ["chart", "sequence", "checkpoint"] as const) {
+      expect(
+        canvasJobRequestSchema.parse({
+          jobId: `job-${artifact}`,
+          goal: `Create one ${artifact} for the learner's next action.`,
+          artifact,
+        }).artifact,
+      ).toBe(artifact);
+    }
+  });
 });
