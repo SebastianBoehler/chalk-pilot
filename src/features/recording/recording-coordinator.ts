@@ -23,11 +23,11 @@ import {
   elapsed,
   isDisplayCancellation,
   selectRequiredTracks,
-  stopRecorder,
   toError,
   type CaptureSources,
   type MediaRecorderPort,
 } from "./recording-media";
+import { startRecorder, stopRecorder } from "./recording-recorder-lifecycle";
 import type { RecordingManifest, TrackKind } from "./schema";
 
 export type { RecordingClientPort, UploadChunkInput };
@@ -133,8 +133,8 @@ export class RecordingCoordinator {
         );
       }
       active.epoch = this.dependencies.now();
-      active.tracks.forEach(({ recorder }) =>
-        recorder!.start(CHUNK_INTERVAL_MS),
+      active.tracks.forEach(({ recorder, recorderLifecycle }) =>
+        startRecorder(recorder!, recorderLifecycle!, CHUNK_INTERVAL_MS),
       );
       this.replayUrl = this.dependencies.client.replayUrl(sources.sessionId);
       this.state.change("recording", null);
@@ -147,8 +147,10 @@ export class RecordingCoordinator {
         }
         await this.persistMarkedInterruptions(active);
         await Promise.allSettled(
-          active.tracks.map(({ recorder }) =>
-            recorder ? stopRecorder(recorder) : Promise.resolve(),
+          active.tracks.map(({ recorder, recorderLifecycle }) =>
+            recorder && recorderLifecycle
+              ? stopRecorder(recorder, recorderLifecycle)
+              : Promise.resolve(),
           ),
         );
         cleanupCapture(active);
@@ -173,7 +175,9 @@ export class RecordingCoordinator {
     this.state.change("stopping", this.state.error);
     try {
       const stops = await Promise.allSettled(
-        active.tracks.map(({ recorder }) => stopRecorder(recorder!)),
+        active.tracks.map(({ recorder, recorderLifecycle }) =>
+          stopRecorder(recorder!, recorderLifecycle!),
+        ),
       );
       await Promise.all(
         stops.map((result, index) =>

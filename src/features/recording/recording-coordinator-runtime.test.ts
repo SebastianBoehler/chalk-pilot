@@ -125,11 +125,35 @@ describe("RecordingCoordinator stop and interruption", () => {
       "speaker",
       expect.stringContaining("encoder failed"),
     );
-    expect(test.recorders[1]?.stop).toHaveBeenCalledOnce();
+    expect(test.recorders[1]?.stop).not.toHaveBeenCalled();
     expect(test.recorders[0]?.stop).not.toHaveBeenCalled();
     expect(
       test.recorders.slice(2).every(({ stop }) => stop.mock.calls.length === 0),
     ).toBe(true);
+  });
+
+  it("waits for final data after an inactive recorder error", async () => {
+    const test = fixture();
+    const finalUpload = deferred();
+    test.client.uploadChunk.mockReturnValueOnce(finalUpload.promise);
+    await test.coordinator.start({
+      sessionId: "session-1",
+      board: test.board,
+      speaker: test.speaker,
+      microphone: test.microphone,
+    });
+    test.setClock(2_100);
+
+    test.recorders[1]?.fail("encoder failed", "final-speaker-data");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(test.client.uploadChunk).toHaveBeenCalledTimes(1);
+    expect(test.client.interrupt).not.toHaveBeenCalled();
+    finalUpload.resolve();
+    await vi.waitFor(() => expect(test.client.interrupt).toHaveBeenCalled());
+    expect(test.client.uploadChunk.mock.invocationCallOrder[0]).toBeLessThan(
+      test.client.interrupt.mock.invocationCallOrder[0]!,
+    );
   });
 
   it("uses the stop timestamp rather than upload completion for duration", async () => {

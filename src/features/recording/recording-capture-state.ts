@@ -5,6 +5,7 @@ import {
   type CaptureSources,
   type MediaRecorderPort,
 } from "./recording-media";
+import { RecorderLifecycle } from "./recording-recorder-lifecycle";
 import { RecordingUploadQueue } from "./recording-upload-queue";
 import type { TrackKind } from "./schema";
 
@@ -12,6 +13,7 @@ export interface ActiveTrack {
   kind: TrackKind;
   stream: MediaStream;
   recorder: MediaRecorderPort | null;
+  recorderLifecycle: RecorderLifecycle | null;
   mimeType: string;
   sequence: number;
   offsetMs: number;
@@ -54,6 +56,7 @@ export function createActiveCapture(
     kind,
     stream,
     recorder: null,
+    recorderLifecycle: null,
     mimeType: supportedMimeType(kind),
     sequence: 0,
     offsetMs: 0,
@@ -103,8 +106,11 @@ export function createCaptureRecorders(
 ) {
   active.tracks.forEach((track) => {
     track.recorder = createRecorder(track.stream, track.mimeType);
+    const lifecycle = new RecorderLifecycle();
+    track.recorderLifecycle = lifecycle;
     track.recorder.ondataavailable = ({ data }) => onData(track, data);
     track.recorder.onerror = ({ error }) => onError(track, error);
+    track.recorder.onstop = () => lifecycle.observeStop();
   });
 }
 

@@ -100,19 +100,6 @@ export function supportedMimeType(kind: TrackKind) {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
 }
 
-export function stopRecorder(recorder: MediaRecorderPort) {
-  return new Promise<void>((resolve, reject) => {
-    if (recorder.state === "inactive") {
-      resolve();
-      return;
-    }
-    recorder.onstop = resolve;
-    recorder.onerror = ({ error }) =>
-      reject(error ?? new Error("Recording could not stop cleanly."));
-    recorder.stop();
-  });
-}
-
 export function elapsed(now: number, epoch: number) {
   return Math.max(0, now - epoch);
 }

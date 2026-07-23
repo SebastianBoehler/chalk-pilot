@@ -73,8 +73,11 @@ export class FakeRecorder implements MediaRecorderPort {
     return data;
   }
 
-  fail(message: string) {
+  fail(message: string, finalLabel?: string) {
+    this.state = "inactive";
     this.onerror?.({ error: new DOMException(message) });
+    if (finalLabel) this.emit(finalLabel);
+    this.onstop?.();
   }
 }
 
