@@ -1,5 +1,5 @@
 import { readdir } from "node:fs/promises";
-import { containedPath, getRecordingPaths } from "../workspace/paths";
+import { containedPath } from "../workspace/paths";
 import { identifierSchema } from "../workspace/schema";
 import {
   TRACK_KINDS,
@@ -9,7 +9,7 @@ import {
   type RecordingSummary,
 } from "./schema";
 import { findMissing } from "./repository-chunks";
-import { isMissingFile, readJson } from "./repository-files";
+import { isMissingFile } from "./repository-files";
 
 export function finalizeManifest(
   manifest: RecordingManifest,
@@ -63,6 +63,7 @@ export function finalizeManifest(
 
 export async function listRecordingSummaries(
   root: string,
+  loadManifest: (sessionId: string) => Promise<RecordingManifest | null>,
 ): Promise<RecordingSummary[]> {
   const sessionsDirectory = containedPath(root, "sessions");
   let entries;
@@ -76,26 +77,20 @@ export async function listRecordingSummaries(
   for (const entry of entries) {
     if (!entry.isDirectory() || !identifierSchema.safeParse(entry.name).success)
       continue;
-    try {
-      const manifest = recordingManifestSchema.parse(
-        await readJson(getRecordingPaths(root, entry.name).manifest),
-      );
-      summaries.push(
-        recordingSummarySchema.parse({
-          sessionId: manifest.sessionId,
-          state: manifest.state,
-          startedAt: manifest.startedAt,
-          finalizedAt: manifest.finalizedAt,
-          durationMs: manifest.durationMs,
-          availableTracks: TRACK_KINDS.filter(
-            (kind) => manifest.tracks[kind].byteSize > 0,
-          ),
-        }),
-      );
-    } catch (error) {
-      if (isMissingFile(error)) continue;
-      throw error;
-    }
+    const manifest = await loadManifest(entry.name);
+    if (!manifest) continue;
+    summaries.push(
+      recordingSummarySchema.parse({
+        sessionId: manifest.sessionId,
+        state: manifest.state,
+        startedAt: manifest.startedAt,
+        finalizedAt: manifest.finalizedAt,
+        durationMs: manifest.durationMs,
+        availableTracks: TRACK_KINDS.filter(
+          (kind) => manifest.tracks[kind].byteSize > 0,
+        ),
+      }),
+    );
   }
   return summaries.sort((left, right) =>
     right.startedAt.localeCompare(left.startedAt),

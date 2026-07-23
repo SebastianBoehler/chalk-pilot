@@ -35,6 +35,8 @@ import {
   listRecordingSummaries,
 } from "./repository-manifests";
 
+class UnknownRecordingError extends Error {}
+
 export function createRecordingRepository(root: string) {
   const queues = new Map<string, Promise<unknown>>();
 
@@ -56,7 +58,7 @@ export function createRecordingRepository(root: string) {
       manifest = recordingManifestSchema.parse(await readJson(paths.manifest));
     } catch (error) {
       if (isMissingFile(error))
-        throw new Error(`Unknown recording: ${sessionId}`);
+        throw new UnknownRecordingError(`Unknown recording: ${sessionId}`);
       throw error;
     }
     const reconciled = await reconcileDurableChunks(root, manifest);
@@ -75,8 +77,7 @@ export function createRecordingRepository(root: string) {
       try {
         return await load(sessionId);
       } catch (error) {
-        if (!(error instanceof Error) || !error.message.startsWith("Unknown "))
-          throw error;
+        if (!(error instanceof UnknownRecordingError)) throw error;
       }
 
       await Promise.all([
@@ -268,7 +269,14 @@ export function createRecordingRepository(root: string) {
   }
 
   async function list() {
-    return listRecordingSummaries(root);
+    return listRecordingSummaries(root, async (sessionId) => {
+      try {
+        return await read(sessionId);
+      } catch (error) {
+        if (error instanceof UnknownRecordingError) return null;
+        throw error;
+      }
+    });
   }
 
   return {

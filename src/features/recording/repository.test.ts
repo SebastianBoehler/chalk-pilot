@@ -12,6 +12,7 @@ import {
   chunkMetadata,
   registerChunkRepositoryTests,
 } from "./repository-chunk-tests";
+import { registerTimelineRepositoryTests } from "./repository-timeline-tests";
 import { recordingManifestSchema } from "./schema";
 
 async function appendRequiredChunks(repository: RecordingRepository) {
@@ -44,6 +45,7 @@ describe("RecordingRepository", () => {
   });
 
   registerChunkRepositoryTests(() => root);
+  registerTimelineRepositoryTests(() => root);
 
   it("records sequence gaps and combines only the contiguous prefix", async () => {
     const repository = createRecordingRepository(root);
@@ -202,39 +204,31 @@ describe("RecordingRepository", () => {
     ).toMatchObject({ state: "complete" });
   });
 
-  it("persists validated transcript and canvas timeline events", async () => {
+  it("reconciles durable chunks before listing after restart", async () => {
     const repository = createRecordingRepository(root);
-    await repository.create("session-1");
+    const created = await repository.create("session-1");
+    await repository.appendChunk(
+      "session-1",
+      "board",
+      0,
+      chunkMetadata,
+      Buffer.from("board"),
+    );
+    const manifestPath = join(
+      root,
+      "sessions/session-1/recordings/manifest.json",
+    );
+    const persisted = JSON.parse(await readFile(manifestPath, "utf8"));
+    persisted.tracks.board = created.tracks.board;
+    await writeFile(manifestPath, JSON.stringify(persisted), "utf8");
 
-    await repository.appendTimeline("session-1", {
-      type: "transcript",
-      speaker: "user",
-      startMs: 100,
-      endMs: 900,
-      text: "Differentiate the outside first.",
-    });
-    await repository.appendTimeline("session-1", {
-      type: "canvas",
-      offsetMs: 1_000,
-      revision: { version: 1, order: [] },
-    });
+    const summaries = await createRecordingRepository(root).list();
 
+    expect(summaries[0]?.availableTracks).toContain("board");
     expect(
-      JSON.parse(
-        await readFile(
-          join(root, "sessions/session-1/recordings/transcript.json"),
-          "utf8",
-        ),
-      ),
-    ).toHaveLength(1);
-    expect(
-      JSON.parse(
-        await readFile(
-          join(root, "sessions/session-1/recordings/canvas-events.json"),
-          "utf8",
-        ),
-      ),
-    ).toHaveLength(1);
+      JSON.parse(await readFile(manifestPath, "utf8")).tracks.board
+        .acknowledgedSequences,
+    ).toEqual([0]);
   });
 
   it("rejects traversal without writing outside the recording root", async () => {
