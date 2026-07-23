@@ -19,15 +19,30 @@ export function deferred<T>() {
   return { promise, reject, resolve };
 }
 
-export function createRealtimeHarness(changed = true) {
+interface RealtimeHarnessOptions {
+  changed?: boolean;
+  now?: () => number;
+  onCueStart?: (speaker: "user" | "assistant", atMs: number) => void;
+  onCueEnd?: (speaker: "user" | "assistant", atMs: number) => void;
+}
+
+export function createRealtimeHarness(
+  input: boolean | RealtimeHarnessOptions = true,
+) {
+  const options = typeof input === "boolean" ? { changed: input } : input;
+  const changed = options.changed ?? true;
   const order: string[] = [];
   const listeners = new Map<string, (value?: unknown) => void>();
   const onError = vi.fn();
   const onCanvasChanged = vi.fn();
   const onCanvasJobError = vi.fn();
   const onCanvasJobState = vi.fn();
-  const onCueStart = vi.fn();
-  const onCueEnd = vi.fn();
+  const onCueStart = vi.fn((speaker: "user" | "assistant", atMs: number) =>
+    options.onCueStart?.(speaker, atMs),
+  );
+  const onCueEnd = vi.fn((speaker: "user" | "assistant", atMs: number) =>
+    options.onCueEnd?.(speaker, atMs),
+  );
   const session: RealtimeSessionPort = {
     transport: {
       sendEvent: (event) => order.push(String(event.type)),
@@ -66,7 +81,7 @@ export function createRealtimeHarness(changed = true) {
     onError,
     onCueStart,
     onCueEnd,
-    now: () => 1_234,
+    now: options.now ?? (() => 1_234),
   });
   return {
     board,

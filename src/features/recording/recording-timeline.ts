@@ -84,7 +84,7 @@ export class RecordingTimeline {
   }
 
   noteCanvas(canvas: CanvasState, atMs: number) {
-    if (this.epoch === null || this.sealed) return;
+    if (this.epoch === null || this.closing || this.sealed) return;
     const fingerprint = JSON.stringify(canvas);
     if (fingerprint === this.canvasFingerprint) return;
     this.canvasFingerprint = fingerprint;

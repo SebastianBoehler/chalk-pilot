@@ -52,6 +52,7 @@ export function useSessionRecording(
   const unsubscribe = useRef<(() => void) | null>(null);
   const derived = useRef<DerivedVideoStreams | null>(null);
   const timeline = useRef<RecordingTimeline | null>(null);
+  const latestCanvas = useRef(options.canvas);
   const durationTimer = useRef<number | undefined>(undefined);
   const stopping = useRef(false);
   const cleanupActive = useCallback(() => {
@@ -71,6 +72,7 @@ export function useSessionRecording(
   }, [options.boardPreview]);
 
   useEffect(() => {
+    latestCanvas.current = options.canvas;
     timeline.current?.noteCanvas(options.canvas, performance.now());
   }, [options.canvas]);
 
@@ -126,7 +128,7 @@ export function useSessionRecording(
         nextCoordinator.appendTimeline(event),
       );
       nextTimeline.start(epoch);
-      nextTimeline.noteCanvas(options.canvas, epoch);
+      nextTimeline.noteCanvas(latestCanvas.current, epoch);
       timeline.current = nextTimeline;
       durationTimer.current = window.setInterval(
         () => setDurationMs(Math.max(0, performance.now() - epoch)),

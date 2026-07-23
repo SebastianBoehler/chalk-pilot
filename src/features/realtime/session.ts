@@ -76,6 +76,7 @@ export class ChalkPilotRealtime {
   private pending = Promise.resolve();
   private turnNumber = 0;
   private responseActive = false;
+  private assistantAudioActive = false;
   private responseWaiters: Array<() => void> = [];
 
   constructor(options: ChalkPilotRealtimeOptions) {
@@ -170,6 +171,7 @@ export class ChalkPilotRealtime {
   }
 
   private bindEvents(session: RealtimeSessionPort) {
+    this.assistantAudioActive = false;
     session.on("transport_event", (rawEvent) => {
       if (!this.connection.isCurrent(session)) return;
       const event = rawEvent as { type?: string } | undefined;
@@ -198,16 +200,15 @@ export class ChalkPilotRealtime {
     });
     session.on("audio_start", () => {
       if (this.connection.isCurrent(session)) {
-        this.options.onCueStart?.("assistant", this.now());
+        if (!this.assistantAudioActive) {
+          this.assistantAudioActive = true;
+          this.options.onCueStart?.("assistant", this.now());
+        }
         this.options.onState?.("speaking");
       }
     });
-    session.on("audio_stopped", () => {
-      if (this.connection.isCurrent(session)) {
-        this.options.onCueEnd?.("assistant", this.now());
-        this.options.onState?.("listening");
-      }
-    });
+    session.on("audio_stopped", () => this.finishAssistantAudio(session));
+    session.on("audio_interrupted", () => this.finishAssistantAudio(session));
     session.on("history_updated", (history) => {
       if (this.connection.isCurrent(session))
         this.options.onTranscript?.(history as RealtimeItem[]);
@@ -281,6 +282,15 @@ export class ChalkPilotRealtime {
     this.finishActiveResponse();
     this.options.onState?.("error");
     this.options.onError?.(realtimeErrorMessage(error));
+  }
+
+  private finishAssistantAudio(session: RealtimeSessionPort) {
+    if (!this.connection.isCurrent(session)) return;
+    if (this.assistantAudioActive) {
+      this.assistantAudioActive = false;
+      this.options.onCueEnd?.("assistant", this.now());
+    }
+    this.options.onState?.("listening");
   }
 
   private now() {

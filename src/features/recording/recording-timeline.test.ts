@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CanvasState } from "@/features/workspace/schema";
+import type { RecordingTimelineEvent } from "./schema";
 import { RecordingTimeline } from "./recording-timeline";
 
 const canvas: CanvasState = {
@@ -11,7 +12,9 @@ const canvas: CanvasState = {
 
 describe("RecordingTimeline", () => {
   it("attaches delayed transcript text to its completed speech bounds", async () => {
-    const append = vi.fn(async () => undefined);
+    const append = vi.fn<(event: RecordingTimelineEvent) => Promise<void>>(
+      async () => undefined,
+    );
     const timeline = new RecordingTimeline(append);
     timeline.start(1_000);
 
@@ -135,5 +138,37 @@ describe("RecordingTimeline", () => {
     await timeline.drain();
 
     expect(append).toHaveBeenCalledOnce();
+  });
+
+  it("rejects canvas revisions after the stop boundary", async () => {
+    const append = vi.fn<(event: RecordingTimelineEvent) => Promise<void>>(
+      async () => undefined,
+    );
+    const timeline = new RecordingTimeline(append);
+    timeline.start(1_000);
+    timeline.noteCanvas(canvas, 1_200);
+    timeline.noteCueStart("user", 1_300);
+    timeline.closeOpenCues(1_500);
+    timeline.noteCanvas({ ...canvas, focusId: "after-stop" }, 1_900);
+    timeline.attachTranscript({
+      sourceId: "late-text",
+      role: "user",
+      text: "Text for the cue that was open at stop.",
+    });
+    await timeline.drain();
+
+    const persisted = append.mock.calls.map(([event]) => event);
+    expect(persisted).toHaveLength(2);
+    expect(persisted).not.toContainEqual(
+      expect.objectContaining({
+        type: "canvas",
+        revision: expect.objectContaining({ focusId: "after-stop" }),
+      }),
+    );
+    expect(
+      persisted.flatMap((event) =>
+        event.type === "canvas" ? [event.offsetMs] : [event.endMs],
+      ),
+    ).toEqual([200, 500]);
   });
 });
