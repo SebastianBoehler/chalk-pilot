@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CanvasState } from "@/features/workspace/schema";
 import { ChalkPilotRealtime, type RealtimeSessionPort } from "./session";
 
@@ -46,6 +46,30 @@ function createHarness(changed = true) {
 }
 
 describe("ChalkPilotRealtime", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("calls the browser fetch function with its required global receiver", async () => {
+    const { session } = createHarness();
+    const strictFetch = vi.fn(function (
+      this: unknown,
+      input: string | URL | Request,
+    ) {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      return String(input).endsWith("/api/realtime-token")
+        ? Promise.resolve(Response.json({ value: "ek_test_secret" }))
+        : Promise.resolve(Response.json(emptyCanvas));
+    });
+    vi.stubGlobal("fetch", strictFetch);
+    const withoutInjectedFetch = new ChalkPilotRealtime({
+      sessionId: "session-1",
+      board: createHarness().board,
+      createSession: () => session,
+      onCanvasChanged: vi.fn(),
+    });
+
+    await expect(withoutInjectedFetch.connect()).resolves.toBeUndefined();
+  });
+
   it("connects with a short-lived browser secret", async () => {
     const { realtime, session } = createHarness();
 

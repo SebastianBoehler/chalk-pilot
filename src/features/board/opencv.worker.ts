@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import cvModule from "@techstark/opencv-js";
 import { orderCorners, outputBoardSize } from "./geometry";
 import type { BoardCorners, DetectionResult, NormalizedPoint } from "./types";
 
@@ -38,18 +39,15 @@ async function handleRequest(request: WorkerRequest) {
 }
 
 function getOpenCv(): Promise<OpenCv> {
-  openCvPromise ??= import("@techstark/opencv-js").then(async (module) => {
-    const loaded = module as unknown as {
-      default?: OpenCvCandidate | Promise<OpenCv>;
-    };
-    const candidate = loaded.default ?? (module as OpenCvCandidate);
+  openCvPromise ??= (async () => {
+    const candidate = cvModule as OpenCvCandidate | Promise<OpenCv>;
     if (candidate instanceof Promise) return candidate;
     if (candidate.Mat) return candidate;
     await new Promise<void>((resolve) => {
       candidate.onRuntimeInitialized = resolve;
     });
     return candidate;
-  });
+  })();
   return openCvPromise;
 }
 
