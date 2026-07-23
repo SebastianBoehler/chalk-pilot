@@ -14,9 +14,11 @@ import {
   BoardController,
   type BoardCalibration,
 } from "@/features/board/board-controller";
+import { watchCalibrationDimensions } from "@/features/board/calibration-source";
 import { createBoardWorkerClient } from "@/features/board/worker-client";
 import type { BoardCorners } from "@/features/board/types";
 import type { AgentState } from "@/features/display/protocol";
+import type { PersonBox } from "@/features/recording/presenter-tracker";
 import { useDisplayPublisher } from "@/features/display/use-display-channel";
 import {
   initialSetupState,
@@ -32,6 +34,7 @@ import {
 import { CameraStep } from "./camera-step";
 import { SetupShell } from "./setup-shell";
 import { SetupStage } from "./setup-stage";
+import { useRoomDisplay } from "./use-room-display";
 
 const EMPTY_CANVAS: CanvasState = {
   version: 1,
@@ -53,6 +56,7 @@ export function SetupFlow() {
   const [cameraStream, setCameraStream] = useState<MediaStream>();
   const [microphoneStream, setMicrophoneStream] = useState<MediaStream>();
   const [calibration, setCalibration] = useState<BoardCalibration>();
+  const [presenter, setPresenter] = useState<PersonBox>();
   const [calibrationStatus, setCalibrationStatus] = useState<
     "detecting" | "ready" | "error"
   >("detecting");
@@ -62,13 +66,13 @@ export function SetupFlow() {
   const [mode, setMode] = useState<"setup" | "session">("setup");
   const [canvas, setCanvas] = useState(EMPTY_CANVAS);
   const [agentState, setAgentState] = useState<AgentState>("idle");
-  const displayWindow = useRef<Window | null>(null);
   const calibrationRequest = useRef(0);
   const snapshot = useMemo(
     () => ({ canvas, agentState }),
     [agentState, canvas],
   );
   const { readySignal } = useDisplayPublisher(snapshot);
+  const openDisplay = useRoomDisplay(readySignal, dispatch);
 
   useEffect(() => () => board?.dispose(), [board]);
   useEffect(() => () => stopMicrophone(microphoneStream), [microphoneStream]);
@@ -82,22 +86,6 @@ export function SetupFlow() {
         });
       })
       .catch(() => dispatch({ type: "openai_error" }));
-  }, []);
-
-  useEffect(() => {
-    if (readySignal > 0) {
-      dispatch({ type: "display_connected" });
-    }
-  }, [readySignal]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (displayWindow.current?.closed) {
-        displayWindow.current = null;
-        dispatch({ type: "display_lost" });
-      }
-    }, 1_000);
-    return () => window.clearInterval(interval);
   }, []);
 
   const detectBoard = useCallback(async () => {
@@ -118,6 +106,18 @@ export function SetupFlow() {
       );
     }
   }, [board, video]);
+
+  useEffect(() => {
+    if (!video || !calibration) return;
+    return watchCalibrationDimensions(video, calibration, () => {
+      setCalibration(undefined);
+      setPresenter(undefined);
+      dispatch({ type: "recalibrate" });
+      setMode("setup");
+      window.history.replaceState({}, "", "/setup");
+      void detectBoard();
+    });
+  }, [calibration, detectBoard, video]);
 
   const adjustCorners = (corners: BoardCorners) => {
     if (!board || !calibration) return;
@@ -140,30 +140,9 @@ export function SetupFlow() {
       });
   };
 
-  const openDisplay = () => {
-    const popup = window.open(
-      "/display",
-      "chalkpilot-display",
-      "popup,width=1440,height=900",
-    );
-    if (!popup) {
-      window.alert(
-        "Allow pop-ups for this site, then open the clean display again.",
-      );
-      return;
-    }
-    displayWindow.current = popup;
-    popup.focus();
-  };
-
   const confirmCalibration = () => {
     dispatch({ type: "calibration_confirmed" });
-    if (sessionId) {
-      setMode("session");
-      window.history.replaceState({}, "", "/session");
-    } else {
-      dispatch({ type: "advance" });
-    }
+    dispatch({ type: "advance" });
   };
 
   const startSession = async () => {
@@ -202,6 +181,11 @@ export function SetupFlow() {
       >
         <SetupShell>
           <CameraStep
+            cameraUse={setup.cameraUse}
+            onCameraUseChange={(cameraUse) => {
+              setPresenter(undefined);
+              dispatch({ type: "camera_use_selected", cameraUse });
+            }}
             onReady={(readyVideo, readyStream) => {
               setVideo(readyVideo);
               setCameraStream(readyStream);
@@ -236,8 +220,19 @@ export function SetupFlow() {
             dispatch({ type: "advance" });
             void detectBoard();
           }}
-          onPreviewBack={() => dispatch({ type: "back" })}
-          onPreviewContinue={() => dispatch({ type: "advance" })}
+          onPreviewBack={() => {
+            setPresenter(undefined);
+            dispatch({ type: "back" });
+          }}
+          onPreviewContinue={(confirmedPresenter) => {
+            setPresenter(confirmedPresenter);
+            if (sessionId) {
+              setMode("session");
+              window.history.replaceState({}, "", "/session");
+            } else {
+              dispatch({ type: "advance" });
+            }
+          }}
           onStart={() => void startSession()}
           setup={setup}
           starting={starting}
@@ -250,13 +245,17 @@ export function SetupFlow() {
         video &&
         board &&
         calibration &&
-        microphoneStream && (
+        microphoneStream &&
+        setup.cameraUse !== "pending" &&
+        (setup.cameraUse === "board-focused" || presenter) && (
           <SessionController
             board={board}
+            cameraUse={setup.cameraUse}
             canvas={canvas}
             corners={calibration.corners}
             displayConnected={setup.display === "connected"}
             microphone={microphoneStream}
+            presenter={presenter}
             onAgentState={setAgentState}
             onCanvasChanged={setCanvas}
             onEnd={() => window.location.assign("/setup")}
@@ -264,6 +263,7 @@ export function SetupFlow() {
             onRecalibrate={() => {
               dispatch({ type: "recalibrate" });
               setCalibration(undefined);
+              setPresenter(undefined);
               setMode("setup");
               window.history.replaceState({}, "", "/setup");
               void detectBoard();

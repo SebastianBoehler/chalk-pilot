@@ -8,7 +8,9 @@ import { ErrorPanel } from "@/components/ui/error-panel";
 import { StatusPill } from "@/components/ui/status-pill";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
 import type { AgentState } from "@/features/display/protocol";
+import type { PersonBox } from "@/features/recording/presenter-tracker";
 import type { TranscriptLine } from "@/features/session/transcript";
+import type { CameraUse } from "@/features/setup/camera-use";
 import type { CanvasState } from "@/features/workspace/schema";
 import { RecordingControls } from "./recording-controls";
 
@@ -18,6 +20,8 @@ interface LearningWorkspaceProps {
   canvasJobError?: string;
   preview: string | null;
   video?: HTMLVideoElement;
+  cameraUse: CameraUse;
+  presenter?: PersonBox;
   agentState: AgentState;
   paused: boolean;
   realtimeConnected: boolean;
@@ -168,7 +172,12 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
           </div>
         </section>
 
-        <RecordingControls boardPreview={props.preview} video={props.video} />
+        <RecordingControls
+          boardPreview={props.preview}
+          cameraUse={props.cameraUse}
+          presenter={props.presenter}
+          video={props.video}
+        />
 
         <details className="border-border mt-5 rounded-2xl border p-4" open>
           <summary className="cursor-pointer font-semibold">

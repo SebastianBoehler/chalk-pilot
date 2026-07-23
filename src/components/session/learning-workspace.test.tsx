@@ -27,6 +27,7 @@ describe("LearningWorkspace", () => {
       <LearningWorkspace
         agentState="listening"
         boardNotice="Board images are sent only at turn boundaries."
+        cameraUse="board-focused"
         canvas={canvas}
         canvasJobError={undefined}
         canvasJobState="building"

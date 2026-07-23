@@ -6,6 +6,7 @@ import {
   requestCamera,
   stopCamera,
 } from "@/features/board/camera";
+import type { CameraUse } from "@/features/setup/camera-use";
 
 type CameraMediaDevices = Pick<
   MediaDevices,
@@ -14,10 +15,17 @@ type CameraMediaDevices = Pick<
 
 interface CameraStepProps {
   onReady: (video: HTMLVideoElement, stream: MediaStream) => void;
+  cameraUse: CameraUse | "pending";
+  onCameraUseChange: (cameraUse: CameraUse) => void;
   mediaDevices?: CameraMediaDevices;
 }
 
-export function CameraStep({ onReady, mediaDevices }: CameraStepProps) {
+export function CameraStep({
+  cameraUse,
+  onCameraUseChange,
+  onReady,
+  mediaDevices,
+}: CameraStepProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream>();
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -74,6 +82,24 @@ export function CameraStep({ onReady, mediaDevices }: CameraStepProps) {
         </p>
       </div>
 
+      <fieldset>
+        <legend className="text-sm font-semibold">Camera use</legend>
+        <div className="mt-2 grid max-w-2xl gap-3 sm:grid-cols-2">
+          <CameraUseOption
+            checked={cameraUse === "room-wide"}
+            description="A wide room view where ChalkPilot follows a confirmed presenter."
+            label="Room-wide camera"
+            onChange={() => onCameraUseChange("room-wide")}
+          />
+          <CameraUseOption
+            checked={cameraUse === "board-focused"}
+            description="A fixed nearby view pointed at a whiteboard or flip chart."
+            label="Board-focused camera"
+            onChange={() => onCameraUseChange("board-focused")}
+          />
+        </div>
+      </fieldset>
+
       {error && (
         <div className="border-danger/30 bg-danger/5 rounded-2xl border p-5">
           <p className="text-danger font-semibold">Camera unavailable</p>
@@ -126,6 +152,33 @@ export function CameraStep({ onReady, mediaDevices }: CameraStepProps) {
         </div>
       )}
     </section>
+  );
+}
+
+function CameraUseOption({
+  checked,
+  description,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  description: string;
+  label: string;
+  onChange: () => void;
+}) {
+  return (
+    <label className="border-border bg-surface flex cursor-pointer gap-3 rounded-2xl border p-4">
+      <input
+        checked={checked}
+        name="camera-use"
+        onChange={onChange}
+        type="radio"
+      />
+      <span>
+        <span className="block font-semibold">{label}</span>
+        <span className="text-muted mt-1 block text-sm">{description}</span>
+      </span>
+    </label>
   );
 }
 

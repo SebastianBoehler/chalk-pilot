@@ -64,6 +64,7 @@ const emptyCanvas: CanvasState = {
   order: [],
   sections: {},
 };
+const presenter = { id: "presenter", x: 0.1, y: 0.1, width: 0.2, height: 0.7 };
 
 function controller(microphone = {} as MediaStream) {
   const board = {
@@ -76,10 +77,12 @@ function controller(microphone = {} as MediaStream) {
   return (
     <SessionController
       board={board}
+      cameraUse="room-wide"
       canvas={emptyCanvas}
       corners={[...corners]}
       displayConnected={false}
       microphone={microphone}
+      presenter={presenter}
       onAgentState={vi.fn()}
       onCanvasChanged={vi.fn()}
       onEnd={vi.fn()}

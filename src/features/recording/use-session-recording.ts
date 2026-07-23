@@ -5,6 +5,8 @@ import {
   createDerivedVideoStreams,
   type DerivedVideoStreams,
 } from "./derived-video-streams";
+import type { CameraUse } from "@/features/setup/camera-use";
+import type { PersonBox } from "./presenter-tracker";
 import {
   RecordingCoordinator,
   type RecordingCoordinatorStatus,
@@ -21,6 +23,8 @@ export function useSessionRecording(
   boardPreview: string | null,
   sessionId?: string,
   microphone?: MediaStream,
+  cameraUse?: CameraUse,
+  presenter?: PersonBox,
 ) {
   const [status, setStatus] = useState<RecordingCoordinatorStatus>("idle");
   const [canStop, setCanStop] = useState(false);
@@ -44,11 +48,23 @@ export function useSessionRecording(
   );
 
   const start = async () => {
-    if (!video || !boardPreview || !sessionId || !microphone) return;
+    if (
+      !video ||
+      !boardPreview ||
+      !sessionId ||
+      !microphone ||
+      !cameraUse ||
+      (cameraUse === "room-wide" && !presenter)
+    )
+      return;
     setStatus("starting");
     setError(undefined);
     setReplayUrl(undefined);
-    const nextDerived = createDerivedVideoStreams(video);
+    const nextDerived = createDerivedVideoStreams(video, {
+      cameraUse,
+      onTrackingError: (message) => setError(`Presenter tracking: ${message}`),
+      presenter: presenter ?? null,
+    });
     derived.current = nextDerived;
     void nextDerived.updateBoard(boardPreview);
     const nextCoordinator = new RecordingCoordinator();
@@ -106,7 +122,14 @@ export function useSessionRecording(
   };
 
   return {
-    canStart: Boolean(video && boardPreview && sessionId && microphone),
+    canStart: Boolean(
+      video &&
+      boardPreview &&
+      sessionId &&
+      microphone &&
+      cameraUse &&
+      (cameraUse === "board-focused" || presenter),
+    ),
     canStop,
     downloads: [] as RecordingDownload[],
     error,

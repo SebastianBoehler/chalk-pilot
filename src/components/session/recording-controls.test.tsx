@@ -8,6 +8,10 @@ vi.mock("@/features/recording/use-session-recording", () => ({
 }));
 
 describe("RecordingControls", () => {
+  const props = {
+    cameraUse: "board-focused" as const,
+  };
+
   it("describes one synchronized five-track session recording", () => {
     vi.mocked(useSessionRecording).mockReturnValue({
       canStart: true,
@@ -20,7 +24,12 @@ describe("RecordingControls", () => {
       stop: vi.fn(),
     });
 
-    render(<RecordingControls boardPreview="data:image/png;base64,board" />);
+    render(
+      <RecordingControls
+        boardPreview="data:image/png;base64,board"
+        {...props}
+      />,
+    );
 
     expect(
       screen.getByText(
@@ -45,7 +54,7 @@ describe("RecordingControls", () => {
       stop: vi.fn(),
     });
 
-    render(<RecordingControls boardPreview={null} />);
+    render(<RecordingControls boardPreview={null} {...props} />);
 
     expect(
       screen.getByRole("button", { name: "Stop recording" }),

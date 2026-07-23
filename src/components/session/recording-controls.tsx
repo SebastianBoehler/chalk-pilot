@@ -1,18 +1,31 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import type { PersonBox } from "@/features/recording/presenter-tracker";
 import { useSessionRecording } from "@/features/recording/use-session-recording";
+import type { CameraUse } from "@/features/setup/camera-use";
 
 interface RecordingControlsProps {
   boardPreview: string | null;
+  cameraUse: CameraUse;
+  presenter?: PersonBox;
   video?: HTMLVideoElement;
 }
 
 export function RecordingControls({
   boardPreview,
+  cameraUse,
+  presenter,
   video,
 }: RecordingControlsProps) {
-  const recording = useSessionRecording(video, boardPreview);
+  const recording = useSessionRecording(
+    video,
+    boardPreview,
+    undefined,
+    undefined,
+    cameraUse,
+    presenter,
+  );
 
   return (
     <section

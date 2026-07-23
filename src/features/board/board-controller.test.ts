@@ -37,4 +37,45 @@ describe("BoardController", () => {
     controller.markSent();
     expect(controller.hasMaterialChange()).toBe(false);
   });
+
+  it("calibrates against each exact runtime camera size", async () => {
+    let size = { width: 1_920, height: 1_200 };
+    const processor = {
+      detect: vi.fn<
+        (
+          frame: ImageData,
+        ) => Promise<{ corners: BoardCorners; confidence: number }>
+      >(async () => ({ corners, confidence: 0.9 })),
+      warp: vi.fn(async (frame: ImageData) => frame),
+      dispose: vi.fn(),
+    };
+    const controller = new BoardController(processor, {
+      capture: () =>
+        ({
+          data: new Uint8ClampedArray(),
+          height: size.height,
+          width: size.width,
+        }) as ImageData,
+      encode: () => "data:image/jpeg;base64,board",
+      sample: () => new Uint8Array([0]),
+    });
+
+    await expect(
+      controller.detect({} as HTMLVideoElement),
+    ).resolves.toMatchObject({
+      sourceSize: { width: 1_920, height: 1_200 },
+    });
+    size = { width: 3_840, height: 2_160 };
+    await expect(
+      controller.detect({} as HTMLVideoElement),
+    ).resolves.toMatchObject({
+      sourceSize: { width: 3_840, height: 2_160 },
+    });
+    expect(
+      processor.detect.mock.calls.map(([frame]) => [frame.width, frame.height]),
+    ).toEqual([
+      [1_920, 1_200],
+      [3_840, 2_160],
+    ]);
+  });
 });

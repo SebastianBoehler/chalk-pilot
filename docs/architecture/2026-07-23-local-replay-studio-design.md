@@ -5,10 +5,10 @@
 
 ## Purpose
 
-ChalkPilot should leave the next lecture-hall test with a durable, reviewable
-record of the learning session. The recording must preserve the corrected
-board, tracked presenter, learning canvas, microphone, desktop audio,
-conversation transcript, and canvas changes on one synchronized timeline.
+ChalkPilot should leave a lecture-hall or home learning session with a durable,
+reviewable record. The recording must preserve the corrected board, speaker or
+fixed camera view, learning canvas, microphone, desktop audio, conversation
+transcript, and canvas changes on one synchronized timeline.
 
 This release is a local Replay Studio. It does not add accounts, cloud storage,
 sharing, remote transcoding, or course-level publishing. Those can later use the
@@ -39,9 +39,16 @@ Two alternatives are rejected for this release:
 
 ### Camera
 
-The learner selects the room camera in its widest manual mode. ChalkPilot
-derives the board and presenter views locally from that single high-resolution
-stream.
+The learner selects any camera exposed by the browser, including a room camera
+or macOS Continuity Camera. Setup then chooses one of two uses:
+
+- `room-wide` derives the board and tracked presenter locally from one
+  high-resolution wide stream;
+- `board-focused` supports a nearby fixed camera pointed at a whiteboard or
+  flip chart and uses its full frame as the speaker/video output.
+
+The implementation does not special-case camera names or require an
+iPhone-specific API.
 
 Board calibration uses the live stream's actual `videoWidth` and `videoHeight`.
 The calibration surface and coordinate conversion update after loaded metadata
@@ -59,9 +66,11 @@ This avoids testing one input while the learning partner uses another.
 
 ### Presenter
 
-Motion-centroid tracking is replaced by MediaPipe Tasks Vision Pose Landmarker,
-running in a web worker against downscaled frames. Setup shows pose-derived
-person boxes on the wide view and lets the user confirm the presenter.
+In `room-wide` mode, motion-centroid tracking is replaced by MediaPipe Tasks
+Vision Pose Landmarker, running in a web worker against downscaled frames.
+Setup shows pose-derived person boxes on the wide view and lets the user confirm
+the presenter. `board-focused` mode skips presenter confirmation because the
+fixed full camera view is already the intended output.
 
 During the session, detections are associated with the confirmed presenter by
 proximity to the preceding box and temporal continuity. The crop is smoothed to
@@ -89,7 +98,8 @@ transactional: no recorder starts until all requested source tracks are live.
 Five independent tracks share one monotonic recording clock:
 
 1. `board`: perspective-corrected board video.
-2. `speaker`: locally tracked presenter crop.
+2. `speaker`: locally tracked presenter crop in `room-wide` mode or the fixed
+   full camera frame in `board-focused` mode.
 3. `canvas`: the clean ChalkPilot display selected through browser display
    capture.
 4. `microphone`: the confirmed room or laptop microphone.

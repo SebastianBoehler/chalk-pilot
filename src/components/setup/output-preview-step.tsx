@@ -5,18 +5,27 @@ import { Button } from "@/components/ui/button";
 import type { BoardController } from "@/features/board/board-controller";
 import type { BoardCorners } from "@/features/board/types";
 import { createDerivedVideoStreams } from "@/features/recording/derived-video-streams";
+import {
+  selectPresenter,
+  type PersonBox,
+  type PresenterState,
+} from "@/features/recording/presenter-tracker";
+import type { CameraUse } from "@/features/setup/camera-use";
+import { PresenterSelection, VideoPreview } from "./output-preview-video";
 
 interface OutputPreviewStepProps {
   board: BoardController;
+  cameraUse: CameraUse;
   corners: BoardCorners;
   sourceStream: MediaStream;
   sourceVideo: HTMLVideoElement;
   onBack: () => void;
-  onContinue: () => void;
+  onContinue: (presenter?: PersonBox) => void;
 }
 
 export function OutputPreviewStep({
   board,
+  cameraUse,
   corners,
   sourceStream,
   sourceVideo,
@@ -26,7 +35,17 @@ export function OutputPreviewStep({
   const rawRef = useRef<HTMLVideoElement>(null);
   const boardRef = useRef<HTMLVideoElement>(null);
   const speakerRef = useRef<HTMLVideoElement>(null);
+  const derivedRef = useRef<ReturnType<
+    typeof createDerivedVideoStreams
+  > | null>(null);
+  const [boxes, setBoxes] = useState<PersonBox[]>([]);
+  const [presenter, setPresenter] = useState<PersonBox>();
+  const [tracking, setTracking] = useState<PresenterState>();
   const [error, setError] = useState<string>();
+  const [sourceSize, setSourceSize] = useState({
+    height: sourceVideo.videoHeight,
+    width: sourceVideo.videoWidth,
+  });
   const sourceAvailable = sourceStream
     .getVideoTracks()
     .some((track) => track.readyState === "live");
@@ -35,15 +54,45 @@ export function OutputPreviewStep({
     : "The full room camera stream is unavailable.";
 
   useEffect(() => {
+    const updateSize = () =>
+      setSourceSize({
+        height: sourceVideo.videoHeight,
+        width: sourceVideo.videoWidth,
+      });
+    sourceVideo.addEventListener("loadedmetadata", updateSize);
+    sourceVideo.addEventListener("resize", updateSize);
+    return () => {
+      sourceVideo.removeEventListener("loadedmetadata", updateSize);
+      sourceVideo.removeEventListener("resize", updateSize);
+    };
+  }, [sourceVideo]);
+
+  useEffect(() => {
     const raw = rawRef.current;
     const corrected = boardRef.current;
     const speaker = speakerRef.current;
-    if (!raw || !corrected || !speaker) return;
-    if (!sourceAvailable) return;
+    if (!raw || !corrected || !speaker || !sourceAvailable) return;
 
     let active = true;
     let sampling = false;
-    const derived = createDerivedVideoStreams(sourceVideo);
+    setBoxes([]);
+    setPresenter(undefined);
+    setTracking(undefined);
+    setError(undefined);
+    const derived = createDerivedVideoStreams(sourceVideo, {
+      cameraUse,
+      onDetections: (detections) => {
+        if (active) setBoxes(detections);
+      },
+      onTrackingError: (message) => {
+        if (active) setError(message);
+      },
+      onTrackingState: (state) => {
+        if (active) setTracking(state ?? undefined);
+      },
+      presenter: null,
+    });
+    derivedRef.current = derived;
     raw.srcObject = sourceStream;
     corrected.srcObject = derived.board;
     speaker.srcObject = derived.speaker;
@@ -53,29 +102,18 @@ export function OutputPreviewStep({
       corrected.play(),
       speaker.play(),
     ]).catch((cause: unknown) => {
-      if (active) {
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "The output previews could not start.",
-        );
-      }
+      if (active)
+        setError(errorMessage(cause, "The previews could not start."));
     });
 
     const sampleBoard = async () => {
       if (sampling) return;
       sampling = true;
       try {
-        const image = await board.sample(sourceVideo, corners);
-        await derived.updateBoard(image);
+        await derived.updateBoard(await board.sample(sourceVideo, corners));
       } catch (cause) {
-        if (active) {
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "The corrected board preview stopped.",
-          );
-        }
+        if (active)
+          setError(errorMessage(cause, "The corrected board preview stopped."));
       } finally {
         sampling = false;
       }
@@ -87,12 +125,29 @@ export function OutputPreviewStep({
       active = false;
       window.clearInterval(interval);
       derived.stop();
+      derivedRef.current = null;
       raw.srcObject = null;
       corrected.srcObject = null;
       speaker.srcObject = null;
     };
-  }, [board, corners, sourceAvailable, sourceStream, sourceVideo]);
+  }, [board, cameraUse, corners, sourceAvailable, sourceStream, sourceVideo]);
 
+  const choosePresenter = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    try {
+      const selected = selectPresenter(boxes, {
+        x: (event.clientX - bounds.left) / bounds.width,
+        y: (event.clientY - bounds.top) / bounds.height,
+      });
+      derivedRef.current?.confirmPresenter(selected);
+      setPresenter(selected);
+      setError(undefined);
+    } catch (cause) {
+      setError(errorMessage(cause, "Select a detected presenter."));
+    }
+  };
+
+  const presenterRequired = cameraUse === "room-wide";
   return (
     <section aria-labelledby="preview-title" className="space-y-6">
       <div>
@@ -103,8 +158,9 @@ export function OutputPreviewStep({
           Check the output streams
         </h1>
         <p className="text-muted mt-3 max-w-3xl text-lg">
-          Walk across the teaching area and confirm that the speaker crop
-          follows you while the corrected board stays fixed and readable.
+          {presenterRequired
+            ? "Click yourself in the full camera view, then walk across the teaching area to test tracking."
+            : "Confirm the fixed camera and corrected board remain framed and readable."}
         </p>
       </div>
 
@@ -116,30 +172,54 @@ export function OutputPreviewStep({
       )}
 
       <div className="grid gap-5 xl:grid-cols-3">
-        <VideoPreview
-          label="Full room camera"
-          title="Full camera"
-          videoRef={rawRef}
-        />
+        {presenterRequired ? (
+          <PresenterSelection
+            boxes={boxes}
+            onSelect={choosePresenter}
+            presenter={presenter}
+            size={sourceSize}
+            videoRef={rawRef}
+          />
+        ) : (
+          <VideoPreview
+            label="Full fixed camera"
+            title="Fixed camera"
+            videoRef={rawRef}
+          />
+        )}
         <VideoPreview
           label="Corrected board video"
           title="Corrected board"
           videoRef={boardRef}
         />
         <VideoPreview
-          label="Tracked speaker video"
-          title="Tracked speaker"
+          label="Speaker video"
+          title={
+            presenterRequired ? "Tracked presenter" : "Fixed camera output"
+          }
           videoRef={speakerRef}
         />
       </div>
+
+      {presenterRequired && (
+        <p aria-live="polite" className="text-sm font-semibold">
+          {tracking?.status === "lost"
+            ? "Presenter temporarily lost"
+            : presenter
+              ? "Presenter confirmed"
+              : boxes.length
+                ? "Click your outline to confirm"
+                : "Looking for presenters…"}
+        </p>
+      )}
 
       <div className="flex flex-wrap justify-between gap-3">
         <Button onClick={onBack} type="button" variant="secondary">
           Adjust board frame
         </Button>
         <Button
-          disabled={Boolean(previewError)}
-          onClick={onContinue}
+          disabled={Boolean(previewError) || (presenterRequired && !presenter)}
+          onClick={() => onContinue(presenter)}
           type="button"
         >
           Outputs look right
@@ -149,26 +229,6 @@ export function OutputPreviewStep({
   );
 }
 
-function VideoPreview({
-  label,
-  title,
-  videoRef,
-}: {
-  label: string;
-  title: string;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-}) {
-  return (
-    <article>
-      <h2 className="mb-2 text-sm font-semibold">{title}</h2>
-      <video
-        aria-label={label}
-        autoPlay
-        className="border-border aspect-video w-full rounded-2xl border bg-black object-contain"
-        muted
-        playsInline
-        ref={videoRef}
-      />
-    </article>
-  );
+function errorMessage(cause: unknown, fallback: string) {
+  return cause instanceof Error ? cause.message : fallback;
 }

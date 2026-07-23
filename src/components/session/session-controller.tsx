@@ -5,6 +5,7 @@ import type { BoardController } from "@/features/board/board-controller";
 import type { BoardCorners } from "@/features/board/types";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
 import type { AgentState } from "@/features/display/protocol";
+import type { PersonBox } from "@/features/recording/presenter-tracker";
 import { ChalkPilotRealtime } from "@/features/realtime/session";
 import {
   createSessionState,
@@ -15,6 +16,7 @@ import {
   type TranscriptLine,
 } from "@/features/session/transcript";
 import type { CanvasState } from "@/features/workspace/schema";
+import type { CameraUse } from "@/features/setup/camera-use";
 import { LearningWorkspace } from "./learning-workspace";
 
 interface SessionControllerProps {
@@ -24,6 +26,8 @@ interface SessionControllerProps {
   corners: BoardCorners;
   canvas: CanvasState;
   microphone: MediaStream;
+  cameraUse: CameraUse;
+  presenter?: PersonBox;
   displayConnected: boolean;
   onCanvasChanged: (canvas: CanvasState) => void;
   onAgentState: (state: AgentState) => void;
@@ -179,6 +183,7 @@ export function SessionController(props: SessionControllerProps) {
       agentState={state.agentState}
       boardNotice={boardNotice}
       canvas={props.canvas}
+      cameraUse={props.cameraUse}
       canvasJobError={canvasJobError}
       canvasJobState={canvasJobState}
       displayConnected={props.displayConnected}
@@ -190,6 +195,7 @@ export function SessionController(props: SessionControllerProps) {
       onRecalibrate={props.onRecalibrate}
       paused={state.paused}
       preview={preview}
+      presenter={props.presenter}
       realtimeConnected={state.realtime === "connected"}
       transcript={transcript}
       video={props.video}

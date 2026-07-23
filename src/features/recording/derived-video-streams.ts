@@ -1,74 +1,87 @@
-import { grayscaleSample } from "@/features/board/frame";
-import { updateSpeakerTarget, type SpeakerTarget } from "./speaker-tracker";
+import { startPresenterDetection } from "./presenter-detection-loop";
+import type { CameraUse } from "@/features/setup/camera-use";
+import {
+  interpolatePresenterBox,
+  presenterCrop,
+  updatePresenter,
+  type PersonBox,
+  type PresenterState,
+} from "./presenter-tracker";
 
 export interface DerivedVideoStreams {
   board: MediaStream;
   speaker: MediaStream;
+  confirmPresenter(presenter: PersonBox): void;
   updateBoard(imageUrl: string): Promise<void>;
   stop(): void;
 }
 
+export interface DerivedVideoStreamOptions {
+  cameraUse: CameraUse;
+  presenter: PersonBox | null;
+  onDetections?: (boxes: PersonBox[]) => void;
+  onTrackingError?: (message: string) => void;
+  onTrackingState?: (state: PresenterState | null) => void;
+}
+
 const OUTPUT_WIDTH = 1280;
 const OUTPUT_HEIGHT = 720;
-const SAMPLE_WIDTH = 160;
-const SAMPLE_HEIGHT = 90;
 
 export function createDerivedVideoStreams(
   video: HTMLVideoElement,
+  options: DerivedVideoStreamOptions,
 ): DerivedVideoStreams {
   const boardCanvas = outputCanvas();
   const speakerCanvas = outputCanvas();
-  const sampleCanvas = document.createElement("canvas");
-  sampleCanvas.width = SAMPLE_WIDTH;
-  sampleCanvas.height = SAMPLE_HEIGHT;
   const boardContext = requireContext(boardCanvas);
   const speakerContext = requireContext(speakerCanvas);
-  const sampleContext = requireContext(sampleCanvas, true);
   boardContext.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
   speakerContext.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
 
   let active = true;
   let animationFrame = 0;
-  let frameNumber = 0;
-  let previousSample: Uint8Array | null = null;
-  let target: SpeakerTarget = { x: 0.5, y: 0.5 };
+  let lastFrameAt: number | undefined;
+  let presenterState = options.presenter
+    ? initialPresenter(options.presenter)
+    : null;
+  let displayedPresenter = options.presenter;
+  let targetPresenter = options.presenter;
+  const detection =
+    options.cameraUse === "room-wide"
+      ? startPresenterDetection(video, undefined, {
+          onBoxes(boxes) {
+            options.onDetections?.(boxes);
+            if (!presenterState) return;
+            presenterState = updatePresenter(presenterState, boxes);
+            if (presenterState.status === "tracking") {
+              targetPresenter = presenterState.box;
+            }
+            options.onTrackingState?.(presenterState);
+          },
+          onError(message) {
+            options.onTrackingError?.(message);
+          },
+        })
+      : null;
 
-  const renderSpeaker = () => {
+  const renderSpeaker = (timestamp: number) => {
     if (!active) return;
     if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-      if (frameNumber % 6 === 0) {
-        sampleContext.drawImage(video, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT);
-        const image = sampleContext.getImageData(
-          0,
-          0,
-          SAMPLE_WIDTH,
-          SAMPLE_HEIGHT,
+      if (
+        options.cameraUse === "room-wide" &&
+        displayedPresenter &&
+        targetPresenter
+      ) {
+        displayedPresenter = interpolatePresenterBox(
+          displayedPresenter,
+          targetPresenter,
+          lastFrameAt === undefined ? 0 : timestamp - lastFrameAt,
         );
-        const current = grayscaleSample(image, SAMPLE_WIDTH, SAMPLE_HEIGHT);
-        if (previousSample) {
-          target = updateSpeakerTarget(
-            previousSample,
-            current,
-            SAMPLE_WIDTH,
-            SAMPLE_HEIGHT,
-            target,
-          );
-        }
-        previousSample = current;
+        drawPresenterCrop(speakerContext, video, displayedPresenter);
+      } else {
+        drawContainedVideo(speakerContext, video);
       }
-      const crop = speakerCrop(video.videoWidth, video.videoHeight, target);
-      speakerContext.drawImage(
-        video,
-        crop.x,
-        crop.y,
-        crop.width,
-        crop.height,
-        0,
-        0,
-        OUTPUT_WIDTH,
-        OUTPUT_HEIGHT,
-      );
-      frameNumber += 1;
+      lastFrameAt = timestamp;
     }
     animationFrame = window.requestAnimationFrame(renderSpeaker);
   };
@@ -79,20 +92,89 @@ export function createDerivedVideoStreams(
   return {
     board: boardStream,
     speaker: speakerStream,
+    confirmPresenter(presenter) {
+      if (options.cameraUse !== "room-wide") {
+        throw new Error("A board-focused camera does not track a presenter.");
+      }
+      presenterState = initialPresenter(presenter);
+      displayedPresenter = presenter;
+      targetPresenter = presenter;
+      options.onTrackingState?.(presenterState);
+    },
     async updateBoard(imageUrl) {
       const image = new Image();
       image.src = imageUrl;
       await image.decode();
-      if (!active) return;
-      drawContained(boardContext, image);
+      if (active) drawContainedImage(boardContext, image);
     },
     stop() {
+      if (!active) return;
       active = false;
+      detection?.stop();
       window.cancelAnimationFrame(animationFrame);
       boardStream.getTracks().forEach((track) => track.stop());
       speakerStream.getTracks().forEach((track) => track.stop());
     },
   };
+}
+
+function initialPresenter(box: PersonBox): PresenterState {
+  return { box, lossCount: 0, status: "tracking" };
+}
+
+function drawPresenterCrop(
+  context: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  presenter: PersonBox,
+) {
+  const crop = presenterCrop(video.videoWidth, video.videoHeight, presenter);
+  context.drawImage(
+    video,
+    crop.x,
+    crop.y,
+    crop.width,
+    crop.height,
+    0,
+    0,
+    OUTPUT_WIDTH,
+    OUTPUT_HEIGHT,
+  );
+}
+
+function drawContainedVideo(
+  context: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+) {
+  drawContained(context, video, video.videoWidth, video.videoHeight);
+}
+
+function drawContainedImage(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+) {
+  drawContained(context, image, image.naturalWidth, image.naturalHeight);
+}
+
+function drawContained(
+  context: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+) {
+  const scale = Math.min(
+    OUTPUT_WIDTH / sourceWidth,
+    OUTPUT_HEIGHT / sourceHeight,
+  );
+  const width = sourceWidth * scale;
+  const height = sourceHeight * scale;
+  context.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+  context.drawImage(
+    source,
+    (OUTPUT_WIDTH - width) / 2,
+    (OUTPUT_HEIGHT - height) / 2,
+    width,
+    height,
+  );
 }
 
 function outputCanvas() {
@@ -102,53 +184,8 @@ function outputCanvas() {
   return canvas;
 }
 
-function requireContext(canvas: HTMLCanvasElement, frequent = false) {
-  const context = canvas.getContext("2d", {
-    willReadFrequently: frequent,
-  });
+function requireContext(canvas: HTMLCanvasElement) {
+  const context = canvas.getContext("2d");
   if (!context) throw new Error("Video canvas processing is unavailable.");
   return context;
-}
-
-function speakerCrop(width: number, height: number, target: SpeakerTarget) {
-  const cropWidth = Math.min(width, Math.round(width * 0.45));
-  const cropHeight = Math.min(height, Math.round((cropWidth * 9) / 16));
-  return {
-    x: clamp(
-      Math.round(target.x * width - cropWidth / 2),
-      0,
-      width - cropWidth,
-    ),
-    y: clamp(
-      Math.round(target.y * height - cropHeight / 2),
-      0,
-      height - cropHeight,
-    ),
-    width: cropWidth,
-    height: cropHeight,
-  };
-}
-
-function drawContained(
-  context: CanvasRenderingContext2D,
-  image: HTMLImageElement,
-) {
-  const scale = Math.min(
-    OUTPUT_WIDTH / image.naturalWidth,
-    OUTPUT_HEIGHT / image.naturalHeight,
-  );
-  const width = image.naturalWidth * scale;
-  const height = image.naturalHeight * scale;
-  context.fillRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
-  context.drawImage(
-    image,
-    (OUTPUT_WIDTH - width) / 2,
-    (OUTPUT_HEIGHT - height) / 2,
-    width,
-    height,
-  );
-}
-
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.max(minimum, Math.min(maximum, value));
 }

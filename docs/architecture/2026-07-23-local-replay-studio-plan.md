@@ -193,7 +193,8 @@ new OpenAIRealtimeWebRTC({ mediaStream: microphone });
 interface PersonBox { id: string; x: number; y: number; width: number; height: number }
 selectPresenter(boxes, point): PersonBox;
 updatePresenter(previous, boxes): PresenterState;
-createDerivedVideoStreams(video, { presenter }): DerivedVideoStreams;
+type CameraUse = "room-wide" | "board-focused";
+createDerivedVideoStreams(video, { cameraUse, presenter? }): DerivedVideoStreams;
 ```
 
 - [ ] Write geometry tests for selection, nearest-continuous association,
@@ -204,8 +205,15 @@ createDerivedVideoStreams(video, { presenter }): DerivedVideoStreams;
 - [ ] Run detection on downscaled worker `ImageBitmap` frames at no more than 8
       FPS, surface errors, and replace motion tracking while holding the last
       valid crop during reported loss.
+- [ ] Interpolate the visible crop every animation frame toward low-rate pose
+      targets so tracking remains smooth without excessive lag.
 - [ ] Add click-to-confirm presenter plus tracking status to output preview;
-      prevent continuation until one presenter is confirmed.
+      prevent continuation until one presenter is confirmed in `room-wide`
+      mode.
+- [ ] Add a concise `room-wide` versus `board-focused` choice. The latter
+      supports a nearby fixed camera such as macOS Continuity Camera, skips
+      presenter confirmation, and uses the full camera frame as speaker output
+      without device-name special cases.
 - [ ] Listen for camera `loadedmetadata`/resize changes, invalidate stale board
       calibration, and redetect against current `videoWidth`/`videoHeight`.
 - [ ] Run focused geometry/setup tests and `npm run typecheck`; expect PASS.

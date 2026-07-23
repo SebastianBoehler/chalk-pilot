@@ -6,6 +6,10 @@ describe("setup machine", () => {
     let state = initialSetupState;
 
     state = setupReducer(state, { type: "camera_ready" });
+    state = setupReducer(state, {
+      type: "camera_use_selected",
+      cameraUse: "room-wide",
+    });
     state = setupReducer(state, { type: "advance" });
     expect(state.step).toBe("microphone");
 
@@ -40,11 +44,27 @@ describe("setup machine", () => {
     ).toBe(false);
   });
 
+  it("does not leave camera setup until a camera use is selected", () => {
+    let state = setupReducer(initialSetupState, { type: "camera_ready" });
+
+    state = setupReducer(state, { type: "advance" });
+    expect(state.step).toBe("camera");
+
+    state = setupReducer(state, {
+      type: "camera_use_selected",
+      cameraUse: "board-focused",
+    });
+    state = setupReducer(state, { type: "advance" });
+    expect(state.step).toBe("microphone");
+    expect(state.cameraUse).toBe("board-focused");
+  });
+
   it("keeps setup ready when the optional clean display closes", () => {
     const ready = {
       ...initialSetupState,
       step: "ready" as const,
       camera: "ready" as const,
+      cameraUse: "room-wide" as const,
       microphone: "confirmed" as const,
       calibration: "confirmed" as const,
       display: "connected" as const,

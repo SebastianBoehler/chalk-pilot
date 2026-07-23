@@ -6,6 +6,7 @@ import {
   type BoardController,
 } from "@/features/board/board-controller";
 import type { BoardCorners } from "@/features/board/types";
+import type { PersonBox } from "@/features/recording/presenter-tracker";
 import type { SetupState } from "@/features/setup/setup-machine";
 import { CalibrationStep } from "./calibration-step";
 import { MicrophoneStep } from "./microphone-step";
@@ -27,7 +28,7 @@ interface SetupStageProps {
   onCalibrationConfirm: () => void;
   onCornersChange: (corners: BoardCorners) => void;
   onPreviewBack: () => void;
-  onPreviewContinue: () => void;
+  onPreviewContinue: (presenter?: PersonBox) => void;
   onStart: () => void;
 }
 
@@ -73,9 +74,11 @@ export function SetupStage(props: SetupStageProps) {
         props.board &&
         props.video &&
         props.cameraStream &&
-        props.calibration && (
+        props.calibration &&
+        props.setup.cameraUse !== "pending" && (
           <OutputPreviewStep
             board={props.board}
+            cameraUse={props.setup.cameraUse}
             corners={props.calibration.corners}
             onBack={props.onPreviewBack}
             onContinue={props.onPreviewContinue}

@@ -17,7 +17,7 @@ describe("CalibrationStep", () => {
   });
 
   it("matches the handle surface to the camera frame aspect ratio", () => {
-    render(
+    const { rerender } = render(
       <CalibrationStep
         corners={corners}
         onConfirm={vi.fn()}
@@ -35,6 +35,22 @@ describe("CalibrationStep", () => {
     });
     expect(source.parentElement?.getAttribute("style")).toContain(
       "aspect-ratio: 1.6",
+    );
+
+    rerender(
+      <CalibrationStep
+        corners={corners}
+        onConfirm={vi.fn()}
+        onCornersChange={vi.fn()}
+        onDetect={vi.fn()}
+        rectifiedUrl="data:image/png;base64,rectified"
+        sourceSize={{ width: 3_840, height: 2_160 }}
+        sourceUrl="data:image/png;base64,source"
+        status="ready"
+      />,
+    );
+    expect(source.parentElement?.getAttribute("style")).toContain(
+      "aspect-ratio: 1.7777777777777777",
     );
   });
 

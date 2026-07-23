@@ -17,9 +17,45 @@ vi.mock("./recording-coordinator", () => ({
 }));
 
 describe("useSessionRecording", () => {
+  const presenter = {
+    id: "presenter",
+    x: 0.1,
+    y: 0.1,
+    width: 0.2,
+    height: 0.7,
+  };
+
   beforeEach(() => {
     mocks.createDerivedVideoStreams.mockReset();
     mocks.RecordingCoordinator.mockReset();
+  });
+
+  it("requires a presenter only for a room-wide camera", () => {
+    const video = {} as HTMLVideoElement;
+    const microphone = {} as MediaStream;
+    const boardFocused = renderHook(() =>
+      useSessionRecording(
+        video,
+        "data:image/png;base64,board",
+        "session-1",
+        microphone,
+        "board-focused",
+      ),
+    );
+    const roomWide = renderHook(() =>
+      useSessionRecording(
+        video,
+        "data:image/png;base64,board",
+        "session-1",
+        microphone,
+        "room-wide",
+      ),
+    );
+
+    expect(boardFocused.result.current.canStart).toBe(true);
+    expect(roomWide.result.current.canStart).toBe(false);
+    boardFocused.unmount();
+    roomWide.unmount();
   });
 
   it("streams five sources through the coordinator and exposes replay", async () => {
@@ -51,10 +87,17 @@ describe("useSessionRecording", () => {
         "data:image/png;base64,board",
         "session-1",
         microphone,
+        "room-wide",
+        presenter,
       ),
     );
 
     await act(() => result.current.start());
+    expect(mocks.createDerivedVideoStreams).toHaveBeenCalledWith(video, {
+      cameraUse: "room-wide",
+      onTrackingError: expect.any(Function),
+      presenter,
+    });
     expect(coordinator.start).toHaveBeenCalledWith({
       sessionId: "session-1",
       board,
@@ -101,6 +144,8 @@ describe("useSessionRecording", () => {
         "data:image/png;base64,board",
         "session-1",
         microphone,
+        "room-wide",
+        presenter,
       ),
     );
     await act(() => result.current.start());
@@ -145,6 +190,8 @@ describe("useSessionRecording", () => {
         "data:image/png;base64,board",
         "session-1",
         microphone,
+        "room-wide",
+        presenter,
       ),
     );
 
@@ -182,6 +229,8 @@ describe("useSessionRecording", () => {
         "data:image/png;base64,board",
         "session-1",
         microphone,
+        "room-wide",
+        presenter,
       ),
     );
 
