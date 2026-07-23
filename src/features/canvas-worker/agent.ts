@@ -48,7 +48,7 @@ export async function runCanvasAgent(input: RunCanvasAgentInput) {
     id: "chalkpilot-canvas-worker",
     model: input.model,
     instructions,
-    maxOutputTokens: 1_000,
+    maxOutputTokens: 4_096,
     stopWhen: stepCountIs(6),
     output: Output.object({ schema: completionSchema }),
     tools: {
@@ -90,13 +90,22 @@ export function buildCanvasAgentMessages(
     {
       role: "user",
       content: request.boardImage
-        ? [
-            { type: "text", text },
-            { type: "image", image: request.boardImage },
-          ]
+        ? [{ type: "text", text }, boardImagePart(request.boardImage)]
         : [{ type: "text", text }],
     },
   ];
+}
+
+function boardImagePart(dataUrl: string) {
+  const separator = dataUrl.indexOf(";base64,");
+  return {
+    type: "file" as const,
+    mediaType: dataUrl.slice("data:".length, separator),
+    data: {
+      type: "data" as const,
+      data: dataUrl.slice(separator + ";base64,".length),
+    },
+  };
 }
 
 function canvasSnapshot(canvas: CanvasState) {
