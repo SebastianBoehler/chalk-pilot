@@ -37,6 +37,4 @@ export function createCanvasWorkerActions(
   };
 }
 
-export type CanvasWorkerActions = ReturnType<
-  typeof createCanvasWorkerActions
->;
+export type CanvasWorkerActions = ReturnType<typeof createCanvasWorkerActions>;

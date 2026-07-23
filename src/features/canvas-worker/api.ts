@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { CanvasProviderConfigurationError } from "./provider";
 import { canvasJobRequestSchema } from "./schema";
-import {
-  CanvasAgentExecutionError,
-  type CanvasWorkerService,
-} from "./service";
+import { CanvasAgentExecutionError, type CanvasWorkerService } from "./service";
 
 export function createCanvasWorkerApi(service: CanvasWorkerService) {
   async function run(sessionId: string, request: Request) {

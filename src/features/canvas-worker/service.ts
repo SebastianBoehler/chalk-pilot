@@ -61,9 +61,7 @@ export function createCanvasWorkerService(
   return { run };
 }
 
-export type CanvasWorkerService = ReturnType<
-  typeof createCanvasWorkerService
->;
+export type CanvasWorkerService = ReturnType<typeof createCanvasWorkerService>;
 
 async function runProviderAgent(task: CanvasAgentTask) {
   return runCanvasAgent({ ...task, model: createCanvasModel() });

@@ -13,15 +13,9 @@ import {
 import type { CanvasDelegationInput } from "@/features/canvas-worker/schema";
 import type { AgentState } from "@/features/display/protocol";
 import type { CanvasState } from "@/features/workspace/schema";
-import {
-  readableRealtimeTokenError,
-  realtimeErrorMessage,
-} from "./errors";
+import { readableRealtimeTokenError, realtimeErrorMessage } from "./errors";
 import { chalkPilotInstructions } from "./instructions";
-import {
-  createChalkPilotTools,
-  type BoardInspectionStatus,
-} from "./tools";
+import { createChalkPilotTools, type BoardInspectionStatus } from "./tools";
 
 type Fetcher = (
   input: string | URL | Request,

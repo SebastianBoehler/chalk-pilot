@@ -42,8 +42,7 @@ export function SessionController(props: SessionControllerProps) {
   const [preview, setPreview] = useState(board.getLatestImage());
   const [error, setError] = useState<string>();
   const [canvasJobError, setCanvasJobError] = useState<string>();
-  const [canvasJobState, setCanvasJobState] =
-    useState<CanvasJobState>("idle");
+  const [canvasJobState, setCanvasJobState] = useState<CanvasJobState>("idle");
   const [boardNotice, setBoardNotice] = useState(
     "Board images are sent only at turn boundaries.",
   );

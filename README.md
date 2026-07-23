@@ -156,15 +156,15 @@ Expected result:
 
 ## Privacy boundary
 
-| Data                  | Processing                                            | Persistence              |
-| --------------------- | ----------------------------------------------------- | ------------------------ |
-| Full camera view      | Browser only                                          | Never                    |
-| Rectified board image | Voice provider at a turn boundary; selected canvas provider when a canvas job is delegated | Never |
-| Microphone audio      | OpenAI Realtime WebRTC                                | Not stored by ChalkPilot |
-| Text transcript       | Browser and local server                              | `.chalkpilot/`           |
-| Canvas artifacts      | Browser and local server                              | `.chalkpilot/`           |
-| Learner observations  | Local server, with evidence and confidence            | `.chalkpilot/learner.md` |
-| Recorded WebM videos  | Browser only                                          | User download only       |
+| Data                  | Processing                                                                                 | Persistence              |
+| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------ |
+| Full camera view      | Browser only                                                                               | Never                    |
+| Rectified board image | Voice provider at a turn boundary; selected canvas provider when a canvas job is delegated | Never                    |
+| Microphone audio      | OpenAI Realtime WebRTC                                                                     | Not stored by ChalkPilot |
+| Text transcript       | Browser and local server                                                                   | `.chalkpilot/`           |
+| Canvas artifacts      | Browser and local server                                                                   | `.chalkpilot/`           |
+| Learner observations  | Local server, with evidence and confidence                                                 | `.chalkpilot/learner.md` |
+| Recorded WebM videos  | Browser only                                                                               | User download only       |
 
 The UI indicates when a corrected board image is submitted. Local change
 detection never autonomously interrupts the learner.
