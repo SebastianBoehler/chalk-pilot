@@ -70,7 +70,19 @@ export const recordingManifestSchema = z
     transcriptPath: z.literal("transcript.json"),
     canvasEventsPath: z.literal("canvas-events.json"),
   })
-  .strict();
+  .strict()
+  .superRefine((manifest, context) => {
+    for (const kind of TRACK_KINDS) {
+      const track = manifest.tracks[kind];
+      if (track.kind !== kind || track.path !== `tracks/${kind}.webm`) {
+        context.addIssue({
+          code: "custom",
+          path: ["tracks", kind],
+          message: "Track must match its manifest key",
+        });
+      }
+    }
+  });
 
 export const recordingSummarySchema = z
   .object({

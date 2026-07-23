@@ -25,6 +25,7 @@ import {
   getChunkPaths,
   identicalChunk,
   readStoredChunk,
+  reconcileDurableChunks,
   removeCombinedChunks,
   storedChunk,
   trackChunkDirectory,
@@ -48,22 +49,31 @@ export function createRecordingRepository(root: string) {
     }
   }
 
-  async function read(sessionId: string): Promise<RecordingManifest> {
+  async function load(sessionId: string): Promise<RecordingManifest> {
     const paths = getRecordingPaths(root, sessionId);
+    let manifest: RecordingManifest;
     try {
-      return recordingManifestSchema.parse(await readJson(paths.manifest));
+      manifest = recordingManifestSchema.parse(await readJson(paths.manifest));
     } catch (error) {
       if (isMissingFile(error))
         throw new Error(`Unknown recording: ${sessionId}`);
       throw error;
     }
+    const reconciled = await reconcileDurableChunks(root, manifest);
+    if (reconciled !== manifest)
+      await writeManifest(paths.manifest, reconciled);
+    return reconciled;
+  }
+
+  async function read(sessionId: string): Promise<RecordingManifest> {
+    return queue(sessionId, () => load(sessionId));
   }
 
   async function create(sessionId: string): Promise<RecordingManifest> {
     const paths = getRecordingPaths(root, sessionId);
     return queue(sessionId, async () => {
       try {
-        return await read(sessionId);
+        return await load(sessionId);
       } catch (error) {
         if (!(error instanceof Error) || !error.message.startsWith("Unknown "))
           throw error;
@@ -130,7 +140,7 @@ export function createRecordingRepository(root: string) {
     if (bytes.length === 0) throw new Error("Recording chunks cannot be empty");
 
     await queue(sessionId, async () => {
-      const manifest = await read(sessionId);
+      const manifest = await load(sessionId);
       assertMutable(manifest);
       const currentTrack = manifest.tracks[track];
       if (currentTrack.health === "interrupted")
@@ -142,11 +152,22 @@ export function createRecordingRepository(root: string) {
       const chunkPaths = getChunkPaths(root, sessionId, track, sequence);
       const existing = await readStoredChunk(chunkPaths.metadata);
       if (existing) {
-        if (!(await identicalChunk(existing, stored, chunkPaths.bytes, bytes)))
-          throw new Error(`Conflicting chunk sequence ${sequence}`);
+        try {
+          if (
+            !(await identicalChunk(existing, stored, chunkPaths.bytes, bytes))
+          )
+            throw new Error(`Conflicting chunk sequence ${sequence}`);
+        } catch (error) {
+          if (!isMissingFile(error)) throw error;
+          if (JSON.stringify(existing) !== JSON.stringify(stored))
+            throw new Error(`Conflicting chunk sequence ${sequence}`);
+          await writeDurableBytes(chunkPaths.bytes, bytes);
+          await syncDirectory(chunkPaths.bytes);
+        }
       } else {
-        await writeDurableBytes(chunkPaths.bytes, bytes);
         await atomicWriteJson(chunkPaths.metadata, stored);
+        await syncDirectory(chunkPaths.metadata);
+        await writeDurableBytes(chunkPaths.bytes, bytes);
         await syncDirectory(chunkPaths.bytes);
       }
 
@@ -183,7 +204,7 @@ export function createRecordingRepository(root: string) {
   ): Promise<void> {
     const event = recordingTimelineEventSchema.parse(rawEvent);
     await queue(sessionId, async () => {
-      assertMutable(await read(sessionId));
+      assertMutable(await load(sessionId));
       const paths = getRecordingPaths(root, sessionId);
       const path =
         event.type === "transcript" ? paths.transcript : paths.canvasEvents;
@@ -204,7 +225,7 @@ export function createRecordingRepository(root: string) {
     const trimmedMessage = message.trim();
     if (!trimmedMessage) throw new Error("Interruption message is required");
     return queue(sessionId, async () => {
-      const manifest = await read(sessionId);
+      const manifest = await load(sessionId);
       assertMutable(manifest);
       const next = recordingManifestSchema.parse({
         ...manifest,
@@ -233,7 +254,7 @@ export function createRecordingRepository(root: string) {
     if (!Number.isFinite(durationMs) || durationMs < 0)
       throw new Error("Invalid recording duration");
     return queue(sessionId, async () => {
-      const manifest = await read(sessionId);
+      const manifest = await load(sessionId);
       if (manifest.finalizedAt) {
         if (manifest.durationMs === durationMs) return manifest;
         throw new Error("Recording already finalized with another duration");

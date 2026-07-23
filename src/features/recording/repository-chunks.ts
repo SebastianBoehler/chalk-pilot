@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { readFile, rm } from "node:fs/promises";
+import { readFile, readdir, rm } from "node:fs/promises";
 import { z } from "zod";
 import { containedPath, getRecordingPaths } from "../workspace/paths";
 import {
   TRACK_KINDS,
   chunkMetadataSchema,
+  recordingManifestSchema,
   type ChunkMetadata,
   type RecordingManifest,
   type TrackKind,
@@ -79,6 +80,23 @@ export async function identicalChunk(
   return existingBytes.equals(Buffer.from(candidateBytes));
 }
 
+async function assertChunkMatchesSidecar(
+  chunk: StoredChunk,
+  bytesPath: string,
+) {
+  let bytes;
+  try {
+    bytes = await readFile(bytesPath);
+  } catch (error) {
+    if (isMissingFile(error)) return false;
+    throw error;
+  }
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  if (bytes.byteLength !== chunk.byteSize || digest !== chunk.sha256)
+    throw new Error(`Corrupt recording chunk sequence ${chunk.sequence}`);
+  return true;
+}
+
 export function findMissing(sequences: number[]): number[] {
   if (sequences.length === 0) return [];
   const acknowledged = new Set(sequences);
@@ -122,6 +140,63 @@ export async function combineContiguous(
       0,
     ),
   };
+}
+
+export async function reconcileDurableChunks(
+  root: string,
+  manifest: RecordingManifest,
+): Promise<RecordingManifest> {
+  if (manifest.finalizedAt) return manifest;
+  let tracks = manifest.tracks;
+  let changed = false;
+  for (const track of TRACK_KINDS) {
+    const recording = getRecordingPaths(root, manifest.sessionId);
+    const directory = trackChunkDirectory(recording.chunksDirectory, track);
+    const entries = await readdir(directory);
+    const current = tracks[track];
+    const acknowledged = new Set(current.acknowledgedSequences);
+    const discovered: StoredChunk[] = [];
+    for (const entry of entries) {
+      const match = /^(\d+)\.json$/.exec(entry);
+      if (!match) continue;
+      const sequence = Number(match[1]);
+      if (acknowledged.has(sequence)) continue;
+      const paths = getChunkPaths(root, manifest.sessionId, track, sequence);
+      const chunk = await readStoredChunk(paths.metadata);
+      if (!chunk || chunk.sequence !== sequence)
+        throw new Error(`Invalid ${track} chunk sidecar ${entry}`);
+      if (!(await assertChunkMatchesSidecar(chunk, paths.bytes))) continue;
+      if (current.mimeType && chunk.mimeType !== current.mimeType)
+        throw new Error(`Track ${track} MIME type changed`);
+      discovered.push(chunk);
+    }
+    if (discovered.length === 0) continue;
+    changed = true;
+    const acknowledgedSequences = [
+      ...acknowledged,
+      ...discovered.map((chunk) => chunk.sequence),
+    ].sort((left, right) => left - right);
+    const combined = await combineContiguous(
+      root,
+      manifest.sessionId,
+      track,
+      acknowledgedSequences,
+    );
+    tracks = {
+      ...tracks,
+      [track]: {
+        ...current,
+        mimeType: current.mimeType ?? discovered[0]!.mimeType,
+        acknowledgedSequences,
+        missingSequences: findMissing(acknowledgedSequences),
+        durationMs: combined.durationMs,
+        byteSize: combined.byteSize,
+      },
+    };
+  }
+  return changed
+    ? recordingManifestSchema.parse({ ...manifest, tracks })
+    : manifest;
 }
 
 export async function removeCombinedChunks(

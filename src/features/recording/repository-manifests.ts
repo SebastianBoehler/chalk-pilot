@@ -21,7 +21,9 @@ export function finalizeManifest(
       const track = manifest.tracks[kind];
       const missingSequences = findMissing(track.acknowledgedSequences);
       const interrupted =
-        track.health === "interrupted" || missingSequences.length > 0;
+        track.health === "interrupted" ||
+        track.acknowledgedSequences.length === 0 ||
+        missingSequences.length > 0;
       return [
         kind,
         {
@@ -30,12 +32,17 @@ export function finalizeManifest(
           missingSequences,
           interruption:
             track.interruption ??
-            (missingSequences.length
+            (track.acknowledgedSequences.length === 0
               ? {
-                  message: `Missing chunk sequence(s): ${missingSequences.join(", ")}`,
+                  message: "No chunks acknowledged",
                   at: finalizedAt,
                 }
-              : null),
+              : missingSequences.length
+                ? {
+                    message: `Missing chunk sequence(s): ${missingSequences.join(", ")}`,
+                    at: finalizedAt,
+                  }
+                : null),
         },
       ];
     }),
