@@ -1,11 +1,13 @@
 import Image from "next/image";
-import ReactMarkdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
 import type { CanvasSection as CanvasSectionModel } from "@/features/workspace/schema";
 import { youtubeEmbedUrl } from "@/features/display/media";
+import { ArtifactErrorBoundary } from "./artifact-error-boundary";
+import { ChartArtifact } from "./chart-artifact";
+import { CheckpointArtifact } from "./checkpoint-artifact";
+import { ComparisonArtifact } from "./comparison-artifact";
 import { MermaidBlock } from "./mermaid-block";
+import { SafeMarkdown } from "./safe-markdown";
+import { SequenceArtifact } from "./sequence-artifact";
 
 export function CanvasSection({
   section,
@@ -31,12 +33,22 @@ export function CanvasSection({
           </span>
         )}
       </header>
-      <SectionContent section={section} />
+      <ArtifactErrorBoundary resetKey={`${section.id}:${section.updatedAt}`}>
+        <SectionContent section={section} />
+      </ArtifactErrorBoundary>
     </section>
   );
 }
 
 function SectionContent({ section }: { section: CanvasSectionModel }) {
+  if (section.kind === "chart")
+    return <ChartArtifact data={section.data} title={section.title} />;
+  if (section.kind === "comparison")
+    return <ComparisonArtifact data={section.data} />;
+  if (section.kind === "sequence")
+    return <SequenceArtifact data={section.data} />;
+  if (section.kind === "checkpoint")
+    return <CheckpointArtifact data={section.data} />;
   if (!("content" in section)) {
     return <p className="text-muted">This learning artifact is unavailable.</p>;
   }
@@ -75,12 +87,7 @@ function SectionContent({ section }: { section: CanvasSectionModel }) {
     section.kind === "math" ? `$$${section.content}$$` : section.content;
   return (
     <div className="learning-content text-foreground max-w-none">
-      <ReactMarkdown
-        rehypePlugins={[rehypeKatex]}
-        remarkPlugins={[remarkGfm, remarkMath]}
-      >
-        {content}
-      </ReactMarkdown>
+      <SafeMarkdown>{content}</SafeMarkdown>
     </div>
   );
 }

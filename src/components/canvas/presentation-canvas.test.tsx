@@ -60,4 +60,90 @@ describe("PresentationCanvas", () => {
       "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
     );
   });
+
+  it("renders every trusted structured artifact without executable HTML", () => {
+    const canvas: CanvasState = {
+      version: 1,
+      focusId: "sequence",
+      order: ["chart", "comparison", "sequence", "checkpoint"],
+      sections: {
+        chart: {
+          id: "chart",
+          kind: "chart",
+          title: "Recall over practice",
+          data: {
+            variant: "bar",
+            series: [{ name: "Recall", points: [{ x: "One", y: 4 }] }],
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        comparison: {
+          id: "comparison",
+          kind: "comparison",
+          title: "Token choices",
+          data: {
+            columns: [
+              {
+                heading: "Word",
+                summary: "Whole words.",
+                points: ["Simple"],
+              },
+              {
+                heading: "Subword",
+                summary: "Reusable pieces.",
+                points: ["Flexible"],
+              },
+            ],
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        sequence: {
+          id: "sequence",
+          kind: "sequence",
+          title: "From text to vectors",
+          data: {
+            steps: [
+              { id: "split", title: "Split", content: "Create tokens." },
+              { id: "look-up", title: "Look up", content: "Use embeddings." },
+            ],
+            activeStepId: "split",
+            reveal: "active",
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        checkpoint: {
+          id: "checkpoint",
+          kind: "checkpoint",
+          title: "Prediction",
+          data: {
+            mode: "prediction",
+            prompt: "Predict the next step.",
+            status: "unanswered",
+            showHint: false,
+            showAnswer: false,
+            showFeedback: false,
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      },
+    };
+
+    const { container } = render(<PresentationCanvas canvas={canvas} />);
+
+    expect(
+      screen.getByRole("img", { name: "Recall over practice" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(
+      screen.getByRole("list", { name: "Learning sequence" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Prediction checkpoint" }),
+    ).toBeInTheDocument();
+    expect(container.querySelector("script")).not.toBeInTheDocument();
+  });
 });
