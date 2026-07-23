@@ -40,17 +40,24 @@ describe("MermaidBlock", () => {
   });
 
   it("contains an invalid diagram without calling Mermaid render", async () => {
+    const source = "flowchart TD\nA -->";
     mermaid.parse.mockResolvedValue(false);
     mermaid.render.mockImplementation(async (renderId: string) => {
       appendTemporaryNode(renderId);
       throw new Error("invalid Mermaid");
     });
 
-    render(<MermaidBlock source="flowchart TD\nA -->" />);
+    render(<MermaidBlock source={source} />);
 
     expect(
       await screen.findByText("This diagram could not be rendered."),
     ).toBeInTheDocument();
+    expect(mermaid.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ securityLevel: "strict" }),
+    );
+    expect(mermaid.parse).toHaveBeenCalledWith(source, {
+      suppressErrors: true,
+    });
     expect(mermaid.render).not.toHaveBeenCalled();
     expect(
       document.querySelector('[data-mermaid-temporary="true"]'),
