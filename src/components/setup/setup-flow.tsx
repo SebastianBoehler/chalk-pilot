@@ -24,6 +24,7 @@ import {
   setupReady,
   setupReducer,
 } from "@/features/setup/setup-machine";
+import { stopMicrophone } from "@/features/audio/microphone";
 import {
   canvasStateSchema,
   sessionRecordSchema,
@@ -31,6 +32,7 @@ import {
 } from "@/features/workspace/schema";
 import { CalibrationStep } from "./calibration-step";
 import { CameraStep } from "./camera-step";
+import { MicrophoneStep } from "./microphone-step";
 import { OutputPreviewStep } from "./output-preview-step";
 import { ReadyStep } from "./ready-step";
 import { SetupShell } from "./setup-shell";
@@ -53,6 +55,7 @@ export function SetupFlow() {
   );
   const [video, setVideo] = useState<HTMLVideoElement>();
   const [cameraStream, setCameraStream] = useState<MediaStream>();
+  const [microphoneStream, setMicrophoneStream] = useState<MediaStream>();
   const [calibration, setCalibration] = useState<BoardCalibration>();
   const [calibrationStatus, setCalibrationStatus] = useState<
     "detecting" | "ready" | "error"
@@ -72,6 +75,7 @@ export function SetupFlow() {
   const { readySignal } = useDisplayPublisher(snapshot);
 
   useEffect(() => () => board?.dispose(), [board]);
+  useEffect(() => () => stopMicrophone(microphoneStream), [microphoneStream]);
 
   useEffect(() => {
     void fetch("/api/realtime-token")
@@ -213,7 +217,6 @@ export function SetupFlow() {
               className="mt-6"
               onClick={() => {
                 dispatch({ type: "advance" });
-                void detectBoard();
               }}
               type="button"
             >
@@ -225,6 +228,16 @@ export function SetupFlow() {
 
       {mode === "setup" && setup.step !== "camera" && (
         <SetupShell>
+          {setup.step === "microphone" && (
+            <MicrophoneStep
+              onConfirm={(stream) => {
+                setMicrophoneStream(stream);
+                dispatch({ type: "microphone_confirmed" });
+                dispatch({ type: "advance" });
+                void detectBoard();
+              }}
+            />
+          )}
           {setup.step === "calibration" && (
             <>
               {error && !calibration && (
@@ -276,6 +289,7 @@ export function SetupFlow() {
               boardReady={setup.calibration === "confirmed"}
               busy={starting}
               cameraReady={setup.camera === "ready"}
+              microphoneReady={setup.microphone === "confirmed"}
               error={error}
               onStart={() => void startSession()}
               openAiReady={setup.openai === "ready"}
@@ -284,27 +298,33 @@ export function SetupFlow() {
         </SetupShell>
       )}
 
-      {mode === "session" && sessionId && video && board && calibration && (
-        <SessionController
-          board={board}
-          canvas={canvas}
-          corners={calibration.corners}
-          displayConnected={setup.display === "connected"}
-          onAgentState={setAgentState}
-          onCanvasChanged={setCanvas}
-          onEnd={() => window.location.assign("/setup")}
-          onOpenDisplay={openDisplay}
-          onRecalibrate={() => {
-            dispatch({ type: "recalibrate" });
-            setCalibration(undefined);
-            setMode("setup");
-            window.history.replaceState({}, "", "/setup");
-            void detectBoard();
-          }}
-          sessionId={sessionId}
-          video={video}
-        />
-      )}
+      {mode === "session" &&
+        sessionId &&
+        video &&
+        board &&
+        calibration &&
+        microphoneStream && (
+          <SessionController
+            board={board}
+            canvas={canvas}
+            corners={calibration.corners}
+            displayConnected={setup.display === "connected"}
+            microphone={microphoneStream}
+            onAgentState={setAgentState}
+            onCanvasChanged={setCanvas}
+            onEnd={() => window.location.assign("/setup")}
+            onOpenDisplay={openDisplay}
+            onRecalibrate={() => {
+              dispatch({ type: "recalibrate" });
+              setCalibration(undefined);
+              setMode("setup");
+              window.history.replaceState({}, "", "/setup");
+              void detectBoard();
+            }}
+            sessionId={sessionId}
+            video={video}
+          />
+        )}
     </>
   );
 }

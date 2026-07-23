@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  OpenAIRealtimeWebRTC,
   RealtimeAgent,
   RealtimeSession,
   type RealtimeItem,
@@ -15,6 +16,7 @@ import type { AgentState } from "@/features/display/protocol";
 import type { CanvasState } from "@/features/workspace/schema";
 import { readableRealtimeTokenError, realtimeErrorMessage } from "./errors";
 import { chalkPilotInstructions } from "./instructions";
+import { CHALKPILOT_REALTIME_MODEL } from "./model";
 import { createChalkPilotTools, type BoardInspectionStatus } from "./tools";
 
 type Fetcher = (
@@ -41,11 +43,15 @@ export interface RealtimeSessionPort {
 }
 
 type ToolSet = ReturnType<typeof createChalkPilotTools>;
-type SessionFactory = (tools: ToolSet) => RealtimeSessionPort;
+type SessionFactory = (
+  tools: ToolSet,
+  microphone: MediaStream,
+) => RealtimeSessionPort;
 
 interface ChalkPilotRealtimeOptions {
   sessionId: string;
   board: BoardImageSource;
+  microphone: MediaStream;
   onCanvasChanged: (canvas: CanvasState) => void;
   onState?: (state: AgentState) => void;
   onError?: (message: string) => void;
@@ -111,11 +117,11 @@ export class ChalkPilotRealtime {
       getEvidenceId: () => `turn-${Math.max(this.turnNumber, 1)}`,
       onCanvasChanged: this.options.onCanvasChanged,
     });
-    this.session = this.createSession(tools);
+    this.session = this.createSession(tools, this.options.microphone);
     this.bindEvents(this.session);
     await this.session.connect({
       apiKey: value,
-      model: "gpt-realtime-2.1",
+      model: CHALKPILOT_REALTIME_MODEL,
     });
     this.options.onState?.("listening");
   }
@@ -251,16 +257,22 @@ export class ChalkPilotRealtime {
   }
 }
 
-function createOpenAiSession(tools: ToolSet): RealtimeSessionPort {
+function createOpenAiSession(
+  tools: ToolSet,
+  microphone: MediaStream,
+): RealtimeSessionPort {
   const agent = new RealtimeAgent({
     name: "ChalkPilot",
     voice: "marin",
     instructions: chalkPilotInstructions,
     tools,
   });
+  const transport = new OpenAIRealtimeWebRTC({
+    mediaStream: microphone,
+  });
   return new RealtimeSession(agent, {
-    model: "gpt-realtime-2.1",
-    transport: "webrtc",
+    model: CHALKPILOT_REALTIME_MODEL,
+    transport,
     config: {
       outputModalities: ["audio"],
       audio: {

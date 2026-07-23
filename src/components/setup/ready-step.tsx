@@ -6,6 +6,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 
 interface ReadyStepProps {
   cameraReady: boolean;
+  microphoneReady: boolean;
   boardReady: boolean;
   openAiReady: boolean;
   busy: boolean;
@@ -15,13 +16,14 @@ interface ReadyStepProps {
 
 export function ReadyStep({
   cameraReady,
+  microphoneReady,
   boardReady,
   openAiReady,
   busy,
   error,
   onStart,
 }: ReadyStepProps) {
-  const ready = cameraReady && boardReady && openAiReady;
+  const ready = cameraReady && microphoneReady && boardReady && openAiReady;
   return (
     <section aria-labelledby="ready-title" className="space-y-7">
       <div>
@@ -45,6 +47,10 @@ export function ReadyStep({
         <StatusPill
           label="Room camera"
           status={cameraReady ? "ready" : "error"}
+        />
+        <StatusPill
+          label="Room microphone"
+          status={microphoneReady ? "ready" : "error"}
         />
         <StatusPill
           label="Board frame"

@@ -2,10 +2,16 @@ import { describe, expect, it } from "vitest";
 import { initialSetupState, setupReducer, setupReady } from "./setup-machine";
 
 describe("setup machine", () => {
-  it("requires camera, calibration, and OpenAI readiness", () => {
+  it("requires microphone confirmation between camera and calibration", () => {
     let state = initialSetupState;
 
     state = setupReducer(state, { type: "camera_ready" });
+    state = setupReducer(state, { type: "advance" });
+    expect(state.step).toBe("microphone");
+
+    state = setupReducer(state, { type: "advance" });
+    expect(state.step).toBe("microphone");
+    state = setupReducer(state, { type: "microphone_confirmed" });
     state = setupReducer(state, { type: "advance" });
     expect(state.step).toBe("calibration");
 
@@ -22,11 +28,24 @@ describe("setup machine", () => {
     expect(setupReady(state)).toBe(true);
   });
 
+  it("does not report ready without a confirmed microphone", () => {
+    expect(
+      setupReady({
+        ...initialSetupState,
+        step: "ready",
+        camera: "ready",
+        calibration: "confirmed",
+        openai: "ready",
+      }),
+    ).toBe(false);
+  });
+
   it("keeps setup ready when the optional clean display closes", () => {
     const ready = {
       ...initialSetupState,
       step: "ready" as const,
       camera: "ready" as const,
+      microphone: "confirmed" as const,
       calibration: "confirmed" as const,
       display: "connected" as const,
       openai: "ready" as const,

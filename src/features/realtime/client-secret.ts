@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHALKPILOT_REALTIME_MODEL } from "./model";
 
 const clientSecretSchema = z.object({
   value: z.string().startsWith("ek_"),
@@ -24,7 +25,7 @@ export async function createRealtimeClientSecret(
       body: JSON.stringify({
         session: {
           type: "realtime",
-          model: "gpt-realtime-2.1",
+          model: CHALKPILOT_REALTIME_MODEL,
           audio: { output: { voice: "marin" } },
         },
       }),

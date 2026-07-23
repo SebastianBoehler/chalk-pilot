@@ -24,7 +24,7 @@ describe("createRealtimeClientSecret", () => {
         body: JSON.stringify({
           session: {
             type: "realtime",
-            model: "gpt-realtime-2.1",
+            model: "gpt-realtime-mini",
             audio: { output: { voice: "marin" } },
           },
         }),

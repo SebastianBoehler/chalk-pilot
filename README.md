@@ -54,7 +54,7 @@ Prerequisites:
 - Node.js 24 (the repository includes `.nvmrc`);
 - npm;
 - a Chromium-based browser;
-- an OpenAI API key with access to `gpt-realtime-2.1`;
+- an OpenAI API key with access to `gpt-realtime-mini`;
 - a camera and microphone.
 
 ```bash
@@ -109,12 +109,14 @@ Realtime client secret.
    to its manual, widest view.
 3. Run `npm run room` and open `/setup`.
 4. Allow camera access and select the rear high-resolution camera.
-5. Confirm the detected board corners. The handle surface follows the selected
+5. Allow microphone access, select the room input, verify its live level, and
+   confirm it. ChalkPilot reuses this exact stream for Realtime and recording.
+6. Confirm the detected board corners. The handle surface follows the selected
    stream's real dimensions; drag the handles if the camera is angled or the
    automatic outline is imperfect.
-6. Start the session. The browser will request microphone access for Realtime
-   WebRTC.
-7. Move the main canvas to the external screen, or optionally open the clean
+7. Start the session. Realtime WebRTC uses the microphone confirmed during
+   setup without requesting a different input.
+8. Move the main canvas to the external screen, or optionally open the clean
    display while keeping session controls on the laptop.
 
 There is intentionally no display picker. Browser applications cannot reliably

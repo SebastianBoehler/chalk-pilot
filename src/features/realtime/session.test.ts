@@ -39,11 +39,14 @@ function createHarness(changed = true) {
       ? Response.json({ value: "ek_test_secret" })
       : Response.json(emptyCanvas),
   );
+  const microphone = {} as MediaStream;
+  const createSession = vi.fn(() => session);
   const realtime = new ChalkPilotRealtime({
     sessionId: "session-1",
     board,
+    microphone,
     fetcher,
-    createSession: () => session,
+    createSession,
     createJobId: () => "job-1",
     onCanvasChanged,
     onCanvasJobError,
@@ -54,6 +57,7 @@ function createHarness(changed = true) {
     board,
     fetcher,
     listeners,
+    microphone,
     onCanvasChanged,
     onCanvasJobError,
     onCanvasJobState,
@@ -61,6 +65,7 @@ function createHarness(changed = true) {
     order,
     realtime,
     session,
+    createSession,
   };
 }
 
@@ -82,6 +87,7 @@ describe("ChalkPilotRealtime", () => {
     const withoutInjectedFetch = new ChalkPilotRealtime({
       sessionId: "session-1",
       board: createHarness().board,
+      microphone: createHarness().microphone,
       createSession: () => session,
       onCanvasChanged: vi.fn(),
     });
@@ -96,8 +102,16 @@ describe("ChalkPilotRealtime", () => {
 
     expect(session.connect).toHaveBeenCalledWith({
       apiKey: "ek_test_secret",
-      model: "gpt-realtime-2.1",
+      model: "gpt-realtime-mini",
     });
+  });
+
+  it("gives the session factory the exact confirmed microphone stream", async () => {
+    const { createSession, microphone, realtime } = createHarness();
+
+    await realtime.connect();
+
+    expect(createSession).toHaveBeenCalledWith(expect.any(Array), microphone);
   });
 
   it("adds a changed board image before requesting the spoken-turn response", async () => {

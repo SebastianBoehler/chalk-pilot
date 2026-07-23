@@ -23,6 +23,7 @@ interface SessionControllerProps {
   board: BoardController;
   corners: BoardCorners;
   canvas: CanvasState;
+  microphone: MediaStream;
   displayConnected: boolean;
   onCanvasChanged: (canvas: CanvasState) => void;
   onAgentState: (state: AgentState) => void;
@@ -34,7 +35,7 @@ interface SessionControllerProps {
 const BOARD_SAMPLE_INTERVAL_MS = 500;
 
 export function SessionController(props: SessionControllerProps) {
-  const { board, onAgentState, onCanvasChanged, sessionId } = props;
+  const { board, microphone, onAgentState, onCanvasChanged, sessionId } = props;
   const [state, dispatch] = useReducer(
     sessionReducer,
     createSessionState(sessionId),
@@ -63,6 +64,7 @@ export function SessionController(props: SessionControllerProps) {
     const realtime = new ChalkPilotRealtime({
       sessionId,
       board,
+      microphone,
       onCanvasChanged,
       onState: (agentState) => {
         dispatch({ type: "agent_state", state: agentState });
@@ -100,7 +102,7 @@ export function SessionController(props: SessionControllerProps) {
       realtime.close();
       realtimeRef.current = null;
     };
-  }, [board, onAgentState, onCanvasChanged, sessionId]);
+  }, [board, microphone, onAgentState, onCanvasChanged, sessionId]);
 
   useEffect(() => {
     let active = true;

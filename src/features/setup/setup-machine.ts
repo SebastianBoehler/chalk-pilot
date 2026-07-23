@@ -1,8 +1,10 @@
-export type SetupStep = "camera" | "calibration" | "preview" | "ready";
+export type SetupStep =
+  "camera" | "microphone" | "calibration" | "preview" | "ready";
 
 export interface SetupState {
   step: SetupStep;
   camera: "pending" | "ready" | "error";
+  microphone: "pending" | "confirmed" | "error";
   calibration: "pending" | "confirmed";
   display: "closed" | "connected";
   openai: "checking" | "ready" | "error";
@@ -11,6 +13,8 @@ export interface SetupState {
 export type SetupAction =
   | { type: "camera_ready" }
   | { type: "camera_error" }
+  | { type: "microphone_confirmed" }
+  | { type: "microphone_error" }
   | { type: "calibration_confirmed" }
   | { type: "display_connected" }
   | { type: "display_lost" }
@@ -23,6 +27,7 @@ export type SetupAction =
 export const initialSetupState: SetupState = {
   step: "camera",
   camera: "pending",
+  microphone: "pending",
   calibration: "pending",
   display: "closed",
   openai: "checking",
@@ -37,6 +42,10 @@ export function setupReducer(
       return { ...state, camera: "ready" };
     case "camera_error":
       return { ...state, camera: "error" };
+    case "microphone_confirmed":
+      return { ...state, microphone: "confirmed" };
+    case "microphone_error":
+      return { ...state, microphone: "error" };
     case "calibration_confirmed":
       return { ...state, calibration: "confirmed" };
     case "display_connected":
@@ -57,7 +66,8 @@ export function setupReducer(
         step: (
           {
             camera: "camera",
-            calibration: "camera",
+            microphone: "camera",
+            calibration: "microphone",
             preview: "calibration",
             ready: "preview",
           } satisfies Record<SetupStep, SetupStep>
@@ -69,6 +79,7 @@ export function setupReducer(
 export function setupReady(state: SetupState) {
   return (
     state.camera === "ready" &&
+    state.microphone === "confirmed" &&
     state.calibration === "confirmed" &&
     state.openai === "ready"
   );
@@ -76,6 +87,9 @@ export function setupReady(state: SetupState) {
 
 function advance(state: SetupState): SetupState {
   if (state.step === "camera" && state.camera === "ready") {
+    return { ...state, step: "microphone" };
+  }
+  if (state.step === "microphone" && state.microphone === "confirmed") {
     return { ...state, step: "calibration" };
   }
   if (state.step === "calibration" && state.calibration === "confirmed") {
