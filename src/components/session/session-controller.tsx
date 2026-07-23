@@ -6,6 +6,7 @@ import type { BoardCorners } from "@/features/board/types";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
 import type { AgentState } from "@/features/display/protocol";
 import type { PersonBox } from "@/features/recording/presenter-tracker";
+import { useSessionRecording } from "@/features/recording/use-session-recording";
 import { ChalkPilotRealtime } from "@/features/realtime/session";
 import {
   createSessionState,
@@ -54,6 +55,20 @@ export function SessionController(props: SessionControllerProps) {
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const realtimeRef = useRef<ChalkPilotRealtime | null>(null);
   const persisted = useRef(new Set<string>());
+  const recording = useSessionRecording({
+    video: props.video,
+    boardPreview: preview,
+    sessionId,
+    microphone,
+    cameraUse: props.cameraUse,
+    presenter: props.presenter,
+    canvas: props.canvas,
+  });
+  const {
+    attachTranscript: attachRecordingTranscript,
+    noteCueEnd,
+    noteCueStart,
+  } = recording;
 
   useEffect(() => {
     dispatch(
@@ -95,10 +110,16 @@ export function SessionController(props: SessionControllerProps) {
       },
       onTranscript: (history) => {
         if (!active) return;
-        persistTranscript(history, sessionId, persisted.current, (lines) =>
-          setTranscript(lines),
+        persistTranscript(
+          history,
+          sessionId,
+          persisted.current,
+          (lines) => setTranscript(lines),
+          attachRecordingTranscript,
         );
       },
+      onCueStart: noteCueStart,
+      onCueEnd: noteCueEnd,
     });
     realtimeRef.current = realtime;
     void realtime
@@ -120,7 +141,16 @@ export function SessionController(props: SessionControllerProps) {
       realtime.close();
       realtimeRef.current = null;
     };
-  }, [board, microphone, onAgentState, onCanvasChanged, sessionId]);
+  }, [
+    attachRecordingTranscript,
+    board,
+    microphone,
+    noteCueEnd,
+    noteCueStart,
+    onAgentState,
+    onCanvasChanged,
+    sessionId,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -183,7 +213,6 @@ export function SessionController(props: SessionControllerProps) {
       agentState={state.agentState}
       boardNotice={boardNotice}
       canvas={props.canvas}
-      cameraUse={props.cameraUse}
       canvasJobError={canvasJobError}
       canvasJobState={canvasJobState}
       displayConnected={props.displayConnected}
@@ -195,10 +224,9 @@ export function SessionController(props: SessionControllerProps) {
       onRecalibrate={props.onRecalibrate}
       paused={state.paused}
       preview={preview}
-      presenter={props.presenter}
+      recording={recording}
       realtimeConnected={state.realtime === "connected"}
       transcript={transcript}
-      video={props.video}
     />
   );
 }

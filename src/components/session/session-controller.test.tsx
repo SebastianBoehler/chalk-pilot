@@ -11,13 +11,32 @@ interface RealtimeInstance {
   resolve: () => void;
 }
 
-const { realtimeInstances, realtimeOptions, workspaceProps } = vi.hoisted(
-  () => ({
-    realtimeInstances: [] as RealtimeInstance[],
-    realtimeOptions: vi.fn(),
-    workspaceProps: vi.fn(),
-  }),
-);
+const {
+  realtimeInstances,
+  realtimeOptions,
+  recordingOptions,
+  recordingState,
+  workspaceProps,
+} = vi.hoisted(() => ({
+  realtimeInstances: [] as RealtimeInstance[],
+  realtimeOptions: vi.fn(),
+  recordingOptions: vi.fn(),
+  recordingState: {
+    canStart: true,
+    canStop: false,
+    durationMs: 0,
+    error: undefined,
+    replayUrl: undefined,
+    start: vi.fn(async () => undefined),
+    status: "idle" as const,
+    stop: vi.fn(async () => undefined),
+    noteCueStart: vi.fn(),
+    noteCueEnd: vi.fn(),
+    attachTranscript: vi.fn(),
+    noteCanvas: vi.fn(),
+  },
+  workspaceProps: vi.fn(),
+}));
 
 vi.mock("@/features/realtime/session", () => ({
   ChalkPilotRealtime: class {
@@ -48,6 +67,13 @@ vi.mock("./learning-workspace", () => ({
   LearningWorkspace: (props: unknown) => {
     workspaceProps(props);
     return null;
+  },
+}));
+
+vi.mock("@/features/recording/use-session-recording", () => ({
+  useSessionRecording: (options: unknown) => {
+    recordingOptions(options);
+    return recordingState;
   },
 }));
 
@@ -99,6 +125,11 @@ describe("SessionController", () => {
     cleanup();
     realtimeInstances.splice(0);
     realtimeOptions.mockClear();
+    recordingOptions.mockClear();
+    recordingState.noteCueStart.mockClear();
+    recordingState.noteCueEnd.mockClear();
+    recordingState.attachTranscript.mockClear();
+    recordingState.noteCanvas.mockClear();
     workspaceProps.mockClear();
   });
 
@@ -111,6 +142,42 @@ describe("SessionController", () => {
     expect(realtimeOptions.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({ microphone }),
     );
+  });
+
+  it("owns recording above the workspace and reuses the exact session sources", async () => {
+    const microphone = {} as MediaStream;
+
+    render(controller(microphone));
+
+    await waitFor(() => expect(recordingOptions).toHaveBeenCalled());
+    expect(recordingOptions.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        cameraUse: "room-wide",
+        canvas: emptyCanvas,
+        microphone,
+        presenter,
+        sessionId: "session-1",
+        video: expect.any(Object),
+      }),
+    );
+    expect(workspaceProps.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ recording: recordingState }),
+    );
+  });
+
+  it("forwards Realtime cue bounds into the controller-owned recording", async () => {
+    render(controller());
+    await waitFor(() => expect(realtimeOptions).toHaveBeenCalled());
+    const options = realtimeOptions.mock.calls[0]?.[0] as {
+      onCueStart: (speaker: "user", atMs: number) => void;
+      onCueEnd: (speaker: "user", atMs: number) => void;
+    };
+
+    options.onCueStart("user", 100);
+    options.onCueEnd("user", 900);
+
+    expect(recordingState.noteCueStart).toHaveBeenCalledWith("user", 100);
+    expect(recordingState.noteCueEnd).toHaveBeenCalledWith("user", 900);
   });
 
   it("ignores the connection result from the disposed Strict Mode generation", async () => {

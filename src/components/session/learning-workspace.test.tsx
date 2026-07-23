@@ -20,6 +20,21 @@ const canvas: CanvasState = {
   },
 };
 
+const recording = {
+  canStart: true,
+  canStop: false,
+  durationMs: 0,
+  error: undefined,
+  replayUrl: undefined,
+  status: "idle" as const,
+  start: vi.fn(async () => undefined),
+  stop: vi.fn(async () => undefined),
+  noteCueStart: vi.fn(),
+  noteCueEnd: vi.fn(),
+  attachTranscript: vi.fn(),
+  noteCanvas: vi.fn(),
+};
+
 describe("LearningWorkspace", () => {
   it("makes the learning canvas primary and collapses session controls", async () => {
     const user = userEvent.setup();
@@ -27,7 +42,6 @@ describe("LearningWorkspace", () => {
       <LearningWorkspace
         agentState="listening"
         boardNotice="Board images are sent only at turn boundaries."
-        cameraUse="board-focused"
         canvas={canvas}
         canvasJobError={undefined}
         canvasJobState="building"
@@ -41,6 +55,7 @@ describe("LearningWorkspace", () => {
         paused={false}
         preview={null}
         realtimeConnected
+        recording={recording}
         transcript={[]}
       />,
     );
@@ -79,5 +94,39 @@ describe("LearningWorkspace", () => {
         name: "Start session recording",
       }),
     ).toBe(recordingButton);
+  });
+
+  it("prevents navigation away while a recording is active", () => {
+    render(
+      <LearningWorkspace
+        agentState="listening"
+        boardNotice="Board ready."
+        canvas={canvas}
+        canvasJobError={undefined}
+        canvasJobState="idle"
+        displayConnected
+        error={undefined}
+        onEnd={vi.fn()}
+        onInspect={vi.fn()}
+        onOpenDisplay={vi.fn()}
+        onPause={vi.fn()}
+        onRecalibrate={vi.fn()}
+        paused={false}
+        preview={null}
+        realtimeConnected
+        recording={{
+          ...recording,
+          canStart: false,
+          canStop: true,
+          status: "recording",
+        }}
+        transcript={[]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Recalibrate board" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "End session" })).toBeDisabled();
   });
 });

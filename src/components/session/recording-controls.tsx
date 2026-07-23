@@ -1,32 +1,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import type { PersonBox } from "@/features/recording/presenter-tracker";
-import { useSessionRecording } from "@/features/recording/use-session-recording";
-import type { CameraUse } from "@/features/setup/camera-use";
+import type { SessionRecording } from "@/features/recording/use-session-recording";
 
 interface RecordingControlsProps {
-  boardPreview: string | null;
-  cameraUse: CameraUse;
-  presenter?: PersonBox;
-  video?: HTMLVideoElement;
+  recording: SessionRecording;
 }
 
-export function RecordingControls({
-  boardPreview,
-  cameraUse,
-  presenter,
-  video,
-}: RecordingControlsProps) {
-  const recording = useSessionRecording(
-    video,
-    boardPreview,
-    undefined,
-    undefined,
-    cameraUse,
-    presenter,
-  );
-
+export function RecordingControls({ recording }: RecordingControlsProps) {
   return (
     <section
       aria-labelledby="recording-title"
@@ -41,55 +22,66 @@ export function RecordingControls({
         include its audio.
       </p>
 
+      <p aria-live="polite" className="mt-3 text-sm font-semibold">
+        {statusLabel(recording.status)} · {formatDuration(recording.durationMs)}
+      </p>
+
       {recording.error && (
-        <p className="text-danger mt-3 text-sm">{recording.error}</p>
+        <p className="text-danger mt-2 text-sm">{recording.error}</p>
       )}
 
       {recording.canStop ? (
-        <div className="mt-3 space-y-3">
-          <p className="flex items-center gap-2 text-sm font-semibold">
-            <span className="bg-danger size-2.5 animate-pulse rounded-full" />
-            Recording session
-          </p>
-          <Button
-            className="w-full"
-            onClick={() => void recording.stop()}
-            type="button"
-            variant="danger"
-          >
-            Stop recording
-          </Button>
-        </div>
+        <Button
+          className="mt-3 w-full"
+          disabled={recording.status === "stopping"}
+          onClick={() => void recording.stop()}
+          type="button"
+          variant="danger"
+        >
+          {recording.status === "stopping"
+            ? "Finalizing recording…"
+            : "Stop recording"}
+        </Button>
+      ) : recording.replayUrl ? (
+        <a
+          className="bg-primary text-primary-foreground mt-3 block rounded-xl px-5 py-3 text-center font-semibold"
+          href={recording.replayUrl}
+        >
+          Open replay
+        </a>
       ) : (
         <Button
           className="mt-3 w-full"
-          disabled={!recording.canStart || recording.status !== "idle"}
+          disabled={!recording.canStart || recording.status === "starting"}
           onClick={() => void recording.start()}
           type="button"
           variant="secondary"
         >
           {recording.status === "starting"
             ? "Choose display and audio…"
-            : recording.status === "stopping"
-              ? "Finalizing recording…"
-              : "Start session recording"}
+            : "Start session recording"}
         </Button>
-      )}
-
-      {recording.downloads.length > 0 && (
-        <div className="mt-3 grid gap-2">
-          {recording.downloads.map((download) => (
-            <a
-              className="border-border hover:bg-surface-muted rounded-xl border px-4 py-2 text-center text-sm font-semibold"
-              download={download.filename}
-              href={download.url}
-              key={download.kind}
-            >
-              Download {download.kind}
-            </a>
-          ))}
-        </div>
       )}
     </section>
   );
+}
+
+function statusLabel(status: SessionRecording["status"]) {
+  return (
+    {
+      idle: "Ready",
+      starting: "Starting",
+      recording: "Recording",
+      stopping: "Finalizing",
+      complete: "Complete",
+      error: "Needs attention",
+    } satisfies Record<SessionRecording["status"], string>
+  )[status];
+}
+
+function formatDuration(durationMs: number) {
+  const totalSeconds = Math.floor(durationMs / 1_000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
 }

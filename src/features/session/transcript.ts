@@ -31,12 +31,14 @@ export function persistTranscript(
   sessionId: string,
   persisted: Set<string>,
   update: (lines: TranscriptLine[]) => void,
+  onPersistedLine?: (line: TranscriptLine) => void,
 ) {
   const lines = extractTranscript(history);
   update(lines);
   for (const line of lines) {
     if (persisted.has(line.sourceId)) continue;
     persisted.add(line.sourceId);
+    onPersistedLine?.(line);
     const index = persisted.size;
     void fetch(`/api/sessions/${sessionId}/transcript`, {
       method: "POST",

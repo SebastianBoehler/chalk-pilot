@@ -9,6 +9,10 @@ import {
   type ActiveTrack,
 } from "./recording-capture-state";
 import {
+  appendRecordingTimeline,
+  recordingEpoch,
+} from "./recording-coordinator-access";
+import {
   coordinatorDependencies,
   type CoordinatorDependencies,
 } from "./recording-coordinator-dependencies";
@@ -16,6 +20,7 @@ import {
   RecordingCoordinatorState,
   type RecordingCoordinatorStatus,
 } from "./recording-coordinator-state";
+import { finalizeActiveCapture } from "./recording-finalization";
 import { settleInterruptedTrack } from "./recording-interruption";
 import {
   DISPLAY_CAPTURE_OPTIONS,
@@ -28,7 +33,11 @@ import {
   type MediaRecorderPort,
 } from "./recording-media";
 import { startRecorder, stopRecorder } from "./recording-recorder-lifecycle";
-import type { RecordingManifest, TrackKind } from "./schema";
+import type {
+  RecordingManifest,
+  RecordingTimelineEvent,
+  TrackKind,
+} from "./schema";
 
 export type { RecordingClientPort, UploadChunkInput };
 export type { MediaRecorderPort };
@@ -62,8 +71,20 @@ export class RecordingCoordinator {
     return this.active?.uploads.pendingInputs ?? [];
   }
 
+  get recordingEpochMs() {
+    return recordingEpoch(this.active);
+  }
+
   subscribe(listener: () => void) {
     return this.state.subscribe(listener);
+  }
+
+  appendTimeline(event: RecordingTimelineEvent) {
+    return appendRecordingTimeline(
+      this.active,
+      this.dependencies.client,
+      event,
+    );
   }
 
   async start(sources: CaptureSources): Promise<RecordingManifest> {
@@ -166,7 +187,7 @@ export class RecordingCoordinator {
     }
   }
 
-  async stop(): Promise<RecordingManifest> {
+  async stop(beforeFinalize?: () => Promise<void>): Promise<RecordingManifest> {
     const active = this.active;
     if (!active || active.epoch === null) {
       throw new Error("No session recording is active.");
@@ -174,29 +195,16 @@ export class RecordingCoordinator {
     const stoppedAt = this.dependencies.now();
     this.state.change("stopping", this.state.error);
     try {
-      const stops = await Promise.allSettled(
-        active.tracks.map(({ recorder, recorderLifecycle }) =>
-          stopRecorder(recorder!, recorderLifecycle!),
-        ),
-      );
-      await Promise.all(
-        stops.map((result, index) =>
-          result.status === "rejected"
-            ? this.interruptTrack(
-                active,
-                active.tracks[index]!.kind,
-                toError(result.reason).message,
-              )
-            : Promise.resolve(),
-        ),
-      );
-      await active.uploads.drain();
-      await this.persistMarkedInterruptions(active);
-      if (active.controlFailure) throw active.controlFailure;
-      const manifest = await this.dependencies.client.finalizeRecording(
-        active.sessionId,
-        elapsed(stoppedAt, active.epoch),
-      );
+      const manifest = await finalizeActiveCapture({
+        active,
+        stoppedAt,
+        dependencies: this.dependencies,
+        beforeFinalize,
+        interruptTrack: (capture, kind, message) =>
+          this.interruptTrack(capture, kind, message),
+        persistMarkedInterruptions: (capture) =>
+          this.persistMarkedInterruptions(capture),
+      });
       this.state.change("complete", null);
       return manifest;
     } catch (cause) {

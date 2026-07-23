@@ -8,9 +8,8 @@ import { ErrorPanel } from "@/components/ui/error-panel";
 import { StatusPill } from "@/components/ui/status-pill";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
 import type { AgentState } from "@/features/display/protocol";
-import type { PersonBox } from "@/features/recording/presenter-tracker";
+import type { SessionRecording } from "@/features/recording/use-session-recording";
 import type { TranscriptLine } from "@/features/session/transcript";
-import type { CameraUse } from "@/features/setup/camera-use";
 import type { CanvasState } from "@/features/workspace/schema";
 import { RecordingControls } from "./recording-controls";
 
@@ -19,9 +18,7 @@ interface LearningWorkspaceProps {
   canvasJobState: CanvasJobState;
   canvasJobError?: string;
   preview: string | null;
-  video?: HTMLVideoElement;
-  cameraUse: CameraUse;
-  presenter?: PersonBox;
+  recording: SessionRecording;
   agentState: AgentState;
   paused: boolean;
   realtimeConnected: boolean;
@@ -38,6 +35,10 @@ interface LearningWorkspaceProps {
 
 export function LearningWorkspace(props: LearningWorkspaceProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const recordingBusy =
+    props.recording.canStop ||
+    props.recording.status === "starting" ||
+    props.recording.status === "stopping";
 
   return (
     <div className="bg-background flex min-h-screen">
@@ -172,12 +173,7 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
           </div>
         </section>
 
-        <RecordingControls
-          boardPreview={props.preview}
-          cameraUse={props.cameraUse}
-          presenter={props.presenter}
-          video={props.video}
-        />
+        <RecordingControls recording={props.recording} />
 
         <details className="border-border mt-5 rounded-2xl border p-4" open>
           <summary className="cursor-pointer font-semibold">
@@ -208,13 +204,19 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
               : "Open clean display"}
           </Button>
           <Button
+            disabled={recordingBusy}
             onClick={props.onRecalibrate}
             type="button"
             variant="secondary"
           >
             Recalibrate board
           </Button>
-          <Button onClick={props.onEnd} type="button" variant="danger">
+          <Button
+            disabled={recordingBusy}
+            onClick={props.onEnd}
+            type="button"
+            variant="danger"
+          >
             End session
           </Button>
         </div>

@@ -52,12 +52,15 @@ interface ChalkPilotRealtimeOptions {
   onState?: (state: AgentState) => void;
   onError?: (message: string) => void;
   onTranscript?: (history: RealtimeItem[]) => void;
+  onCueStart?: (speaker: "user" | "assistant", atMs: number) => void;
+  onCueEnd?: (speaker: "user" | "assistant", atMs: number) => void;
   onBoardSent?: () => void;
   onCanvasJobState?: (state: CanvasJobState) => void;
   onCanvasJobError?: (message: string) => void;
   fetcher?: Fetcher;
   createSession?: SessionFactory;
   createJobId?: () => string;
+  now?: () => number;
 }
 
 export type { CanvasJobState } from "@/features/canvas-worker/client";
@@ -171,9 +174,11 @@ export class ChalkPilotRealtime {
       if (!this.connection.isCurrent(session)) return;
       const event = rawEvent as { type?: string } | undefined;
       if (event?.type === "input_audio_buffer.speech_started") {
+        this.options.onCueStart?.("user", this.now());
         this.options.onState?.("listening");
       }
       if (event?.type === "input_audio_buffer.speech_stopped") {
+        this.options.onCueEnd?.("user", this.now());
         this.turnNumber += 1;
         this.options.onState?.("thinking");
         this.pending = this.pending
@@ -192,12 +197,16 @@ export class ChalkPilotRealtime {
         this.options.onState?.("thinking");
     });
     session.on("audio_start", () => {
-      if (this.connection.isCurrent(session))
+      if (this.connection.isCurrent(session)) {
+        this.options.onCueStart?.("assistant", this.now());
         this.options.onState?.("speaking");
+      }
     });
     session.on("audio_stopped", () => {
-      if (this.connection.isCurrent(session))
+      if (this.connection.isCurrent(session)) {
+        this.options.onCueEnd?.("assistant", this.now());
         this.options.onState?.("listening");
+      }
     });
     session.on("history_updated", (history) => {
       if (this.connection.isCurrent(session))
@@ -272,5 +281,9 @@ export class ChalkPilotRealtime {
     this.finishActiveResponse();
     this.options.onState?.("error");
     this.options.onError?.(realtimeErrorMessage(error));
+  }
+
+  private now() {
+    return (this.options.now ?? (() => performance.now()))();
   }
 }

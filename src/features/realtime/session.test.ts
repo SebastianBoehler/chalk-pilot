@@ -1,83 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CanvasState } from "@/features/workspace/schema";
-import { ChalkPilotRealtime, type RealtimeSessionPort } from "./session";
-
-const emptyCanvas: CanvasState = {
-  version: 1,
-  focusId: null,
-  order: [],
-  sections: {},
-};
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, reject, resolve };
-}
-
-function createHarness(changed = true) {
-  const order: string[] = [];
-  const listeners = new Map<string, (value?: unknown) => void>();
-  const onError = vi.fn();
-  const onCanvasChanged = vi.fn();
-  const onCanvasJobError = vi.fn();
-  const onCanvasJobState = vi.fn();
-  const session: RealtimeSessionPort = {
-    transport: {
-      sendEvent: (event) => order.push(String(event.type)),
-    },
-    on: (event, listener) => {
-      listeners.set(event, listener);
-    },
-    connect: vi.fn(async () => undefined),
-    addImage: vi.fn(() => order.push("image")),
-    sendMessage: vi.fn(() => order.push("message")),
-    mute: vi.fn(),
-    close: vi.fn(),
-  };
-  const board = {
-    hasMaterialChange: vi.fn(() => changed),
-    getLatestImage: vi.fn(() => "data:image/jpeg;base64,board"),
-    markSent: vi.fn(() => order.push("marked")),
-  };
-  const fetcher = vi.fn(async (input: string | URL | Request) =>
-    String(input).endsWith("/api/realtime-token")
-      ? Response.json({ value: "ek_test_secret" })
-      : Response.json(emptyCanvas),
-  );
-  const microphone = {} as MediaStream;
-  const createSession = vi.fn(() => session);
-  const realtime = new ChalkPilotRealtime({
-    sessionId: "session-1",
-    board,
-    microphone,
-    fetcher,
-    createSession,
-    createJobId: () => "job-1",
-    onCanvasChanged,
-    onCanvasJobError,
-    onCanvasJobState,
-    onError,
-  });
-  return {
-    board,
-    fetcher,
-    listeners,
-    microphone,
-    onCanvasChanged,
-    onCanvasJobError,
-    onCanvasJobState,
-    onError,
-    order,
-    realtime,
-    session,
-    createSession,
-  };
-}
+import { ChalkPilotRealtime } from "./session";
+import {
+  createRealtimeHarness as createHarness,
+  deferred,
+  emptyCanvas,
+} from "./session-test-harness";
 
 describe("ChalkPilotRealtime", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -189,6 +117,25 @@ describe("ChalkPilotRealtime", () => {
     await realtime.whenIdle();
 
     expect(order).toEqual(["image", "marked", "response.create"]);
+  });
+
+  it("reports user speech and assistant audio bounds on the recording clock", async () => {
+    const { listeners, onCueEnd, onCueStart, realtime } = createHarness();
+    await realtime.connect();
+
+    listeners.get("transport_event")?.({
+      type: "input_audio_buffer.speech_started",
+    });
+    listeners.get("transport_event")?.({
+      type: "input_audio_buffer.speech_stopped",
+    });
+    listeners.get("audio_start")?.();
+    listeners.get("audio_stopped")?.();
+
+    expect(onCueStart).toHaveBeenNthCalledWith(1, "user", 1_234);
+    expect(onCueEnd).toHaveBeenNthCalledWith(1, "user", 1_234);
+    expect(onCueStart).toHaveBeenNthCalledWith(2, "assistant", 1_234);
+    expect(onCueEnd).toHaveBeenNthCalledWith(2, "assistant", 1_234);
   });
 
   it("does not resend an unchanged board at the next turn", async () => {

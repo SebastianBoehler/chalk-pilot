@@ -105,4 +105,27 @@ describe("RecordingClient", () => {
       },
     );
   });
+
+  it("appends timed evidence through the recording timeline route", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    const client = new RecordingClient(fetcher);
+    const event = {
+      type: "canvas" as const,
+      offsetMs: 350,
+      revision: { version: 1, order: [] },
+    };
+
+    await client.appendTimeline("session-1", event);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/sessions/session-1/recording/timeline",
+      {
+        method: "POST",
+        body: JSON.stringify(event),
+        headers: { "content-type": "application/json" },
+      },
+    );
+  });
 });

@@ -1,6 +1,7 @@
 import {
   recordingManifestSchema,
   type RecordingManifest,
+  type RecordingTimelineEvent,
   type TrackKind,
 } from "./schema";
 
@@ -26,6 +27,10 @@ export interface RecordingClientPort {
     sessionId: string,
     durationMs: number,
   ): Promise<RecordingManifest>;
+  appendTimeline(
+    sessionId: string,
+    event: RecordingTimelineEvent,
+  ): Promise<void>;
   replayUrl(sessionId: string): string;
 }
 
@@ -59,6 +64,16 @@ export class RecordingClient implements RecordingClientPort {
       await this.fetcher(`${recordingUrl(sessionId)}/finalize`, {
         method: "POST",
         body: JSON.stringify({ durationMs }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  }
+
+  async appendTimeline(sessionId: string, event: RecordingTimelineEvent) {
+    await requireOk(
+      await this.fetcher(`${recordingUrl(sessionId)}/timeline`, {
+        method: "POST",
+        body: JSON.stringify(event),
         headers: { "content-type": "application/json" },
       }),
     );

@@ -120,6 +120,7 @@ export class FakeRecordingClient implements RecordingClientPort {
       return result;
     },
   );
+  readonly appendTimeline = vi.fn(async () => undefined);
   readonly replayUrl = vi.fn(
     (sessionId: string) => `/replay/${encodeURIComponent(sessionId)}`,
   );

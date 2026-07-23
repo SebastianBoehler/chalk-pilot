@@ -34,22 +34,24 @@ describe("useSessionRecording", () => {
     const video = {} as HTMLVideoElement;
     const microphone = {} as MediaStream;
     const boardFocused = renderHook(() =>
-      useSessionRecording(
-        video,
-        "data:image/png;base64,board",
-        "session-1",
+      useSessionRecording({
+        boardPreview: "data:image/png;base64,board",
+        cameraUse: "board-focused",
+        canvas: { version: 1, focusId: null, order: [], sections: {} },
         microphone,
-        "board-focused",
-      ),
+        sessionId: "session-1",
+        video,
+      }),
     );
     const roomWide = renderHook(() =>
-      useSessionRecording(
-        video,
-        "data:image/png;base64,board",
-        "session-1",
+      useSessionRecording({
+        boardPreview: "data:image/png;base64,board",
+        cameraUse: "room-wide",
+        canvas: { version: 1, focusId: null, order: [], sections: {} },
         microphone,
-        "room-wide",
-      ),
+        sessionId: "session-1",
+        video,
+      }),
     );
 
     expect(boardFocused.result.current.canStart).toBe(true);
@@ -69,11 +71,16 @@ describe("useSessionRecording", () => {
       updateBoard: vi.fn(async () => undefined),
     };
     const coordinator = {
+      appendTimeline: vi.fn(async () => undefined),
       error: null,
+      recordingEpochMs: 1_000,
       replayUrl: "/replay/session-1",
       start: vi.fn(async () => manifest()),
       status: "idle",
-      stop: vi.fn(async () => manifest("session-1", "complete", 2_000)),
+      stop: vi.fn(async (beforeFinalize?: () => Promise<void>) => {
+        await beforeFinalize?.();
+        return manifest("session-1", "complete", 2_000);
+      }),
       subscribe: vi.fn(() => () => undefined),
     };
     mocks.createDerivedVideoStreams.mockReturnValue(derived);
@@ -82,14 +89,15 @@ describe("useSessionRecording", () => {
     });
     const video = {} as HTMLVideoElement;
     const { result } = renderHook(() =>
-      useSessionRecording(
-        video,
-        "data:image/png;base64,board",
-        "session-1",
+      useSessionRecording({
+        boardPreview: "data:image/png;base64,board",
+        cameraUse: "room-wide",
+        canvas: { version: 1, focusId: null, order: [], sections: {} },
         microphone,
-        "room-wide",
         presenter,
-      ),
+        sessionId: "session-1",
+        video,
+      }),
     );
 
     await act(() => result.current.start());
@@ -106,10 +114,28 @@ describe("useSessionRecording", () => {
     });
     expect(result.current.status).toBe("recording");
 
+    act(() => {
+      result.current.noteCueStart("user", 1_100);
+      result.current.noteCueEnd("user", 1_500);
+      result.current.attachTranscript({
+        sourceId: "user-1",
+        role: "user",
+        text: "Explain this step.",
+      });
+    });
     await act(() => result.current.stop());
     expect(result.current.status).toBe("complete");
     expect(result.current.replayUrl).toBe("/replay/session-1");
     expect(derived.stop).toHaveBeenCalledOnce();
+    expect(coordinator.appendTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "transcript",
+        speaker: "user",
+        startMs: 100,
+        endMs: 500,
+      }),
+    );
+    expect(coordinator.stop).toHaveBeenCalledWith(expect.any(Function));
   });
 
   it("observes a background track interruption immediately", async () => {
@@ -124,7 +150,9 @@ describe("useSessionRecording", () => {
     };
     let listener: () => void = () => undefined;
     const coordinator = {
+      appendTimeline: vi.fn(async () => undefined),
       error: null as Error | null,
+      recordingEpochMs: 1_000,
       replayUrl: "/replay/session-1",
       start: vi.fn(async () => manifest()),
       status: "idle",
@@ -139,14 +167,15 @@ describe("useSessionRecording", () => {
       return coordinator;
     });
     const { result } = renderHook(() =>
-      useSessionRecording(
-        {} as HTMLVideoElement,
-        "data:image/png;base64,board",
-        "session-1",
+      useSessionRecording({
+        boardPreview: "data:image/png;base64,board",
+        cameraUse: "room-wide",
+        canvas: { version: 1, focusId: null, order: [], sections: {} },
         microphone,
-        "room-wide",
         presenter,
-      ),
+        sessionId: "session-1",
+        video: {} as HTMLVideoElement,
+      }),
     );
     await act(() => result.current.start());
 
@@ -171,7 +200,9 @@ describe("useSessionRecording", () => {
       updateBoard: vi.fn(async () => undefined),
     };
     const coordinator = {
+      appendTimeline: vi.fn(async () => undefined),
       error: null,
+      recordingEpochMs: null,
       replayUrl: null,
       start: vi.fn(async () => {
         throw new DOMException("cancelled", "AbortError");
@@ -185,14 +216,15 @@ describe("useSessionRecording", () => {
       return coordinator;
     });
     const { result } = renderHook(() =>
-      useSessionRecording(
-        {} as HTMLVideoElement,
-        "data:image/png;base64,board",
-        "session-1",
+      useSessionRecording({
+        boardPreview: "data:image/png;base64,board",
+        cameraUse: "room-wide",
+        canvas: { version: 1, focusId: null, order: [], sections: {} },
         microphone,
-        "room-wide",
         presenter,
-      ),
+        sessionId: "session-1",
+        video: {} as HTMLVideoElement,
+      }),
     );
 
     await act(() => result.current.start());
@@ -210,7 +242,9 @@ describe("useSessionRecording", () => {
       updateBoard: vi.fn(async () => undefined),
     };
     const coordinator = {
+      appendTimeline: vi.fn(async () => undefined),
       error: new DOMException("network aborted", "AbortError"),
+      recordingEpochMs: null,
       replayUrl: null,
       start: vi.fn(async () => {
         throw new DOMException("network aborted", "AbortError");
@@ -224,14 +258,15 @@ describe("useSessionRecording", () => {
       return coordinator;
     });
     const { result } = renderHook(() =>
-      useSessionRecording(
-        {} as HTMLVideoElement,
-        "data:image/png;base64,board",
-        "session-1",
+      useSessionRecording({
+        boardPreview: "data:image/png;base64,board",
+        cameraUse: "room-wide",
+        canvas: { version: 1, focusId: null, order: [], sections: {} },
         microphone,
-        "room-wide",
         presenter,
-      ),
+        sessionId: "session-1",
+        video: {} as HTMLVideoElement,
+      }),
     );
 
     await act(() => result.current.start());

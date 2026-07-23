@@ -34,6 +34,7 @@ describe("RecordingCoordinator start", () => {
       [2_000],
     ]);
     expect(test.coordinator.status).toBe("recording");
+    expect(test.coordinator.recordingEpochMs).toBe(100);
     expect(test.coordinator.replayUrl).toBe("/replay/session-1");
   });
 
@@ -173,6 +174,28 @@ describe("RecordingCoordinator start", () => {
 
     expect(video.stop).toHaveBeenCalledOnce();
     expect(missingAudio.stop).toHaveBeenCalledOnce();
+  });
+});
+
+describe("RecordingCoordinator finalization", () => {
+  it("waits for timed evidence before finalizing the durable manifest", async () => {
+    const test = fixture();
+    const evidence = deferred();
+    const beforeFinalize = vi.fn(() => evidence.promise);
+    await test.coordinator.start({
+      sessionId: "session-1",
+      board: test.board,
+      speaker: test.speaker,
+      microphone: test.microphone,
+    });
+
+    const stopping = test.coordinator.stop(beforeFinalize);
+    await vi.waitFor(() => expect(beforeFinalize).toHaveBeenCalledOnce());
+
+    expect(test.client.finalizeRecording).not.toHaveBeenCalled();
+    evidence.resolve();
+    await stopping;
+    expect(test.client.finalizeRecording).toHaveBeenCalledOnce();
   });
 });
 
