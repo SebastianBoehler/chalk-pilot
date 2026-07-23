@@ -95,6 +95,27 @@ describe("WorkspaceRepository", () => {
     ]);
   });
 
+  it("serializes concurrent upserts for one structured artifact", async () => {
+    const repository = createWorkspaceRepository(root);
+    const session = await repository.createSession();
+
+    await Promise.all([
+      repository.upsertSection(session.id, chartSection("embedding-space")),
+      repository.upsertSection(session.id, {
+        ...chartSection("embedding-space"),
+        title: "Updated embedding space",
+      }),
+    ]);
+
+    const canvas = await repository.readCanvas(session.id);
+    expect(canvas.order).toEqual(["embedding-space"]);
+    expect(canvas.sections["embedding-space"]).toMatchObject({
+      kind: "chart",
+      title: "Updated embedding space",
+      data: { variant: "scatter" },
+    });
+  });
+
   it("persists and restores structured sections as JSON", async () => {
     const repository = createWorkspaceRepository(root);
     const session = await repository.createSession();

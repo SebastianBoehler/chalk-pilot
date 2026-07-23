@@ -16,12 +16,7 @@ export function createCanvasWorkerActions(
 
     async upsertSection(raw: CanvasSectionInput) {
       const section = canvasSectionInputSchema.parse(raw);
-      const canvas = await repository.readCanvas(sessionId);
-      if (!canvas.sections[section.id]) {
-        await repository.appendSection(sessionId, section);
-      } else {
-        await repository.updateSection(sessionId, section);
-      }
+      await repository.upsertSection(sessionId, section);
       return { sectionId: section.id };
     },
 

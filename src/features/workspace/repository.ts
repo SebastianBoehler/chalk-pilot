@@ -36,6 +36,7 @@ const EMPTY_CANVAS: CanvasState = {
   order: [],
   sections: {},
 };
+type SectionMutation = "append" | "update" | "upsert";
 
 export function createWorkspaceRepository(rootDirectory: string) {
   const root = resolve(rootDirectory);
@@ -124,22 +125,30 @@ export function createWorkspaceRepository(rootDirectory: string) {
     return record;
   }
 
-  async function appendSection(sessionId: string, raw: CanvasSectionInput) {
+  async function mutateSection(
+    sessionId: string,
+    raw: CanvasSectionInput,
+    mutation: SectionMutation,
+  ) {
     const input = canvasSectionInputSchema.parse(raw);
     return queue(sessionId, async () => {
       const canvas = await readCanvas(sessionId);
-      if (canvas.sections[input.id]) {
+      const current = canvas.sections[input.id];
+      if (mutation === "append" && current) {
         throw new Error(`Canvas section ${input.id} already exists`);
+      }
+      if (mutation === "update" && !current) {
+        throw new Error(`Unknown canvas section: ${input.id}`);
       }
       const now = new Date().toISOString();
       const section = canvasSectionSchema.parse({
         ...input,
-        createdAt: now,
+        createdAt: current?.createdAt ?? now,
         updatedAt: now,
       });
       const next = {
         ...canvas,
-        order: [...canvas.order, input.id],
+        order: current ? canvas.order : [...canvas.order, input.id],
         sections: { ...canvas.sections, [input.id]: section },
       };
       const paths = getSessionPaths(root, sessionId);
@@ -152,29 +161,16 @@ export function createWorkspaceRepository(rootDirectory: string) {
     });
   }
 
+  function appendSection(sessionId: string, raw: CanvasSectionInput) {
+    return mutateSection(sessionId, raw, "append");
+  }
+
   async function updateSection(sessionId: string, raw: CanvasSectionInput) {
-    const input = canvasSectionInputSchema.parse(raw);
-    return queue(sessionId, async () => {
-      const canvas = await readCanvas(sessionId);
-      const current = canvas.sections[input.id];
-      if (!current) throw new Error(`Unknown canvas section: ${input.id}`);
-      const section = canvasSectionSchema.parse({
-        ...input,
-        createdAt: current.createdAt,
-        updatedAt: new Date().toISOString(),
-      });
-      const next = {
-        ...canvas,
-        sections: { ...canvas.sections, [input.id]: section },
-      };
-      const paths = getSessionPaths(root, sessionId);
-      await atomicWrite(
-        join(paths.sectionsDirectory, payloadFileName(section)),
-        serializeSectionPayload(section),
-      );
-      await writeCanvasState(sessionId, next);
-      return next;
-    });
+    return mutateSection(sessionId, raw, "update");
+  }
+
+  function upsertSection(sessionId: string, raw: CanvasSectionInput) {
+    return mutateSection(sessionId, raw, "upsert");
   }
 
   async function setFocus(sessionId: string, sectionId: string | null) {
@@ -235,6 +231,7 @@ export function createWorkspaceRepository(rootDirectory: string) {
     readCanvas,
     appendSection,
     updateSection,
+    upsertSection,
     setFocus,
     appendTranscript,
     appendEvent,
