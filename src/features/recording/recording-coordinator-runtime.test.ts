@@ -68,6 +68,46 @@ describe("RecordingCoordinator stop and interruption", () => {
     expect(test.client.finalizeRecording).toHaveBeenCalledOnce();
   });
 
+  it("acknowledges pending and final track data before persisting interruption", async () => {
+    const test = fixture();
+    const pendingUpload = deferred();
+    const finalUpload = deferred();
+    test.client.uploadChunk
+      .mockReturnValueOnce(pendingUpload.promise)
+      .mockReturnValueOnce(finalUpload.promise);
+    await test.coordinator.start({
+      sessionId: "session-1",
+      board: test.board,
+      speaker: test.speaker,
+      microphone: test.microphone,
+    });
+    test.setClock(2_100);
+    const boardRecorder = test.recorders[0]!;
+    boardRecorder.emit("pending-board-data");
+    boardRecorder.stop.mockImplementationOnce(() => {
+      boardRecorder.state = "inactive";
+      boardRecorder.emit("final-board-data");
+      boardRecorder.onstop?.();
+    });
+
+    test.boardTrack.end();
+
+    expect(test.client.uploadChunk).toHaveBeenCalledTimes(2);
+    expect(test.client.interrupt).not.toHaveBeenCalled();
+    pendingUpload.resolve();
+    await pendingUpload.promise;
+    await Promise.resolve();
+    expect(test.client.interrupt).not.toHaveBeenCalled();
+
+    finalUpload.resolve();
+    await vi.waitFor(() => expect(test.client.interrupt).toHaveBeenCalled());
+    expect(
+      test.client.uploadChunk.mock.invocationCallOrder.every(
+        (order) => order < test.client.interrupt.mock.invocationCallOrder[0]!,
+      ),
+    ).toBe(true);
+  });
+
   it("interrupts only a recorder that reports an encoding error", async () => {
     const test = fixture();
     await test.coordinator.start({

@@ -23,9 +23,9 @@ export function RecordingControls({
         Recording
       </h2>
       <p className="text-muted mt-1 text-sm leading-relaxed">
-        Board and speaker recording start automatically. Chrome asks only for
-        the canvas: select the clean-display tab for canvas-only output, or this
-        ChalkPilot tab to include the sidebar.
+        Record one synchronized session with board, speaker, canvas, microphone,
+        and desktop audio. Chrome asks you to choose the canvas display and
+        include its audio.
       </p>
 
       {recording.error && (
@@ -36,7 +36,7 @@ export function RecordingControls({
         <div className="mt-3 space-y-3">
           <p className="flex items-center gap-2 text-sm font-semibold">
             <span className="bg-danger size-2.5 animate-pulse rounded-full" />
-            Recording 3 videos
+            Recording session
           </p>
           <Button
             className="w-full"
@@ -56,10 +56,10 @@ export function RecordingControls({
           variant="secondary"
         >
           {recording.status === "starting"
-            ? "Choose canvas…"
+            ? "Choose display and audio…"
             : recording.status === "stopping"
-              ? "Finishing videos…"
-              : "Start 3 recordings"}
+              ? "Finalizing recording…"
+              : "Start session recording"}
         </Button>
       )}
 

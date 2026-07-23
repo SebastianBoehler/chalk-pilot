@@ -153,4 +153,41 @@ describe("useSessionRecording", () => {
     expect(result.current.status).toBe("idle");
     expect(result.current.error).toBeUndefined();
   });
+
+  it("reports a network AbortError after display selection", async () => {
+    const microphone = {} as MediaStream;
+    const derived = {
+      board: {} as MediaStream,
+      speaker: {} as MediaStream,
+      stop: vi.fn(),
+      updateBoard: vi.fn(async () => undefined),
+    };
+    const coordinator = {
+      error: new DOMException("network aborted", "AbortError"),
+      replayUrl: null,
+      start: vi.fn(async () => {
+        throw new DOMException("network aborted", "AbortError");
+      }),
+      status: "error",
+      stop: vi.fn(),
+      subscribe: vi.fn(() => () => undefined),
+    };
+    mocks.createDerivedVideoStreams.mockReturnValue(derived);
+    mocks.RecordingCoordinator.mockImplementation(function () {
+      return coordinator;
+    });
+    const { result } = renderHook(() =>
+      useSessionRecording(
+        {} as HTMLVideoElement,
+        "data:image/png;base64,board",
+        "session-1",
+        microphone,
+      ),
+    );
+
+    await act(() => result.current.start());
+
+    expect(result.current.status).toBe("error");
+    expect(result.current.error).toBe("network aborted");
+  });
 });

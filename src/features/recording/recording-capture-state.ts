@@ -15,6 +15,7 @@ export interface ActiveTrack {
   mimeType: string;
   sequence: number;
   offsetMs: number;
+  interrupting: Promise<void> | null;
   interrupted: boolean;
   message: string | null;
   interruption: Promise<void> | null;
@@ -56,6 +57,7 @@ export function createActiveCapture(
     mimeType: supportedMimeType(kind),
     sequence: 0,
     offsetMs: 0,
+    interrupting: null,
     interrupted: false,
     message: null,
     interruption: null,

@@ -8,6 +8,31 @@ vi.mock("@/features/recording/use-session-recording", () => ({
 }));
 
 describe("RecordingControls", () => {
+  it("describes one synchronized five-track session recording", () => {
+    vi.mocked(useSessionRecording).mockReturnValue({
+      canStart: true,
+      canStop: false,
+      downloads: [],
+      error: undefined,
+      replayUrl: undefined,
+      start: vi.fn(),
+      status: "idle",
+      stop: vi.fn(),
+    });
+
+    render(<RecordingControls boardPreview="data:image/png;base64,board" />);
+
+    expect(
+      screen.getByText(
+        /board, speaker, canvas, microphone, and desktop audio/i,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Start session recording" }),
+    ).toBeEnabled();
+    expect(screen.queryByText(/3 videos/i)).not.toBeInTheDocument();
+  });
+
   it("keeps explicit stop available after a background interruption", () => {
     vi.mocked(useSessionRecording).mockReturnValue({
       canStart: false,

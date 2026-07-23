@@ -39,16 +39,29 @@ export class RecordingUploadQueue {
       upload = Promise.reject(error);
     }
     job.acknowledgement = upload
-      .catch((error) => this.onFailure(job.input, error))
-      .finally(() => this.jobs.delete(job));
+      .then(() => {
+        this.jobs.delete(job);
+      })
+      .catch((error) => {
+        this.jobs.delete(job);
+        return this.onFailure(job.input, error);
+      });
     return true;
   }
 
   async drain() {
-    while (this.jobs.size > 0) {
-      await Promise.all(
-        [...this.jobs].map(({ acknowledgement }) => acknowledgement),
-      );
+    await this.drainJobs(() => true);
+  }
+
+  async drainTrack(track: UploadChunkInput["track"]) {
+    await this.drainJobs((job) => job.input.track === track);
+  }
+
+  private async drainJobs(predicate: (job: UploadJob) => boolean) {
+    let jobs = [...this.jobs].filter(predicate);
+    while (jobs.length > 0) {
+      await Promise.all(jobs.map(({ acknowledgement }) => acknowledgement));
+      jobs = [...this.jobs].filter(predicate);
     }
   }
 }

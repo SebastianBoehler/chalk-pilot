@@ -1,8 +1,4 @@
-import {
-  RecordingClient,
-  type RecordingClientPort,
-  type UploadChunkInput,
-} from "./recording-client";
+import type { RecordingClientPort, UploadChunkInput } from "./recording-client";
 import {
   bindCaptureSources,
   cleanupCapture,
@@ -13,9 +9,14 @@ import {
   type ActiveTrack,
 } from "./recording-capture-state";
 import {
+  coordinatorDependencies,
+  type CoordinatorDependencies,
+} from "./recording-coordinator-dependencies";
+import {
   RecordingCoordinatorState,
   type RecordingCoordinatorStatus,
 } from "./recording-coordinator-state";
+import { settleInterruptedTrack } from "./recording-interruption";
 import {
   DISPLAY_CAPTURE_OPTIONS,
   TrackUnavailableError,
@@ -25,7 +26,6 @@ import {
   stopRecorder,
   toError,
   type CaptureSources,
-  type DisplayCaptureOptions,
   type MediaRecorderPort,
 } from "./recording-media";
 import type { RecordingManifest, TrackKind } from "./schema";
@@ -34,17 +34,7 @@ export type { RecordingClientPort, UploadChunkInput };
 export type { MediaRecorderPort };
 export type { RecordingCoordinatorStatus };
 
-interface CoordinatorDependencies {
-  client: RecordingClientPort;
-  getDisplayMedia(options: DisplayCaptureOptions): Promise<MediaStream>;
-  createMediaStream(tracks: MediaStreamTrack[]): MediaStream;
-  createRecorder(stream: MediaStream, mimeType: string): MediaRecorderPort;
-  now(): number;
-  maxPendingUploads: number;
-}
-
 const CHUNK_INTERVAL_MS = 2_000;
-const DEFAULT_MAX_PENDING_UPLOADS = 10;
 
 export class RecordingCoordinator {
   replayUrl: string | null = null;
@@ -53,24 +43,7 @@ export class RecordingCoordinator {
   private active: ActiveCapture | null = null;
 
   constructor(dependencies: Partial<CoordinatorDependencies> = {}) {
-    this.dependencies = {
-      client: dependencies.client ?? new RecordingClient(),
-      getDisplayMedia:
-        dependencies.getDisplayMedia ??
-        ((options) => navigator.mediaDevices.getDisplayMedia(options)),
-      createMediaStream:
-        dependencies.createMediaStream ?? ((tracks) => new MediaStream(tracks)),
-      createRecorder:
-        dependencies.createRecorder ??
-        ((stream, mimeType) =>
-          new MediaRecorder(
-            stream,
-            mimeType ? { mimeType } : undefined,
-          ) as unknown as MediaRecorderPort),
-      now: dependencies.now ?? (() => performance.now()),
-      maxPendingUploads:
-        dependencies.maxPendingUploads ?? DEFAULT_MAX_PENDING_UPLOADS,
-    };
+    this.dependencies = coordinatorDependencies(dependencies);
   }
 
   get status() {
@@ -99,10 +72,16 @@ export class RecordingCoordinator {
     this.replayUrl = null;
     let active: ActiveCapture | null = null;
     let display: MediaStream | null = null;
+    let displayCancelled = false;
     try {
-      display = await this.dependencies.getDisplayMedia(
-        DISPLAY_CAPTURE_OPTIONS,
-      );
+      try {
+        display = await this.dependencies.getDisplayMedia(
+          DISPLAY_CAPTURE_OPTIONS,
+        );
+      } catch (cause) {
+        displayCancelled = isDisplayCancellation(cause);
+        throw cause;
+      }
       const selected = selectRequiredTracks(sources, display);
       active = createActiveCapture({
         sources,
@@ -116,6 +95,7 @@ export class RecordingCoordinator {
             capture,
             input.track,
             `${input.track} upload failed: ${toError(error).message}`,
+            false,
           ),
       });
       this.active = active;
@@ -176,8 +156,10 @@ export class RecordingCoordinator {
         stopDisplayTracks(display);
       }
       this.active = null;
-      const cancelled = isDisplayCancellation(cause);
-      this.state.change(cancelled ? "idle" : "error", cancelled ? null : error);
+      this.state.change(
+        displayCancelled ? "idle" : "error",
+        displayCancelled ? null : error,
+      );
       throw error;
     }
   }
@@ -251,21 +233,21 @@ export class RecordingCoordinator {
     active: ActiveCapture,
     kind: TrackKind,
     message: string,
+    waitForExisting = true,
   ) {
     const track = active.tracks.find((candidate) => candidate.kind === kind)!;
-    if (!track.interrupted) {
-      track.interrupted = true;
+    if (track.interrupting) {
+      if (waitForExisting) await track.interrupting;
+      return;
+    }
+    if (!track.interrupted && !track.interrupting) {
       track.message = message;
       this.state.change("error", new Error(message));
-      const recorder = track.recorder;
-      if (recorder && recorder.state !== "inactive") {
-        try {
-          recorder.stop();
-        } catch {
-          // Explicit stop retries this recorder and still persists interruption.
-        }
-      }
+      track.interrupting = settleInterruptedTrack(active, track).then(() =>
+        this.persistInterruption(active, track),
+      );
     }
+    await track.interrupting;
     if (active.recordingCreated) await this.persistInterruption(active, track);
   }
 
@@ -288,6 +270,11 @@ export class RecordingCoordinator {
   }
 
   private async persistMarkedInterruptions(active: ActiveCapture) {
+    await Promise.all(
+      active.tracks.map(
+        ({ interrupting }) => interrupting ?? Promise.resolve(),
+      ),
+    );
     await Promise.all(
       active.tracks
         .filter(({ interrupted }) => interrupted)

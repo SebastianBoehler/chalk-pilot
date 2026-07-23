@@ -74,7 +74,7 @@ export function useSessionRecording(
       derived.current = null;
       coordinator.current = null;
       setCanStop(false);
-      if (isDisplayCancellation(cause)) {
+      if (nextCoordinator.status === "idle") {
         setStatus("idle");
         setError(undefined);
       } else {
@@ -118,10 +118,14 @@ export function useSessionRecording(
 }
 
 function recordingError(cause: unknown) {
-  return cause instanceof Error ? cause.message : "Recording could not start.";
-}
-
-function isDisplayCancellation(cause: unknown) {
-  if (!cause || typeof cause !== "object" || !("name" in cause)) return false;
-  return cause.name === "NotAllowedError" || cause.name === "AbortError";
+  if (cause instanceof Error) return cause.message;
+  if (
+    cause &&
+    typeof cause === "object" &&
+    "message" in cause &&
+    typeof cause.message === "string"
+  ) {
+    return cause.message;
+  }
+  return "Recording could not start.";
 }

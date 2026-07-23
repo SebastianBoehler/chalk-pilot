@@ -137,6 +137,25 @@ describe("RecordingCoordinator start", () => {
     expect(test.coordinator.error).toBeNull();
   });
 
+  it("reports a network AbortError after display selection as an error", async () => {
+    const test = fixture();
+    test.client.createRecording.mockRejectedValueOnce(
+      new DOMException("network aborted", "AbortError"),
+    );
+
+    await expect(
+      test.coordinator.start({
+        sessionId: "session-1",
+        board: test.board,
+        speaker: test.speaker,
+        microphone: test.microphone,
+      }),
+    ).rejects.toThrow("network aborted");
+
+    expect(test.coordinator.status).toBe("error");
+    expect(test.coordinator.error?.message).toBe("network aborted");
+  });
+
   it("cleans every acquired display track when validation fails", async () => {
     const test = fixture();
     const video = new FakeTrack("video");

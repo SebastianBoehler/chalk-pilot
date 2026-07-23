@@ -56,7 +56,7 @@ describe("LearningWorkspace", () => {
     expect(screen.getByText("Canvas worker")).toBeVisible();
     expect(screen.getByText("Building visual context…")).toBeVisible();
     const recordingButton = screen.getByRole("button", {
-      name: "Start 3 recordings",
+      name: "Start session recording",
     });
     expect(recordingButton).toBeVisible();
     expect(screen.queryByText("Room display")).not.toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("LearningWorkspace", () => {
     expect(
       screen.getByRole("button", {
         hidden: true,
-        name: "Start 3 recordings",
+        name: "Start session recording",
       }),
     ).toBe(recordingButton);
   });
