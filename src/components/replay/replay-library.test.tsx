@@ -47,4 +47,24 @@ describe("ReplayLibrary", () => {
     expect(screen.getByText(/Board · Canvas · Microphone/)).toBeVisible();
     expect(screen.getByText(/23 Jul 2026/)).toBeVisible();
   });
+
+  it("keeps an in-progress recording visible without opening it", () => {
+    render(
+      <ReplayLibrary
+        summaries={[
+          {
+            ...summary,
+            state: "recording",
+            finalizedAt: null,
+            durationMs: 0,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Recording in progress")).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: /open recording/i }),
+    ).not.toBeInTheDocument();
+  });
 });

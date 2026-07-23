@@ -43,7 +43,7 @@ export function ReplayTimelineControls({
           />
         </label>
         <time className="text-muted min-w-24 text-right tabular-nums">
-          {formatTime(currentMs)} / {formatTime(durationMs)}
+          {`${formatTime(currentMs)} / ${formatTime(durationMs)}`}
         </time>
       </div>
     </section>

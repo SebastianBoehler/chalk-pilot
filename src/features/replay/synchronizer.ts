@@ -41,19 +41,18 @@ export function createReplaySynchronizer(
 
   const syncSeek = () => {
     for (const follower of followers) {
-      follower.currentTime = leader.currentTime;
-      follower.playbackRate = leader.playbackRate;
+      align(follower);
     }
   };
   const syncPlay = () => {
     syncSeek();
     for (const follower of followers) {
-      void follower.play().catch(reportPlaybackError);
+      start(follower);
     }
   };
   const syncPause = () => {
     for (const follower of followers) {
-      if (!follower.paused) follower.pause();
+      pause(follower);
       follower.playbackRate = leader.playbackRate;
     }
   };
@@ -87,6 +86,32 @@ export function createReplaySynchronizer(
       }
     }
   }
+  function align(element: ReplayMediaElement) {
+    element.currentTime = leader.currentTime;
+    element.playbackRate = leader.playbackRate;
+  }
+  function start(element: ReplayMediaElement) {
+    if (element.paused) void element.play().catch(reportPlaybackError);
+  }
+  function pause(element: ReplayMediaElement) {
+    if (!element.paused) element.pause();
+  }
+  function retire(element: ReplayMediaElement) {
+    pause(element);
+    element.playbackRate = 1;
+  }
+  function updateFollowers(nextFollowers: ReplayMediaElement[]) {
+    const next = distinctFollowers(leader, nextFollowers);
+    const removed = followers.filter((element) => !next.includes(element));
+    const added = next.filter((element) => !followers.includes(element));
+    for (const element of removed) retire(element);
+    followers = next;
+    for (const element of added) {
+      align(element);
+      if (leader.paused) pause(element);
+      else start(element);
+    }
+  }
 
   attach();
   const timer = setInterval(syncNow, 250);
@@ -95,22 +120,32 @@ export function createReplaySynchronizer(
     setLeader(nextLeader, nextFollowers) {
       if (destroyed) return;
       if (nextLeader === leader) {
-        followers = distinctFollowers(nextLeader, nextFollowers);
-        syncSeek();
+        updateFollowers(nextFollowers);
         return;
       }
       const time = leader.currentTime;
       const rate = leader.playbackRate;
-      const paused = leader.paused;
+      const wasPlaying = !leader.paused;
+      const previousFollowers = followers;
       detach();
-      if (!paused) leader.pause();
       leader = nextLeader;
       followers = distinctFollowers(nextLeader, nextFollowers);
+      for (const removed of previousFollowers.filter(
+        (element) => element !== nextLeader && !followers.includes(element),
+      )) {
+        retire(removed);
+      }
       leader.currentTime = time;
       leader.playbackRate = rate;
       attach();
       syncSeek();
-      if (!paused) void leader.play().catch(reportPlaybackError);
+      if (wasPlaying) {
+        start(leader);
+        for (const follower of followers) start(follower);
+      } else {
+        pause(leader);
+        syncPause();
+      }
     },
     destroy() {
       if (destroyed) return;
@@ -118,7 +153,7 @@ export function createReplaySynchronizer(
       detach();
       clearInterval(timer);
       for (const follower of followers) {
-        follower.playbackRate = 1;
+        retire(follower);
       }
     },
   };

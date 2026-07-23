@@ -6,10 +6,12 @@ class MediaElementStub extends EventTarget {
   paused = true;
   playbackRate = 1;
   readonly play = vi.fn(async () => {
+    if (!this.paused) return;
     this.paused = false;
     this.dispatchEvent(new Event("play"));
   });
   readonly pause = vi.fn(() => {
+    if (this.paused) return;
     this.paused = true;
     this.dispatchEvent(new Event("pause"));
   });
@@ -84,21 +86,50 @@ describe("createReplaySynchronizer", () => {
 
     expect(second.currentTime).toBe(32);
     expect(second.play).toHaveBeenCalled();
-    expect(first.pause).toHaveBeenCalled();
+    expect(first.paused).toBe(false);
+    expect(first.pause).not.toHaveBeenCalled();
     expect(third.currentTime).toBe(32);
     sync.destroy();
   });
 
-  it("adds a late-mounted follower without replacing the leader", () => {
+  it("starts added followers and retires removed followers", async () => {
     const leader = new MediaElementStub();
     const first = new MediaElementStub();
     const late = new MediaElementStub();
     const sync = createReplaySynchronizer(leader, [first]);
     leader.currentTime = 8;
+    leader.playbackRate = 1.25;
+    await leader.play();
+    expect(first.paused).toBe(false);
 
-    sync.setLeader(leader, [first, late]);
+    sync.setLeader(leader, [late]);
 
     expect(late.currentTime).toBe(8);
+    expect(late.playbackRate).toBe(1.25);
+    expect(late.paused).toBe(false);
+    expect(first.paused).toBe(true);
+    expect(first.playbackRate).toBe(1);
+    sync.destroy();
+  });
+
+  it("keeps old and new followers playing when switching to an active leader", async () => {
+    const first = new MediaElementStub();
+    const second = new MediaElementStub();
+    const third = new MediaElementStub();
+    const sync = createReplaySynchronizer(first, [second, third]);
+    first.currentTime = 20;
+    await first.play();
+    expect(second.paused).toBe(false);
+    expect(third.paused).toBe(false);
+
+    sync.setLeader(second, [first, third]);
+
+    expect(second.paused).toBe(false);
+    expect(first.paused).toBe(false);
+    expect(third.paused).toBe(false);
+    expect(first.currentTime).toBe(20);
+    expect(third.currentTime).toBe(20);
+    expect(second.play).toHaveBeenCalledOnce();
     sync.destroy();
   });
 

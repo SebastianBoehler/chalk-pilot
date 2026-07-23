@@ -52,6 +52,7 @@ export function ReplayLibrary({
 }
 
 function RecordingCard({ summary }: { summary: RecordingSummary }) {
+  const inProgress = summary.state === "recording" || !summary.finalizedAt;
   return (
     <article className="border-border bg-surface rounded-3xl border p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-5">
@@ -60,7 +61,9 @@ function RecordingCard({ summary }: { summary: RecordingSummary }) {
             {formatStart(summary.startedAt)}
           </h2>
           <p className="text-muted mt-2">
-            {formatDuration(summary.durationMs)} · {stateLabel(summary.state)}
+            {inProgress
+              ? "Recording in progress"
+              : `${formatDuration(summary.durationMs)} · ${stateLabel(summary.state)}`}
           </p>
           <p className="text-muted mt-3 text-sm">
             {summary.availableTracks.length
@@ -68,13 +71,15 @@ function RecordingCard({ summary }: { summary: RecordingSummary }) {
               : "No recoverable tracks"}
           </p>
         </div>
-        <Link
-          aria-label={`Open recording from ${formatStart(summary.startedAt)}`}
-          className="bg-primary hover:bg-primary-hover rounded-xl px-5 py-3 font-semibold text-white"
-          href={`/replay/${encodeURIComponent(summary.sessionId)}`}
-        >
-          Open recording
-        </Link>
+        {!inProgress && (
+          <Link
+            aria-label={`Open recording from ${formatStart(summary.startedAt)}`}
+            className="bg-primary hover:bg-primary-hover rounded-xl px-5 py-3 font-semibold text-white"
+            href={`/replay/${encodeURIComponent(summary.sessionId)}`}
+          >
+            Open recording
+          </Link>
+        )}
       </div>
     </article>
   );
@@ -96,7 +101,7 @@ function formatDuration(durationMs: number) {
 function stateLabel(state: RecordingSummary["state"]) {
   if (state === "complete") return "Complete";
   if (state === "interrupted") return "Needs attention";
-  return "Recording";
+  return "Recording in progress";
 }
 
 function trackLabel(track: RecordingSummary["availableTracks"][number]) {

@@ -113,6 +113,7 @@ describe("ReplayPlayer", () => {
     const board = screen.getByTestId("track-board") as HTMLVideoElement;
     const canvasVideo = screen.getByTestId("track-canvas") as HTMLVideoElement;
     canvasVideo.currentTime = 6;
+    fireEvent.seeking(canvasVideo);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Show board as primary" }),
@@ -164,6 +165,60 @@ describe("ReplayPlayer", () => {
     expect(screen.getByText("No video track is recoverable.")).toBeVisible();
     expect(screen.getByRole("button", { name: "Play" })).toBeEnabled();
     expect(screen.getByTestId("track-microphone")).toBeInTheDocument();
+  });
+
+  it("keeps a long clock leader stable while switching a short interrupted primary", () => {
+    const long = manifest();
+    long.durationMs = 120_000;
+    long.tracks.canvas.health = "interrupted";
+    long.tracks.canvas.durationMs = 10_000;
+    long.tracks.board.durationMs = 110_000;
+    long.tracks.microphone.durationMs = 119_000;
+    render(<ReplayPlayer manifest={long} timeline={timeline} />);
+    const microphone = screen.getByTestId(
+      "track-microphone",
+    ) as HTMLAudioElement;
+    microphone.currentTime = 75;
+    fireEvent.timeUpdate(microphone);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show board as primary" }),
+    );
+
+    expect(screen.getByText("1:15 / 2:00")).toBeVisible();
+    expect(microphone.currentTime).toBe(75);
+  });
+
+  it("blocks direct playback while a recording is still in progress", () => {
+    const active = manifest();
+    active.state = "recording";
+    active.finalizedAt = null;
+
+    render(<ReplayPlayer manifest={active} timeline={timeline} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This recording is still in progress",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Play" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Downloads" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("visibly disables playback when no track has usable duration", () => {
+    const empty = manifest();
+    for (const track of Object.values(empty.tracks)) {
+      track.durationMs = 0;
+    }
+
+    render(<ReplayPlayer manifest={empty} timeline={timeline} />);
+
+    expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "No track has a usable playback duration",
+    );
   });
 
   it("highlights and seeks transcript cues from the shared timeline", () => {
@@ -223,7 +278,7 @@ describe("ReplayPlayer", () => {
 
     expect(
       within(downloads).getByRole("link", { name: "Download board" }),
-    ).toHaveAttribute("href", "/api/sessions/session-1/recording/tracks/board");
+    ).toHaveAttribute("download", "session-1-board.webm");
     expect(
       within(downloads).getByRole("link", { name: "Download session package" }),
     ).toHaveAttribute("href", "/api/sessions/session-1/recording/export");
