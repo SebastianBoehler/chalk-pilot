@@ -61,11 +61,7 @@ export function CameraStep({ onReady, mediaDevices }: CameraStepProps) {
   return (
     <section aria-labelledby="camera-title" className="space-y-6">
       <div>
-        <p className="text-primary text-sm font-semibold">Step 1 of 4</p>
-        <h1
-          className="mt-2 text-4xl font-semibold tracking-tight"
-          id="camera-title"
-        >
+        <h1 className="text-4xl font-semibold tracking-tight" id="camera-title">
           Connect the room camera
         </h1>
         <p className="text-muted mt-3 max-w-2xl text-lg">

@@ -6,10 +6,7 @@ export function PresentationCanvas({ canvas }: { canvas: CanvasState }) {
     return (
       <div className="grid min-h-[55vh] place-items-center text-center">
         <div>
-          <p className="text-primary text-sm font-semibold tracking-[0.18em] uppercase">
-            Canvas ready
-          </p>
-          <h2 className="mt-3 text-4xl font-semibold tracking-tight">
+          <h2 className="text-4xl font-semibold tracking-tight">
             Start at the board.
           </h2>
           <p className="text-muted mt-3 text-xl">

@@ -20,9 +20,8 @@ export function DisplayStep({
   return (
     <section aria-labelledby="display-title" className="space-y-7">
       <div>
-        <p className="text-primary text-sm font-semibold">Step 3 of 4</p>
         <h1
-          className="mt-2 text-4xl font-semibold tracking-tight"
+          className="text-4xl font-semibold tracking-tight"
           id="display-title"
         >
           Open the learning canvas

@@ -9,9 +9,7 @@ export function DisplaySurface() {
     <main className="bg-background min-h-screen px-8 py-7 lg:px-12">
       <header className="mx-auto mb-8 flex max-w-6xl items-center justify-between">
         <div>
-          <p className="text-primary text-sm font-semibold tracking-[0.16em] uppercase">
-            ChalkPilot
-          </p>
+          <h1 className="text-xl font-semibold">ChalkPilot</h1>
           <p className="text-muted">Room-aware learning canvas</p>
         </div>
         <div className="flex items-center gap-3 text-sm font-semibold">

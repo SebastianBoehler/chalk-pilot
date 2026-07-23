@@ -71,7 +71,7 @@ function SectionContent({ section }: { section: CanvasSectionModel }) {
   const content =
     section.kind === "math" ? `$$${section.content}$$` : section.content;
   return (
-    <div className="prose prose-xl text-foreground max-w-none">
+    <div className="learning-content text-foreground max-w-none">
       <ReactMarkdown
         rehypePlugins={[rehypeKatex]}
         remarkPlugins={[remarkGfm, remarkMath]}

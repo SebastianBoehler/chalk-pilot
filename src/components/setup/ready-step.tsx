@@ -27,11 +27,7 @@ export function ReadyStep({
   return (
     <section aria-labelledby="ready-title" className="space-y-7">
       <div>
-        <p className="text-primary text-sm font-semibold">Step 4 of 4</p>
-        <h1
-          className="mt-2 text-4xl font-semibold tracking-tight"
-          id="ready-title"
-        >
+        <h1 className="text-4xl font-semibold tracking-tight" id="ready-title">
           Ready for the board
         </h1>
         <p className="text-muted mt-3 max-w-2xl text-lg">

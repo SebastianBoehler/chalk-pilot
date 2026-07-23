@@ -37,9 +37,8 @@ export function CalibrationStep({
   return (
     <section aria-labelledby="calibration-title" className="space-y-6">
       <div>
-        <p className="text-primary text-sm font-semibold">Step 2 of 4</p>
         <h1
-          className="mt-2 text-4xl font-semibold tracking-tight"
+          className="text-4xl font-semibold tracking-tight"
           id="calibration-title"
         >
           Frame the board

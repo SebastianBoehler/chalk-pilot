@@ -1,10 +1,6 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useReducer, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { ErrorPanel } from "@/components/ui/error-panel";
-import { StatusPill } from "@/components/ui/status-pill";
 import type { BoardController } from "@/features/board/board-controller";
 import type { BoardCorners } from "@/features/board/types";
 import type { AgentState } from "@/features/display/protocol";
@@ -18,6 +14,7 @@ import {
   type TranscriptLine,
 } from "@/features/session/transcript";
 import type { CanvasState } from "@/features/workspace/schema";
+import { LearningWorkspace } from "./learning-workspace";
 
 interface SessionControllerProps {
   sessionId: string;
@@ -141,149 +138,28 @@ export function SessionController(props: SessionControllerProps) {
   };
 
   return (
-    <main className="mx-auto min-h-screen max-w-6xl px-5 py-7 lg:px-8">
-      <header className="flex flex-wrap items-start justify-between gap-5">
-        <div>
-          <p className="text-primary text-sm font-semibold tracking-[0.16em] uppercase">
-            ChalkPilot
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Work at the board
-          </h1>
-          <p className="text-muted mt-2">{boardNotice}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <StatusPill
-            label="Camera"
-            status={state.camera === "ready" ? "ready" : "error"}
-          />
-          <StatusPill
-            label="Display"
-            status={props.displayConnected ? "ready" : "error"}
-          />
-          <StatusPill
-            label={state.agentState}
-            status={
-              state.realtime === "connected"
-                ? "ready"
-                : state.realtime === "connecting"
-                  ? "waiting"
-                  : "error"
-            }
-          />
-        </div>
-      </header>
-
-      {error && (
-        <div className="mt-6">
-          <ErrorPanel message={error} title="Session needs attention" />
-        </div>
-      )}
-
-      <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <section className="border-border bg-surface overflow-hidden rounded-3xl border">
-          <div className="relative aspect-video bg-black">
-            {preview && (
-              <Image
-                alt="Current corrected board"
-                className="object-contain"
-                fill
-                sizes="(min-width: 1024px) 70vw, 100vw"
-                src={preview}
-                unoptimized
-              />
-            )}
-          </div>
-          <div className="flex flex-wrap gap-3 p-5">
-            <Button
-              disabled={!state.canSendBoard}
-              onClick={() => void inspect()}
-              type="button"
-            >
-              Inspect board now
-            </Button>
-            <Button onClick={togglePause} type="button" variant="secondary">
-              {state.paused ? "Resume listening" : "Pause listening"}
-            </Button>
-          </div>
-        </section>
-
-        <aside className="space-y-4">
-          {state.needsDisplayReopen && (
-            <Button
-              className="w-full"
-              onClick={props.onOpenDisplay}
-              type="button"
-            >
-              Reopen presentation
-            </Button>
-          )}
-          <Button
-            className="w-full"
-            onClick={props.onRecalibrate}
-            type="button"
-            variant="secondary"
-          >
-            Recalibrate board
-          </Button>
-          <details className="border-border bg-surface rounded-2xl border p-4">
-            <summary className="cursor-pointer font-semibold">
-              Transcript ({transcript.length})
-            </summary>
-            <div className="mt-4 max-h-64 space-y-3 overflow-auto">
-              {transcript.length === 0 ? (
-                <p className="text-muted text-sm">No completed turns yet.</p>
-              ) : (
-                transcript.map((line) => (
-                  <p className="text-sm" key={line.sourceId}>
-                    <strong>{line.role === "user" ? "You" : "Pilot"}:</strong>{" "}
-                    {line.text}
-                  </p>
-                ))
-              )}
-            </div>
-          </details>
-          <details className="border-border bg-surface rounded-2xl border p-4">
-            <summary className="cursor-pointer font-semibold">
-              Connection test
-            </summary>
-            <form
-              className="mt-4 space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!diagnostic.trim()) return;
-                realtimeRef.current?.sendDiagnostic(diagnostic.trim());
-                setDiagnostic("");
-              }}
-            >
-              <label className="text-muted block text-sm" htmlFor="diagnostic">
-                Typed diagnostic turn
-              </label>
-              <input
-                className="border-border w-full rounded-xl border px-3 py-2"
-                id="diagnostic"
-                onChange={(event) => setDiagnostic(event.target.value)}
-                value={diagnostic}
-              />
-              <Button
-                disabled={state.realtime !== "connected"}
-                type="submit"
-                variant="secondary"
-              >
-                Send test
-              </Button>
-            </form>
-          </details>
-          <Button
-            className="w-full"
-            onClick={props.onEnd}
-            type="button"
-            variant="danger"
-          >
-            End session
-          </Button>
-        </aside>
-      </div>
-    </main>
+    <LearningWorkspace
+      agentState={state.agentState}
+      boardNotice={boardNotice}
+      canvas={props.canvas}
+      diagnostic={diagnostic}
+      displayConnected={props.displayConnected}
+      error={error}
+      onDiagnosticChange={setDiagnostic}
+      onDiagnosticSubmit={() => {
+        if (!diagnostic.trim()) return;
+        realtimeRef.current?.sendDiagnostic(diagnostic.trim());
+        setDiagnostic("");
+      }}
+      onEnd={props.onEnd}
+      onInspect={() => void inspect()}
+      onOpenDisplay={props.onOpenDisplay}
+      onPause={togglePause}
+      onRecalibrate={props.onRecalibrate}
+      paused={state.paused}
+      preview={preview}
+      realtimeConnected={state.realtime === "connected"}
+      transcript={transcript}
+    />
   );
 }

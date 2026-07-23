@@ -1,6 +1,6 @@
 # ChalkPilot MVP Design
 
-**Status:** Approved for implementation · **Date:** 2026-07-23 · **Repository:** `chalk-pilot`
+**Status:** Implemented and verified · **Date:** 2026-07-23 · **Repository:** `chalk-pilot`
 
 ## 1. Product intent
 
@@ -62,18 +62,20 @@ The setup flow preserves confirmed calibration between steps and never silently 
 
 ### 3.2 Laptop controller
 
-The `/session` route contains:
+After onboarding, the `/session` workspace contains:
 
-- a small rectified-board preview;
-- microphone, camera, display, and realtime connection status;
+- the same durable learning canvas that is synchronized to the room display as
+  the primary, full workspace;
+- a collapsible session sidebar containing the small rectified-board preview,
+  microphone, camera, display, and realtime connection status;
 - the current state: listening, thinking, speaking, paused, or error;
-- a primary pause/resume control;
-- an explicit **Inspect board now** action;
-- recalibrate, reopen display, and end-session secondary actions;
-- a collapsed transcript/history panel for inspection, not constant attention.
+- a collapsible transcript/history panel;
+- pause/resume and explicit **Inspect board now** actions;
+- recalibrate, reopen display, and end-session recovery actions.
 
-There is no dashboard, course sidebar, chat composer, or artifact gallery in
-the MVP.
+Board operations remain contextual controls rather than the main interface.
+There is no dashboard, course-navigation sidebar, persistent chat composer, or
+artifact gallery in the MVP.
 
 ### 3.3 Presentation surface
 
