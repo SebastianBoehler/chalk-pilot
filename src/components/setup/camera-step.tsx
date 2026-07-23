@@ -32,6 +32,7 @@ export function CameraStep({
   const [selectedId, setSelectedId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const guidance = cameraGuidance(cameraUse);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -70,15 +71,14 @@ export function CameraStep({
     <section aria-labelledby="camera-title" className="space-y-6">
       <div>
         <h1 className="text-4xl font-semibold tracking-tight" id="camera-title">
-          Connect the room camera
+          Connect a camera
         </h1>
         <p className="text-muted mt-3 max-w-2xl text-lg">
           The live view stays on this Mac. ChalkPilot sends only a corrected
           board image when you finish a turn or explicitly ask it to look.
         </p>
         <p className="text-muted mt-2 max-w-2xl text-sm">
-          In an auditorium, set the room camera to its manual, widest view.
-          ChalkPilot derives the board and speaker crops from that full frame.
+          {guidance}
         </p>
       </div>
 
@@ -146,13 +146,26 @@ export function CameraStep({
               ))}
             </select>
             <p className="text-muted text-sm">
-              Choose the rear high-resolution room camera when available.
+              Choose the camera for this setup. A nearby webcam, room camera,
+              or iPhone Continuity Camera can appear here.
             </p>
           </div>
         </div>
       )}
     </section>
   );
+}
+
+function cameraGuidance(cameraUse: CameraUse | "pending"): string {
+  if (cameraUse === "board-focused") {
+    return "At home, point a nearby webcam or iPhone Continuity Camera at a whiteboard or flip chart. ChalkPilot uses the fixed frame for the board, so presenter tracking is skipped.";
+  }
+
+  if (cameraUse === "room-wide") {
+    return "In an auditorium, set the room camera to its manual, widest view. ChalkPilot derives the board and speaker crops from that full frame, then uses presenter tracking for the speaker crop.";
+  }
+
+  return "Choose whether this is a room-wide or board-focused camera before allowing access.";
 }
 
 function CameraUseOption({

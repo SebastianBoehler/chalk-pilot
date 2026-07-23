@@ -45,22 +45,44 @@ describe("CameraStep", () => {
     expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
   });
 
-  it("offers generic room-wide and board-focused camera uses", () => {
+  it("uses a generic heading and home guidance for a board-focused camera", () => {
     const onCameraUseChange = vi.fn();
 
     render(
       <CameraStep
-        cameraUse="pending"
+        cameraUse="board-focused"
         onCameraUseChange={onCameraUseChange}
         onReady={vi.fn()}
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("radio", { name: /Board-focused camera/i }),
+    expect(
+      screen.getByRole("heading", { name: "Connect a camera" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/nearby webcam or iPhone Continuity Camera/i),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/presenter tracking is skipped/i),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Room-wide camera/i }));
+
+    expect(onCameraUseChange).toHaveBeenCalledWith("room-wide");
+  });
+
+  it("explains auditorium setup for a room-wide camera", () => {
+    render(
+      <CameraStep
+        cameraUse="room-wide"
+        onCameraUseChange={vi.fn()}
+        onReady={vi.fn()}
+      />,
     );
 
-    expect(onCameraUseChange).toHaveBeenCalledWith("board-focused");
-    expect(screen.getByText(/whiteboard or flip chart/i)).toBeVisible();
+    expect(
+      screen.getByText(/manual, widest view/i),
+    ).toBeVisible();
+    expect(screen.getByText(/presenter tracking/i)).toBeVisible();
   });
 });
