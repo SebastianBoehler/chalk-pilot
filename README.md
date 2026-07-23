@@ -50,9 +50,12 @@ presentation canvas.
 - stores canvas sections, text transcripts, events, and evidence-linked learner
   notes locally.
 
-ChalkPilot does not upload or persist the raw room feed or raw audio. It does
-not require a touch display, a separate backend, LiveKit, or a
-monitor-selection screen.
+The full room-wide camera feed stays on the Mac. Live microphone audio is sent
+to OpenAI Realtime for the conversation, and corrected board images are sent
+at completed turns or when you explicitly ask the agent to inspect the board.
+Starting a recording additionally persists five local tracks as described
+below; it does not upload those recording files. ChalkPilot does not require a
+touch display, a separate backend, LiveKit, or a monitor-selection screen.
 
 ## Quick start
 
@@ -196,11 +199,14 @@ Chunks are acknowledged into:
 .chalkpilot/sessions/<session-id>/recordings/
 ```
 
-This directory is local, gitignored, and never uploaded by ChalkPilot. If the
-tab or app stops unexpectedly, restart ChalkPilot and open `/replay`.
-Contiguous acknowledged chunks remain discoverable as an interrupted session;
-recovered tracks can still be replayed or downloaded, and missing evidence is
-shown rather than presented as complete.
+This recording directory is local, gitignored, and never uploaded by
+ChalkPilot. Recording does not change the live provider boundary: microphone
+audio still reaches OpenAI Realtime, and corrected board images still reach the
+configured provider at the learning moments described below. If the tab or app
+stops unexpectedly, restart ChalkPilot and open `/replay`. Contiguous
+acknowledged chunks remain discoverable as an interrupted session; recovered
+tracks can still be replayed or downloaded, and missing evidence is shown
+rather than presented as complete.
 
 ## Replay Studio
 
@@ -243,20 +249,23 @@ Expected result:
 
 ## Privacy boundary
 
-| Data                      | Processing                                                                                 | Persistence                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| Full raw camera view      | Browser only                                                                               | Never                                          |
-| Rectified board image     | Voice provider at a turn boundary; selected canvas provider when a canvas job is delegated | Recorded locally only after explicit start     |
-| Speaker/fixed-camera view | Derived locally from the selected camera                                                   | Recorded locally only after explicit start     |
-| Microphone audio          | OpenAI Realtime WebRTC                                                                     | Separate local track only after explicit start |
-| Desktop or tab audio      | Browser display capture                                                                    | Separate local track only after explicit start |
-| Text transcript           | Browser and local server                                                                   | `.chalkpilot/`                                 |
-| Canvas artifacts          | Browser and local server                                                                   | `.chalkpilot/`                                 |
-| Learner observations      | Local server, with evidence and confidence                                                 | `.chalkpilot/learner.md`                       |
-| Recording package         | Local server                                                                               | `.chalkpilot/sessions/<id>/recordings/`        |
+Live provider inputs and explicit local recording are separate:
+
+| Data                                 | Live processing and provider transmission                                                                                                                                                                         | Local persistence                                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Room-wide camera frames              | Board correction and presenter detection run locally. MediaPipe receives downscaled frames on this Mac; no camera frame is uploaded for tracking.                                                                 | The full wide source is never persisted. After explicit recording start, only the derived corrected-board and presenter-crop tracks are stored. |
+| Board-focused camera frames          | The fixed frame remains local for framing. Its corrected board image follows the provider boundary below.                                                                                                         | After explicit recording start, the fixed full-camera view is deliberately stored as the speaker track, alongside the corrected-board track.    |
+| Corrected board image                | Sent to OpenAI Realtime after a completed learner turn or an explicit **Inspect board now** action. It is also sent to the configured canvas provider when a delegated canvas job includes current board context. | Stored as the board video track only after explicit recording start.                                                                            |
+| Microphone audio                     | Sent live to OpenAI Realtime over WebRTC for the voice conversation.                                                                                                                                              | Stored as a separate microphone track only after explicit recording start.                                                                      |
+| Presenter crop                       | Derived locally from the room-wide camera and not sent to the voice or canvas provider.                                                                                                                           | Stored as the speaker track only after explicit recording start.                                                                                |
+| Canvas video                         | Selected through Chrome display capture and not sent to the voice or canvas provider as a recording stream.                                                                                                       | Stored as the canvas track only after explicit recording start.                                                                                 |
+| Desktop or tab audio                 | Captured from the user-selected Chrome surface and not sent to OpenAI Realtime.                                                                                                                                   | Stored as a separate desktop-audio track only after explicit recording start.                                                                   |
+| Text transcript and canvas artifacts | Conversation text and canvas-job prompts/results are processed by their configured providers as part of those features.                                                                                           | Stored below `.chalkpilot/`.                                                                                                                    |
+| Recording package                    | Not sent to a provider or cloud service by ChalkPilot.                                                                                                                                                            | Stored below `.chalkpilot/sessions/<id>/recordings/`.                                                                                           |
 
 The UI indicates when a corrected board image is submitted. Local change
-detection never autonomously interrupts the learner.
+detection never autonomously interrupts the learner, and starting a recording
+does not upload the five recording tracks.
 
 ## Architecture
 

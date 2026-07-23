@@ -56,8 +56,10 @@ test("switches synchronized views, seeks transcript, controls audio, and exports
   });
   await expect(page.getByText("0:04 / 0:08")).toBeVisible();
   await page.getByRole("button", { name: "Show board as primary" }).click();
+  const board = page.getByTestId("track-board");
+  await expect(board).toHaveClass(/inset-0/);
   await expect
-    .poll(() => canvas.evaluate((media: HTMLMediaElement) => media.currentTime))
+    .poll(() => board.evaluate((media: HTMLMediaElement) => media.currentTime))
     .toBe(4.2);
 
   await page

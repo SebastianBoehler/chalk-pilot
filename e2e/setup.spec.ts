@@ -8,6 +8,13 @@ import {
 } from "./support/media-fixture";
 
 const createdSessions = new Set<string>();
+const TRACKS = [
+  "board",
+  "speaker",
+  "canvas",
+  "microphone",
+  "desktop-audio",
+] as const;
 
 test.afterEach(async () => {
   await Promise.all(
@@ -129,18 +136,45 @@ test("keeps five-track recording alive across sidebar collapse and opens replay"
   await page.getByRole("button", { name: "Stop recording" }).click();
   const replay = page.getByRole("link", { name: "Open replay" });
   await expect(replay).toBeVisible();
+
+  const manifestResponse = await page.request.get(
+    `/api/sessions/${session.id}/recording`,
+  );
+  expect(manifestResponse.ok()).toBe(true);
+  const manifest = (await manifestResponse.json()) as {
+    state: string;
+    tracks: Record<
+      string,
+      {
+        acknowledgedSequences: number[];
+        byteSize: number;
+        health: string;
+      }
+    >;
+  };
+  expect(manifest.state).toBe("complete");
+  expect(Object.keys(manifest.tracks).sort()).toEqual([...TRACKS].sort());
+  for (const track of TRACKS) {
+    expect(manifest.tracks[track]).toMatchObject({
+      acknowledgedSequences: [0],
+      health: "complete",
+    });
+    expect(manifest.tracks[track].byteSize).toBeGreaterThan(0);
+  }
+
   await replay.click();
 
   await expect(page).toHaveURL(new RegExp(`/replay/${session.id}$`));
   await expect(
     page.getByRole("heading", { name: "Session replay" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Download board" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Download desktop audio" }),
-  ).toBeVisible();
+  for (const track of TRACKS) {
+    await expect(
+      page.getByRole("link", {
+        name: `Download ${track === "desktop-audio" ? "desktop audio" : track}`,
+      }),
+    ).toBeVisible();
+  }
 });
 
 test("explains denied camera permission", async ({ page }) => {
