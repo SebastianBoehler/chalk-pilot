@@ -55,9 +55,7 @@ test("submits a board image and lets the live agent update the display", async (
   await expect(
     display.getByRole("heading", { name: "Live check" }),
   ).toBeVisible({ timeout: 45_000 });
-  await expect(
-    page.getByRole("heading", { name: "Live check" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Live check" })).toBeVisible();
   await expect(
     display.getByText("Realtime canvas tool verified."),
   ).toBeVisible();
