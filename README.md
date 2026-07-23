@@ -1,7 +1,21 @@
-# ChalkPilot
-
-ChalkPilot turns a physical board, a room camera, a laptop, and an external
-display into a voice-first learning workspace.
+<div align="center">
+  <h1>ChalkPilot</h1>
+  <p><strong>Turn a physical board into a voice-first AI learning workspace.</strong></p>
+  <p>
+    A room camera gives the learning agent context while a separate display
+    becomes its interactive teaching canvas.
+  </p>
+  <p>
+    <a href="https://github.com/SebastianBoehler/chalk-pilot/actions/workflows/ci.yml"><img src="https://github.com/SebastianBoehler/chalk-pilot/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+    <a href="https://github.com/SebastianBoehler/chalk-pilot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/SebastianBoehler/chalk-pilot" alt="Apache 2.0 license"></a>
+    <img src="https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white" alt="Node.js 24">
+  </p>
+  <p>
+    <a href="#quick-start">Quick start</a> ·
+    <a href="#room-setup">Room setup</a> ·
+    <a href="#architecture">Architecture</a>
+  </p>
+</div>
 
 You work with your hands at the board. A short-spoken OpenAI learning agent can
 inspect the perspective-corrected board at visible turn boundaries and place
@@ -139,7 +153,11 @@ The app uses the official OpenAI Agents SDK directly. See the
 and
 [voice-agent guide](https://developers.openai.com/api/docs/guides/voice-agents).
 
-## Commands
+## Development and CI
+
+[GitHub Actions](https://github.com/SebastianBoehler/chalk-pilot/actions/workflows/ci.yml)
+runs the full quality gate and a Chromium room-flow test on every push and pull
+request.
 
 ```bash
 npm test                 # focused unit and component tests
