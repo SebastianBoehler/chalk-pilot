@@ -151,8 +151,7 @@ coordinator.status:
 - Create microphone setup step and tests under `src/components/setup/`.
 - Modify setup machine, flow, ready step, and their tests under
   `src/features/setup/` and `src/components/setup/`.
-- Modify: `src/features/realtime/session.ts`
-- Modify: `src/features/realtime/session.test.ts`
+- Modify Realtime session, client-secret, their tests, and `README.md`.
 
 **Interfaces:**
 
@@ -170,8 +169,9 @@ new OpenAIRealtimeWebRTC({ mediaStream: microphone });
       superseded stream but retain the confirmed stream through the session.
 - [ ] Write a Realtime test asserting the session factory receives the exact
       confirmed stream.
-- [ ] Construct `OpenAIRealtimeWebRTC({ mediaStream })` and pass it as the
-      `RealtimeSession` transport.
+- [ ] Construct `OpenAIRealtimeWebRTC({ mediaStream })`, pass it as the
+      `RealtimeSession` transport, and use `gpt-realtime-mini` consistently in
+      both the session and ephemeral client-secret request.
 - [ ] Commit `feat(setup): share selected microphone with realtime`.
 
 ### Task 5: Dynamic calibration and presenter tracking
