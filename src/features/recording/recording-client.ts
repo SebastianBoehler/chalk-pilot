@@ -35,7 +35,10 @@ export interface RecordingClientPort {
 }
 
 export class RecordingClient implements RecordingClientPort {
-  constructor(private readonly fetcher: typeof fetch = fetch) {}
+  constructor(
+    private readonly fetcher: typeof fetch = (input, init) =>
+      globalThis.fetch(input, init),
+  ) {}
 
   async createRecording(sessionId: string) {
     return this.manifest(

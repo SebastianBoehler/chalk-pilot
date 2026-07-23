@@ -10,9 +10,13 @@ test("submits a board image and lets the live agent update the display", async (
 }) => {
   test.setTimeout(90_000);
   await page.goto("/setup");
+  await page.getByRole("radio", { name: /board-focused camera/i }).check();
   await page.getByRole("button", { name: "Allow camera" }).click();
-  await expect(page.getByLabel("Camera")).toBeVisible();
+  await expect(page.locator("#camera-device")).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Allow microphone" }).click();
+  await expect(page.locator("#microphone-device")).toBeVisible();
+  await page.getByRole("button", { name: "Confirm microphone" }).click();
 
   const confirmFrame = page.getByRole("button", {
     name: "Use this board frame",

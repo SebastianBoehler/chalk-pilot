@@ -12,7 +12,9 @@
   </p>
   <p>
     <a href="#quick-start">Quick start</a> ·
-    <a href="#room-setup">Room setup</a> ·
+    <a href="#home-setup">Home setup</a> ·
+    <a href="#lecture-room-setup">Lecture room setup</a> ·
+    <a href="#replay-studio">Replay Studio</a> ·
     <a href="#architecture">Architecture</a>
   </p>
 </div>
@@ -24,7 +26,10 @@ presentation canvas.
 
 ## What the MVP does
 
-- selects a high-resolution room camera;
+- selects any browser camera, including a high-resolution room camera or an
+  iPhone exposed through macOS Continuity Camera;
+- supports a nearby `board-focused` camera and a `room-wide` camera with a
+  confirmed, locally tracked presenter;
 - detects a likely board and provides four manual corner controls;
 - rectifies an angled camera view into a front-facing board image with
   OpenCV.js;
@@ -36,8 +41,10 @@ presentation canvas.
 - makes the agent-created learning canvas the primary post-onboarding
   workspace, with board context and transcript in a collapsible sidebar;
 - optionally opens a clean presentation window for a separate room display;
-- records the corrected board, a locally tracked speaker crop, and the selected
-  canvas as three separate local WebM videos;
+- durably records board, speaker, canvas, microphone, and desktop audio as five
+  synchronized, independent local tracks;
+- provides a local Replay Studio with view switching, transcript seeking,
+  independent audio controls, track downloads, and a portable ZIP export;
 - lets the canvas specialist append or update Markdown, math, Mermaid, image,
   and YouTube sections;
 - stores canvas sections, text transcripts, events, and evidence-linked learner
@@ -64,6 +71,12 @@ nvm use
 npm ci
 cp .env.example .env.local
 ```
+
+`npm ci` runs `npm run prepare:mediapipe` automatically. That command copies
+the pinned pose model and WASM runtime into the generated
+`public/vendor/mediapipe/` directory; those assets stay out of Git. Run it
+manually if you reuse an existing `node_modules` directory or remove the
+generated assets.
 
 Set the server-only key in `.env.local`:
 
@@ -102,21 +115,45 @@ npm run room
 The API key stays on the Next.js server. The browser receives only a short-lived
 Realtime client secret.
 
-## Room setup
+## Home setup
+
+ChalkPilot uses standard browser media APIs, so it does not need an iPhone SDK
+or a camera-name special case. If macOS presents your iPhone as a camera in
+Chrome, ChalkPilot can select it like any other input.
+
+1. Mount the iPhone so the full whiteboard or flip chart stays in frame.
+2. Make the iPhone available through macOS Continuity Camera, then open
+   `/setup` in Chrome.
+3. Choose **Board-focused camera**, allow camera access, and select the iPhone
+   from the camera menu.
+4. Select and confirm the microphone you want both the Realtime partner and the
+   recording to use.
+5. Confirm the board corners and check the fixed camera and corrected-board
+   previews. Presenter confirmation is intentionally skipped in this mode.
+6. Start the learning session. Keep the canvas on the laptop, or move a clean
+   display window to an additional monitor.
+
+Board-focused mode records the fixed camera frame as the speaker view. It does
+not crop or chase a person who is already deliberately framed by the phone.
+
+## Lecture room setup
 
 1. Connect the MacBook to the room display and use extended-desktop mode.
 2. Connect the rear camera or its capture device and set the auditorium camera
    to its manual, widest view.
 3. Run `npm run room` and open `/setup`.
-4. Allow camera access and select the rear high-resolution camera.
+4. Choose **Room-wide camera**, allow camera access, and select the rear
+   high-resolution camera.
 5. Allow microphone access, select the room input, verify its live level, and
    confirm it. ChalkPilot reuses this exact stream for Realtime and recording.
 6. Confirm the detected board corners. The handle surface follows the selected
    stream's real dimensions; drag the handles if the camera is angled or the
    automatic outline is imperfect.
-7. Start the session. Realtime WebRTC uses the microphone confirmed during
+7. In the output check, click your detected outline to confirm the presenter,
+   then walk through the teaching area and verify that the crop follows you.
+8. Start the session. Realtime WebRTC uses the microphone confirmed during
    setup without requesting a different input.
-8. Move the main canvas to the external screen, or optionally open the clean
+9. Move the main canvas to the external screen, or optionally open the clean
    display while keeping session controls on the laptop.
 
 There is intentionally no display picker. Browser applications cannot reliably
@@ -125,19 +162,65 @@ faster and more predictable.
 
 ## Local recording
 
-Open **Recording** in the session controls and choose **Start 3 recordings**.
-Chrome will ask which tab or window contains the canvas. ChalkPilot includes
-and prefers the current tab in that picker; select the clean-display tab for
-canvas-only output, or the main ChalkPilot tab to include the sidebar.
-ChalkPilot then keeps three local recordings:
+Choose **Start session recording** in the session controls. Chrome opens its
+protected screen-sharing picker every time:
 
-- the perspective-corrected board frame;
-- a smoothed speaker crop driven by local motion tracking;
-- the selected canvas tab or window.
+1. Select the clean-display tab for canvas-only output, the main ChalkPilot tab
+   to include controls, or the display/window that contains the canvas.
+2. Enable **Share tab audio**, **Share system audio**, or the equivalent audio
+   option shown by your Chrome/macOS combination.
+3. Confirm the share. ChalkPilot starts only after Chrome returns both a canvas
+   video track and a desktop-audio track.
 
-Stop recording before ending the session, then download each WebM separately.
-The source room video and recorded files are not uploaded or persisted by
-ChalkPilot.
+The browser owns this picker: ChalkPilot can request the current tab and system
+audio, but it cannot preselect a surface, bypass consent, or enable the audio
+checkbox. If the chosen surface supplies no audio track, recording stays
+stopped and shows an actionable error.
+
+One monotonic clock coordinates five separate WebM tracks:
+
+- perspective-corrected board video;
+- tracked presenter video in room-wide mode, or the fixed camera in
+  board-focused mode;
+- selected canvas video;
+- confirmed microphone audio;
+- desktop or tab audio from the selected display surface.
+
+Recording state belongs to the session, not the collapsible sidebar. Hiding the
+controls does not stop capture. Choose **Stop recording** before ending the
+session so all pending chunks and timeline events can drain and finalize.
+
+Chunks are acknowledged into:
+
+```text
+.chalkpilot/sessions/<session-id>/recordings/
+```
+
+This directory is local, gitignored, and never uploaded by ChalkPilot. If the
+tab or app stops unexpectedly, restart ChalkPilot and open `/replay`.
+Contiguous acknowledged chunks remain discoverable as an interrupted session;
+recovered tracks can still be replayed or downloaded, and missing evidence is
+shown rather than presented as complete.
+
+## Replay Studio
+
+Open [http://localhost:3000/replay](http://localhost:3000/replay) to see local
+recordings. Each finalized session opens at `/replay/<session-id>` with:
+
+- board, speaker, and canvas switching without resetting playback time;
+- optional picture-in-picture;
+- synchronized microphone and desktop audio with separate mute and volume;
+- active transcript highlighting and click-to-seek;
+- recovered-track health and interruption details;
+- individual WebM downloads; and
+- one `.chalkpilot.zip` containing the manifest, available tracks, transcript,
+  and canvas events.
+
+The local read routes are `GET /api/recordings`,
+`GET /api/sessions/<id>/recording`,
+`GET /api/sessions/<id>/recording/timeline`,
+`GET /api/sessions/<id>/recording/tracks/<track>`, and
+`GET /api/sessions/<id>/recording/export`.
 
 ## Two-turn room smoke test
 
@@ -153,20 +236,24 @@ Expected result:
 - the agent answers briefly;
 - the controller visibly reports a board submission;
 - the display gains a useful section;
-- `.chalkpilot/sessions/<id>/` contains text and canvas files but no camera or
-  audio recording.
+- if recording was not started, `.chalkpilot/sessions/<id>/` contains text and
+  canvas files but no recording tracks;
+- if recording was started and stopped, `/replay/<id>` opens all five local
+  tracks.
 
 ## Privacy boundary
 
-| Data                  | Processing                                                                                 | Persistence              |
-| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------ |
-| Full camera view      | Browser only                                                                               | Never                    |
-| Rectified board image | Voice provider at a turn boundary; selected canvas provider when a canvas job is delegated | Never                    |
-| Microphone audio      | OpenAI Realtime WebRTC                                                                     | Not stored by ChalkPilot |
-| Text transcript       | Browser and local server                                                                   | `.chalkpilot/`           |
-| Canvas artifacts      | Browser and local server                                                                   | `.chalkpilot/`           |
-| Learner observations  | Local server, with evidence and confidence                                                 | `.chalkpilot/learner.md` |
-| Recorded WebM videos  | Browser only                                                                               | User download only       |
+| Data                      | Processing                                                                                 | Persistence                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| Full raw camera view      | Browser only                                                                               | Never                                          |
+| Rectified board image     | Voice provider at a turn boundary; selected canvas provider when a canvas job is delegated | Recorded locally only after explicit start     |
+| Speaker/fixed-camera view | Derived locally from the selected camera                                                   | Recorded locally only after explicit start     |
+| Microphone audio          | OpenAI Realtime WebRTC                                                                     | Separate local track only after explicit start |
+| Desktop or tab audio      | Browser display capture                                                                    | Separate local track only after explicit start |
+| Text transcript           | Browser and local server                                                                   | `.chalkpilot/`                                 |
+| Canvas artifacts          | Browser and local server                                                                   | `.chalkpilot/`                                 |
+| Learner observations      | Local server, with evidence and confidence                                                 | `.chalkpilot/learner.md`                       |
+| Recording package         | Local server                                                                               | `.chalkpilot/sessions/<id>/recordings/`        |
 
 The UI indicates when a corrected board image is submitted. Local change
 detection never autonomously interrupts the learner.
@@ -179,6 +266,10 @@ ChalkPilot is one Next.js App Router application:
   bounded change detection;
 - `src/features/realtime` owns ephemeral credentials, the Agents SDK adapter,
   learning instructions, and typed agent tools;
+- `src/features/recording` owns five-track capture, local pose tracking,
+  chunk persistence, recovery, and the recording manifest;
+- `src/features/replay` and `src/components/replay` own synchronized playback
+  and local exports;
 - `src/features/canvas-worker` owns provider selection, the bounded Vercel AI
   SDK tool loop, per-session job serialization, and asynchronous browser
   completion handling;
@@ -223,6 +314,18 @@ browser site settings and retry. Camera access requires localhost or HTTPS.
 **The corrected board is blank or skewed.** Select **Detect again**, then place
 the four corner handles clockwise around only the writable board surface.
 
+**Recording does not start.** Reopen Chrome's picker, select the canvas surface,
+and enable its audio option. ChalkPilot requires both canvas video and desktop
+audio and does not silently drop either track.
+
+**The iPhone is missing.** Confirm Continuity Camera is available to macOS and
+not already in use by another app, then reload setup. ChalkPilot only shows
+devices exposed by Chrome.
+
+**Replay marks a track interrupted.** The available contiguous chunks remain
+usable. Download them or the session package; the manifest explains which
+track ended or which sequence was missing.
+
 **The presentation is waiting for the controller.** Reopen it from the laptop
 controller. Both windows must use the same browser profile and origin.
 
@@ -238,10 +341,10 @@ controller. Both windows must use the same browser profile and origin.
 
 ## Project status
 
-This is a deliberately lean, single-user MVP for an in-room trial. Calibration
-does not survive a page reload, collaboration is voice/board based, and each
-room camera must be switched to a stable manual/wide composition before
-calibration.
+This is a deliberately lean, single-user local MVP for home and lecture-room
+trials. Calibration does not survive a page reload, collaboration is
+voice/board based, and Chrome always retains control over display selection and
+desktop-audio consent.
 
 The implementation is an original open-source project. No source code from the
 University of Tübingen AI Tutor was copied.

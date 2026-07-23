@@ -17,7 +17,10 @@ export interface ReplayClientPort {
 }
 
 export class ReplayClient implements ReplayClientPort {
-  constructor(private readonly fetcher: typeof fetch = fetch) {}
+  constructor(
+    private readonly fetcher: typeof fetch = (input, init) =>
+      globalThis.fetch(input, init),
+  ) {}
 
   async list() {
     const value = await responseJson(await this.fetcher("/api/recordings"));

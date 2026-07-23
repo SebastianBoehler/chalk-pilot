@@ -5,6 +5,7 @@ export default defineConfig({
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   reporter: "line",
+  workers: 1,
   use: {
     ...devices["Desktop Chrome"],
     baseURL: "http://127.0.0.1:3100",
