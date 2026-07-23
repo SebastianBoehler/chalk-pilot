@@ -4,6 +4,7 @@ import {
   canvasSectionInputSchema,
   identifierSchema,
   learnerMemoryInputSchema,
+  transcriptTurnSchema,
 } from "./schema";
 
 const canvasMutationSchema = z.discriminatedUnion("action", [
@@ -64,7 +65,21 @@ export function createWorkspaceApi(repository: WorkspaceRepository) {
     });
   }
 
-  return { createSession, getCanvas, mutateCanvas, remember };
+  async function appendTranscript(sessionId: string, request: Request) {
+    return safely(async () => {
+      const turn = transcriptTurnSchema.parse(await request.json());
+      await repository.appendTranscript(sessionId, turn);
+      return Response.json({ saved: true }, { status: 201 });
+    });
+  }
+
+  return {
+    createSession,
+    getCanvas,
+    mutateCanvas,
+    remember,
+    appendTranscript,
+  };
 }
 
 async function safely(operation: () => Promise<Response>): Promise<Response> {

@@ -73,6 +73,23 @@ describe("workspace API", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).entries).toHaveLength(1);
   });
+
+  it("appends a validated transcript turn", async () => {
+    const api = createWorkspaceApi(createWorkspaceRepository(root));
+    const session = await (await api.createSession()).json();
+
+    const response = await api.appendTranscript(
+      session.id,
+      jsonRequest({
+        id: "turn-1-user",
+        role: "user",
+        text: "I think the gradient points uphill.",
+        createdAt: "2026-07-23T08:00:00.000Z",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+  });
 });
 
 function jsonRequest(body: unknown): Request {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import {
   emptyDisplayState,
   reduceDisplayState,
@@ -26,25 +26,41 @@ export function useDisplayReceiver(): DisplayState {
   return state;
 }
 
-export function useDisplayPublisher(snapshot: DisplaySnapshot): boolean {
+export function useDisplayPublisher(snapshot: DisplaySnapshot) {
   const [connected, setConnected] = useState(false);
+  const [readySignal, setReadySignal] = useState(0);
+  const channelRef = useRef<BroadcastChannel>(null);
+  const snapshotRef = useRef(snapshot);
 
   useEffect(() => {
     const channel = new BroadcastChannel(CHANNEL_NAME);
+    channelRef.current = channel;
     channel.onmessage = (event) => {
       const message = parseDisplayMessage(event.data);
       if (message?.type === "ready") {
         setConnected(true);
+        setReadySignal((value) => value + 1);
         channel.postMessage({
           version: 1,
           type: "snapshot",
-          payload: snapshot,
+          payload: snapshotRef.current,
         });
       }
     };
-    channel.postMessage({ version: 1, type: "snapshot", payload: snapshot });
-    return () => channel.close();
+    return () => {
+      channelRef.current = null;
+      channel.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+    channelRef.current?.postMessage({
+      version: 1,
+      type: "snapshot",
+      payload: snapshot,
+    });
   }, [snapshot]);
 
-  return connected;
+  return { connected, readySignal };
 }

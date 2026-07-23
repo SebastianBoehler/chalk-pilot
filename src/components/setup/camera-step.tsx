@@ -17,10 +17,7 @@ interface CameraStepProps {
   mediaDevices?: CameraMediaDevices;
 }
 
-export function CameraStep({
-  onReady,
-  mediaDevices = navigator.mediaDevices,
-}: CameraStepProps) {
+export function CameraStep({ onReady, mediaDevices }: CameraStepProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream>();
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -42,8 +39,9 @@ export function CameraStep({
     setBusy(true);
     setError(undefined);
     try {
-      const nextStream = await requestCamera(mediaDevices, deviceId);
-      const nextDevices = await listVideoDevices(mediaDevices);
+      const browserMediaDevices = mediaDevices ?? navigator.mediaDevices;
+      const nextStream = await requestCamera(browserMediaDevices, deviceId);
+      const nextDevices = await listVideoDevices(browserMediaDevices);
       stopCamera(stream);
       setStream(nextStream);
       setDevices(nextDevices);
