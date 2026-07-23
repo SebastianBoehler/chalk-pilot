@@ -74,6 +74,29 @@ describe("RecordingControls", () => {
     expect(screen.queryByText(/download/i)).not.toBeInTheDocument();
   });
 
+  it("keeps an interrupted recording visibly incomplete but replayable", () => {
+    const state = recording({
+      canStart: false,
+      canStop: false,
+      durationMs: 3_200,
+      error: "The board track was interrupted.",
+      replayUrl: "/replay/session-1",
+      status: "error",
+    });
+
+    const view = render(<RecordingControls recording={state} />);
+
+    expect(view.container).toHaveTextContent("Needs attention · 0:03");
+    expect(view.container).toHaveTextContent(
+      "The board track was interrupted.",
+    );
+    expect(view.container.querySelector("a")).toHaveAttribute(
+      "href",
+      "/replay/session-1",
+    );
+    expect(view.container.querySelector("button")).not.toBeInTheDocument();
+  });
+
   it("cannot stop or reset its controller-owned recording when remounted", () => {
     const state = recording({
       canStart: false,

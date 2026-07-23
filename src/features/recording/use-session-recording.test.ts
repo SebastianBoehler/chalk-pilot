@@ -187,7 +187,9 @@ describe("useSessionRecording", () => {
     expect(result.current.error).toBe("The board track was interrupted.");
     expect(result.current.canStop).toBe(true);
     await act(() => result.current.stop());
-    expect(result.current.status).toBe("complete");
+    expect(result.current.status).toBe("error");
+    expect(result.current.error).toBe("The board track was interrupted.");
+    expect(result.current.replayUrl).toBe("/replay/session-1");
     expect(result.current.canStop).toBe(false);
   });
 

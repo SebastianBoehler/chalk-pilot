@@ -14,6 +14,7 @@ import {
   type RecordingCoordinatorStatus,
 } from "./recording-coordinator";
 import { RecordingTimeline } from "./recording-timeline";
+import type { RecordingManifest } from "./schema";
 
 export interface SessionRecordingOptions {
   video: HTMLVideoElement | undefined;
@@ -153,8 +154,9 @@ export function useSessionRecording(
     if (!activeCoordinator || stopping.current) return;
     stopping.current = true;
     const activeTimeline = timeline.current;
+    const interruptionWarning = activeCoordinator.error?.message;
     setStatus("stopping");
-    setError(undefined);
+    if (!interruptionWarning) setError(undefined);
     window.clearInterval(durationTimer.current);
     activeTimeline?.closeOpenCues(performance.now());
     try {
@@ -164,7 +166,12 @@ export function useSessionRecording(
       activeTimeline?.finish();
       setDurationMs(manifest.durationMs);
       setReplayUrl(activeCoordinator.replayUrl ?? undefined);
-      setStatus("complete");
+      if (manifest.state === "complete") {
+        setStatus("complete");
+      } else {
+        setStatus("error");
+        setError(interruptedRecordingMessage(manifest, interruptionWarning));
+      }
     } catch (cause) {
       setStatus("error");
       setError(recordingError(cause));
@@ -238,4 +245,22 @@ function recordingError(cause: unknown) {
 function sealAndDrain(timeline: RecordingTimeline | null) {
   timeline?.seal();
   return timeline?.drain() ?? Promise.resolve();
+}
+
+function interruptedRecordingMessage(
+  manifest: RecordingManifest,
+  existing?: string,
+) {
+  if (existing) return existing;
+  const interrupted = Object.values(manifest.tracks).filter(
+    ({ health }) => health === "interrupted",
+  );
+  const detail = interrupted
+    .map(({ interruption }) => interruption?.message)
+    .filter((message): message is string => Boolean(message));
+  if (detail.length) return detail.join(" ");
+  const tracks = interrupted.map(({ kind }) => kind).join(", ");
+  return tracks
+    ? `Recording is incomplete because these tracks were interrupted: ${tracks}.`
+    : "Recording is incomplete because one or more tracks were interrupted.";
 }
