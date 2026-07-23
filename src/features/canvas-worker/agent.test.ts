@@ -129,20 +129,22 @@ describe("canvas worker agent context", () => {
       },
     });
 
-    await runCanvasAgent({
-      model,
-      canvas,
-      request: {
-        jobId: "job-policy",
-        goal: "Show token choices.",
-        artifact: "comparison",
-      },
-      actions: {
-        readCanvas: async () => canvas,
-        upsertSection: async (section) => ({ sectionId: section.id }),
-        focusSection: async ({ sectionId }) => ({ sectionId }),
-      } as CanvasWorkerActions,
-    });
+    await expect(
+      runCanvasAgent({
+        model,
+        canvas,
+        request: {
+          jobId: "job-policy",
+          goal: "Show token choices.",
+          artifact: "comparison",
+        },
+        actions: {
+          readCanvas: async () => canvas,
+          upsertSection: async (section) => ({ sectionId: section.id }),
+          focusSection: async ({ sectionId }) => ({ sectionId }),
+        } as CanvasWorkerActions,
+      }),
+    ).rejects.toThrow("Canvas job must upsert and focus one section.");
 
     expect(modelPrompt).toContain("exactly one focal artifact");
     expect(modelPrompt).toContain("update that stable ID before appending");
@@ -154,7 +156,7 @@ describe("canvas worker agent context", () => {
     expect(upsertSchema).toContain('"checkpoint"');
   });
 
-  it("reserves enough output for a reasoning model to reach its first tool call", async () => {
+  it("rejects a model completion that never mutates the canvas", async () => {
     let maxOutputTokens: number | undefined;
     const model = new MockLanguageModelV4({
       doGenerate: async (options) => {
@@ -185,22 +187,23 @@ describe("canvas worker agent context", () => {
       },
     });
 
-    const summary = await runCanvasAgent({
-      model,
-      canvas,
-      request: {
-        jobId: "job-1",
-        goal: "Add one concise visual explanation.",
-        artifact: "explanation",
-      },
-      actions: {
-        readCanvas: async () => canvas,
-        upsertSection: async (section) => ({ sectionId: section.id }),
-        focusSection: async ({ sectionId }) => ({ sectionId }),
-      } as CanvasWorkerActions,
-    });
+    await expect(
+      runCanvasAgent({
+        model,
+        canvas,
+        request: {
+          jobId: "job-1",
+          goal: "Add one concise visual explanation.",
+          artifact: "explanation",
+        },
+        actions: {
+          readCanvas: async () => canvas,
+          upsertSection: async (section) => ({ sectionId: section.id }),
+          focusSection: async ({ sectionId }) => ({ sectionId }),
+        } as CanvasWorkerActions,
+      }),
+    ).rejects.toThrow("Canvas job must upsert and focus one section.");
 
-    expect(summary).toBe("Canvas updated.");
     expect(maxOutputTokens).toBeGreaterThanOrEqual(4_096);
   });
 });

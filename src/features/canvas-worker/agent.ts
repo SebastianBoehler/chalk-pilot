@@ -9,12 +9,13 @@ import {
 import { z } from "zod";
 import {
   canvasSectionInputSchema,
-  hasSectionContent,
   identifierSchema,
   type CanvasState,
 } from "@/features/workspace/schema";
 import type { CanvasWorkerActions } from "./actions";
 import { artifactPlaybookInstructions } from "./artifact-playbook";
+import { createCanvasJobActions } from "./canvas-job-actions";
+import { projectCanvasSnapshot } from "./canvas-snapshot";
 import type { CanvasJobRequest } from "./schema";
 
 const completionSchema = z.object({
@@ -47,6 +48,7 @@ export interface RunCanvasAgentInput {
 }
 
 export async function runCanvasAgent(input: RunCanvasAgentInput) {
+  const actions = createCanvasJobActions(input.actions);
   const agent = new ToolLoopAgent({
     id: "chalkpilot-canvas-worker",
     model: input.model,
@@ -58,24 +60,25 @@ export async function runCanvasAgent(input: RunCanvasAgentInput) {
       read_canvas: tool({
         description: "Read the latest persisted ChalkPilot canvas.",
         inputSchema: z.object({}),
-        execute: () => input.actions.readCanvas(),
+        execute: () => actions.readCanvas(),
       }),
       upsert_section: tool({
         description:
           "Append a typed canvas section or replace the section with the same ID.",
         inputSchema: canvasSectionInputSchema,
-        execute: (section) => input.actions.upsertSection(section),
+        execute: (section) => actions.upsertSection(section),
       }),
       focus_section: tool({
         description: "Focus the most relevant existing canvas section.",
         inputSchema: z.object({ sectionId: identifierSchema }),
-        execute: (focus) => input.actions.focusSection(focus),
+        execute: (focus) => actions.focusSection(focus),
       }),
     },
   });
   const result = await agent.generate({
     messages: buildCanvasAgentMessages(input.request, input.canvas),
   });
+  actions.assertComplete();
   return result.output.summary;
 }
 
@@ -86,7 +89,7 @@ export function buildCanvasAgentMessages(
   const text = [
     `Learning goal: ${request.goal}`,
     `Preferred artifact: ${request.artifact}`,
-    `Current canvas: ${JSON.stringify(canvasSnapshot(canvas))}`,
+    `Current canvas: ${JSON.stringify(projectCanvasSnapshot(canvas))}`,
     "Use the corrected board image as visual evidence when one is attached.",
   ].join("\n\n");
   return [
@@ -108,22 +111,5 @@ function boardImagePart(dataUrl: string) {
       type: "data" as const,
       data: dataUrl.slice(separator + ";base64,".length),
     },
-  };
-}
-
-function canvasSnapshot(canvas: CanvasState) {
-  return {
-    focusId: canvas.focusId,
-    sections: canvas.order.slice(-12).map((id) => {
-      const section = canvas.sections[id];
-      return {
-        id: section.id,
-        kind: section.kind,
-        title: section.title,
-        ...(hasSectionContent(section)
-          ? { content: section.content.slice(0, 4_000) }
-          : { data: section.data }),
-      };
-    }),
   };
 }
