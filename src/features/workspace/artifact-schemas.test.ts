@@ -55,6 +55,43 @@ describe("structured learning artifact schemas", () => {
     expect(() =>
       chartArtifactDataSchema.parse({ ...chart, svg: "<svg />" }),
     ).toThrow();
+    expect(() =>
+      chartArtifactDataSchema.parse({
+        ...chart,
+        series: [
+          {
+            name: "Loss",
+            points: [
+              { x: -1e308, y: -1e308 },
+              { x: 1e308, y: 1e308 },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(/representable scale/i);
+    expect(() =>
+      chartArtifactDataSchema.parse({
+        ...chart,
+        series: [
+          {
+            name: "Loss",
+            points: [{ x: Number.MAX_VALUE, y: Number.MAX_VALUE }],
+          },
+        ],
+      }),
+    ).toThrow(/representable scale/i);
+    expect(() =>
+      chartArtifactDataSchema.parse({
+        ...chart,
+        annotations: [{ x: 1, y: Number.MAX_VALUE, label: "Out of range" }],
+      }),
+    ).toThrow(/representable scale/i);
+    expect(
+      chartArtifactDataSchema.parse({
+        ...chart,
+        series: [{ name: "Loss", points: [{ x: 4, y: 12 }] }],
+      }).series,
+    ).toHaveLength(1);
   });
 
   it("accepts a semantic comparison and rejects invalid columns or style fields", () => {

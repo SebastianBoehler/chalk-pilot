@@ -51,7 +51,12 @@ export function ChartArtifact({
   const [xMinimum, xMaximum] = numericX
     ? numericRange(points.map((point) => Number(point.x)))
     : [0, Math.max(categories.length - 1, 1)];
-  const yValues = points.map((point) => point.y);
+  const yValues = [
+    ...points.map((point) => point.y),
+    ...(data.annotations ?? []).flatMap(({ y }) =>
+      y === undefined ? [] : [y],
+    ),
+  ];
   const yMinimum =
     data.variant === "bar" ? Math.min(0, ...yValues) : Math.min(...yValues);
   const yMaximum =
@@ -59,27 +64,30 @@ export function ChartArtifact({
   const [yStart, yEnd] = numericRange([yMinimum, yMaximum]);
   const chartWidth = WIDTH - MARGIN.left - MARGIN.right;
   const chartHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
+  const categoryBandWidth = chartWidth / Math.max(categories.length, 1);
   const xCoordinate = (value: ChartPoint["x"]) => {
-    const numericValue = numericX
-      ? Number(value)
-      : categories.indexOf(String(value));
+    if (!numericX) {
+      return (
+        MARGIN.left +
+        (categories.indexOf(String(value)) + 0.5) * categoryBandWidth
+      );
+    }
     return (
       MARGIN.left +
-      ((numericValue - xMinimum) / (xMaximum - xMinimum)) * chartWidth
+      ((Number(value) - xMinimum) / (xMaximum - xMinimum)) * chartWidth
     );
   };
   const yCoordinate = (value: number) =>
     MARGIN.top + ((yEnd - value) / (yEnd - yStart)) * chartHeight;
-  const xTicks = numericX
+  const xTicks: Array<ChartPoint["x"]> = numericX
     ? tickValues(xMinimum, xMaximum)
-    : categories.slice(0, 12).map((label) => categories.indexOf(label));
+    : categories.slice(0, 12);
   const baseline =
     data.variant === "bar" ? yCoordinate(0) : yCoordinate(yStart);
-  const barGroupWidth = chartWidth / Math.max(categories.length, 1);
-  const barWidth = Math.max(
-    8,
-    Math.min(42, (barGroupWidth * 0.72) / data.series.length),
-  );
+  const barGroupWidth = numericX
+    ? chartWidth / Math.max(categories.length, 1)
+    : categoryBandWidth;
+  const barWidth = Math.min(42, (barGroupWidth * 0.72) / data.series.length);
 
   return (
     <figure aria-label={title} className="space-y-4">
@@ -123,12 +131,8 @@ export function ChartArtifact({
           y2={baseline}
         />
         {xTicks.map((tick) => {
-          const label = numericX
-            ? formatNumber(tick)
-            : (categories[tick] ?? "");
-          const coordinate =
-            MARGIN.left +
-            ((tick - xMinimum) / (xMaximum - xMinimum)) * chartWidth;
+          const label = numericX ? formatNumber(Number(tick)) : String(tick);
+          const coordinate = xCoordinate(tick);
           return (
             <text
               fill="#676b63"

@@ -70,6 +70,80 @@ const checkpoint: CheckpointArtifactData = {
 };
 
 describe("trusted structured learning artifacts", () => {
+  it("keeps categorical bars within the plot for one and many categories", () => {
+    const cases: ChartArtifactData[] = [
+      {
+        variant: "bar",
+        series: [{ name: "One", points: [{ x: "Only", y: 3 }] }],
+      },
+      {
+        variant: "bar",
+        series: [
+          {
+            name: "Many",
+            points: [
+              { x: "First", y: 3 },
+              { x: "Second", y: 4 },
+              { x: "Third", y: 5 },
+            ],
+          },
+        ],
+      },
+      {
+        variant: "bar",
+        series: [
+          {
+            name: "Dense",
+            points: Array.from({ length: 100 }, (_, index) => ({
+              x: `Category ${index + 1}`,
+              y: index + 1,
+            })),
+          },
+        ],
+      },
+    ];
+
+    for (const data of cases) {
+      const { container, unmount } = render(
+        <ChartArtifact data={data} title="Categorical bars" />,
+      );
+      const bars = Array.from(container.querySelectorAll("svg rect")).map(
+        (bar) => ({
+          width: Number(bar.getAttribute("width")),
+          x: Number(bar.getAttribute("x")),
+        }),
+      );
+      unmount();
+
+      expect(bars).toHaveLength(data.series[0]?.points.length ?? 0);
+      for (const bar of bars) {
+        expect(bar.x).toBeGreaterThanOrEqual(78);
+        expect(bar.x + bar.width).toBeLessThanOrEqual(766);
+      }
+    }
+  });
+
+  it("uses the same categorical band center for ticks and annotations", () => {
+    const { container, unmount } = render(
+      <ChartArtifact
+        data={{
+          variant: "bar",
+          series: [{ name: "Recall", points: [{ x: "Only", y: 3 }] }],
+          annotations: [{ x: "Only", label: "Review" }],
+        }}
+        title="Categorical annotation"
+      />,
+    );
+    const tick = Array.from(container.querySelectorAll("svg text")).find(
+      (node) => node.textContent === "Only",
+    );
+    const annotation = container.querySelector('svg line[stroke="#171916"]');
+    const annotationX = annotation?.getAttribute("x1");
+    unmount();
+
+    expect(tick).toHaveAttribute("x", annotationX);
+  });
+
   it("renders a chart as an accessible, application-generated SVG", () => {
     render(
       <ChartArtifact data={chart} title="Recall improves with practice" />,

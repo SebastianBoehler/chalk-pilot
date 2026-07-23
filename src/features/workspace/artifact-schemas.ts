@@ -24,6 +24,25 @@ const chartAnnotationSchema = z
   })
   .strict();
 
+function hasRepresentableScale(values: number[]) {
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const padding =
+    minimum === maximum
+      ? Math.max(Math.abs(minimum) * 0.1, 1)
+      : (maximum - minimum) * 0.1;
+  const start = minimum - padding;
+  const end = maximum + padding;
+
+  return (
+    Number.isFinite(padding) &&
+    Number.isFinite(start) &&
+    Number.isFinite(end) &&
+    Number.isFinite(end - start) &&
+    start < end
+  );
+}
+
 export const chartArtifactDataSchema = z
   .object({
     variant: z.enum(["line", "bar", "scatter"]),
@@ -43,7 +62,7 @@ export const chartArtifactDataSchema = z
     annotations: z.array(chartAnnotationSchema).max(8).optional(),
   })
   .strict()
-  .superRefine(({ annotations = [], series }, context) => {
+  .superRefine(({ annotations = [], series, variant }, context) => {
     const points = series.flatMap(({ points }) => points);
 
     for (const [index, annotation] of annotations.entries()) {
@@ -54,6 +73,31 @@ export const chartArtifactDataSchema = z
           path: ["annotations", index, "x"],
         });
       }
+    }
+
+    const numericX = points.every((point) => typeof point.x === "number");
+    if (
+      numericX &&
+      !hasRepresentableScale(points.map((point) => Number(point.x)))
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Chart x-values must form a representable scale",
+        path: ["series"],
+      });
+    }
+
+    const yValues = [
+      ...points.map((point) => point.y),
+      ...annotations.flatMap(({ y }) => (y === undefined ? [] : [y])),
+    ];
+    const yScaleValues = variant === "bar" ? [0, ...yValues] : yValues;
+    if (!hasRepresentableScale(yScaleValues)) {
+      context.addIssue({
+        code: "custom",
+        message: "Chart y-values must form a representable scale",
+        path: ["series"],
+      });
     }
   });
 
