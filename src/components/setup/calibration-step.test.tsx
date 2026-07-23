@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BoardCorners } from "@/features/board/types";
 import { CalibrationStep } from "./calibration-step";
 
@@ -11,6 +11,33 @@ const corners: BoardCorners = [
 ];
 
 describe("CalibrationStep", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("matches the handle surface to the camera frame aspect ratio", () => {
+    render(
+      <CalibrationStep
+        corners={corners}
+        onConfirm={vi.fn()}
+        onCornersChange={vi.fn()}
+        onDetect={vi.fn()}
+        rectifiedUrl="data:image/png;base64,rectified"
+        sourceSize={{ width: 1_920, height: 1_200 }}
+        sourceUrl="data:image/png;base64,source"
+        status="ready"
+      />,
+    );
+
+    const source = screen.getByRole("img", {
+      name: "Camera view for board calibration",
+    });
+    expect(source.parentElement?.getAttribute("style")).toContain(
+      "aspect-ratio: 1.6",
+    );
+  });
+
   it("supports keyboard corner adjustment and explicit confirmation", () => {
     const onCornersChange = vi.fn();
     const onConfirm = vi.fn();
@@ -22,6 +49,7 @@ describe("CalibrationStep", () => {
         onCornersChange={onCornersChange}
         onDetect={vi.fn()}
         rectifiedUrl="data:image/png;base64,rectified"
+        sourceSize={{ width: 1_920, height: 1_200 }}
         sourceUrl="data:image/png;base64,source"
         status="ready"
       />,

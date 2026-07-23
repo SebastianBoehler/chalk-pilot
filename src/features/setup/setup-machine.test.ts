@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { initialSetupState, setupReducer, setupReady } from "./setup-machine";
 
 describe("setup machine", () => {
-  it("requires camera, calibration, display, and OpenAI readiness", () => {
+  it("requires camera, calibration, and OpenAI readiness", () => {
     let state = initialSetupState;
 
     state = setupReducer(state, { type: "camera_ready" });
@@ -13,11 +13,7 @@ describe("setup machine", () => {
     expect(state.step).toBe("calibration");
     state = setupReducer(state, { type: "calibration_confirmed" });
     state = setupReducer(state, { type: "advance" });
-    expect(state.step).toBe("display");
-
-    state = setupReducer(state, { type: "advance" });
-    expect(state.step).toBe("display");
-    state = setupReducer(state, { type: "display_connected" });
+    expect(state.step).toBe("preview");
     state = setupReducer(state, { type: "advance" });
     expect(state.step).toBe("ready");
     expect(setupReady(state)).toBe(false);
@@ -26,7 +22,7 @@ describe("setup machine", () => {
     expect(setupReady(state)).toBe(true);
   });
 
-  it("surfaces a lost display without discarding completed setup", () => {
+  it("keeps setup ready when the optional clean display closes", () => {
     const ready = {
       ...initialSetupState,
       step: "ready" as const,
@@ -40,6 +36,6 @@ describe("setup machine", () => {
 
     expect(lost.display).toBe("closed");
     expect(lost.calibration).toBe("confirmed");
-    expect(setupReady(lost)).toBe(false);
+    expect(setupReady(lost)).toBe(true);
   });
 });

@@ -33,14 +33,17 @@ presentation canvas.
 - sends no board image until a completed turn or explicit inspection;
 - makes the agent-created learning canvas the primary post-onboarding
   workspace, with board context and transcript in a collapsible sidebar;
-- opens a dedicated presentation window that you move to the external display;
+- optionally opens a clean presentation window for a separate room display;
+- records the corrected board, a locally tracked speaker crop, and the selected
+  canvas as three separate local WebM videos;
 - lets the agent append or update Markdown, math, Mermaid, image, and YouTube
   sections;
 - stores canvas sections, text transcripts, events, and evidence-linked learner
   notes locally.
 
-ChalkPilot does not record room video or raw audio. It does not require a touch
-display, a separate backend, LiveKit, or a monitor-selection screen.
+ChalkPilot does not upload or persist the raw room feed or raw audio. It does
+not require a touch display, a separate backend, LiveKit, or a
+monitor-selection screen.
 
 ## Quick start
 
@@ -87,20 +90,37 @@ Realtime client secret.
 ## Room setup
 
 1. Connect the MacBook to the room display and use extended-desktop mode.
-2. Connect the rear camera or its capture device.
+2. Connect the rear camera or its capture device and set the auditorium camera
+   to its manual, widest view.
 3. Run `npm run room` and open `/setup`.
 4. Allow camera access and select the rear high-resolution camera.
-5. Confirm the detected board corners. Drag the handles if the camera is angled
-   or the automatic outline is imperfect.
-6. Open the presentation window, move it to the external display, and make that
-   browser window fullscreen.
-7. Start the session. The browser will request microphone access for Realtime
+5. Confirm the detected board corners. The handle surface follows the selected
+   stream's real dimensions; drag the handles if the camera is angled or the
+   automatic outline is imperfect.
+6. Start the session. The browser will request microphone access for Realtime
    WebRTC.
-8. Keep the controller window on the laptop and work at the physical board.
+7. Move the main canvas to the external screen, or optionally open the clean
+   display while keeping session controls on the laptop.
 
 There is intentionally no display picker. Browser applications cannot reliably
 assign a popup to a physical monitor; moving the clean presentation window is
 faster and more predictable.
+
+## Local recording
+
+Open **Recording** in the session controls and choose **Start 3 recordings**.
+Chrome will ask which tab or window contains the canvas. ChalkPilot includes
+and prefers the current tab in that picker; select the clean-display tab for
+canvas-only output, or the main ChalkPilot tab to include the sidebar.
+ChalkPilot then keeps three local recordings:
+
+- the perspective-corrected board frame;
+- a smoothed speaker crop driven by local motion tracking;
+- the selected canvas tab or window.
+
+Stop recording before ending the session, then download each WebM separately.
+The source room video and recorded files are not uploaded or persisted by
+ChalkPilot.
 
 ## Two-turn room smoke test
 
@@ -119,9 +139,6 @@ Expected result:
 - `.chalkpilot/sessions/<id>/` contains text and canvas files but no camera or
   audio recording.
 
-The collapsed **Connection test** control also supports a typed diagnostic turn
-when testing in a browser environment without microphone access.
-
 ## Privacy boundary
 
 | Data                  | Processing                                            | Persistence              |
@@ -132,6 +149,7 @@ when testing in a browser environment without microphone access.
 | Text transcript       | Browser and local server                              | `.chalkpilot/`           |
 | Canvas artifacts      | Browser and local server                              | `.chalkpilot/`           |
 | Learner observations  | Local server, with evidence and confidence            | `.chalkpilot/learner.md` |
+| Recorded WebM videos  | Browser only                                          | User download only       |
 
 The UI indicates when a corrected board image is submitted. Local change
 detection never autonomously interrupts the learner.
@@ -197,8 +215,9 @@ controller. Both windows must use the same browser profile and origin.
 ## Project status
 
 This is a deliberately lean, single-user MVP for an in-room trial. Calibration
-does not survive a page reload, collaboration is voice/board based, and physical
-Cyber Valley camera compatibility still needs to be confirmed in the room.
+does not survive a page reload, collaboration is voice/board based, and each
+room camera must be switched to a stable manual/wide composition before
+calibration.
 
 The implementation is an original open-source project. No source code from the
 University of Tübingen AI Tutor was copied.

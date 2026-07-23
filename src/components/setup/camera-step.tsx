@@ -68,6 +68,10 @@ export function CameraStep({ onReady, mediaDevices }: CameraStepProps) {
           The live view stays on this Mac. ChalkPilot sends only a corrected
           board image when you finish a turn or explicitly ask it to look.
         </p>
+        <p className="text-muted mt-2 max-w-2xl text-sm">
+          In an auditorium, set the room camera to its manual, widest view.
+          ChalkPilot derives the board and speaker crops from that full frame.
+        </p>
       </div>
 
       {error && (

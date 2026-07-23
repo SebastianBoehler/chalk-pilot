@@ -6,7 +6,7 @@ import {
   type BoardChangeState,
 } from "./change-detector";
 import { captureVideoFrame, grayscaleSample, imageDataUrl } from "./frame";
-import type { BoardCorners, DetectionResult } from "./types";
+import type { BoardCorners, BoardSize, DetectionResult } from "./types";
 
 export interface BoardProcessor {
   detect(image: ImageData): Promise<DetectionResult>;
@@ -22,6 +22,7 @@ interface BoardDependencies {
 
 export interface BoardCalibration {
   corners: BoardCorners;
+  sourceSize: BoardSize;
   sourceUrl: string;
   rectifiedUrl: string;
   autoDetected: boolean;
@@ -61,6 +62,7 @@ export class BoardController {
     const rectifiedUrl = await this.rectifySource(corners);
     return {
       corners,
+      sourceSize: { width: frame.width, height: frame.height },
       sourceUrl: this.dependencies.encode(frame),
       rectifiedUrl,
       autoDetected: detection.corners !== null,

@@ -1,4 +1,4 @@
-export type SetupStep = "camera" | "calibration" | "display" | "ready";
+export type SetupStep = "camera" | "calibration" | "preview" | "ready";
 
 export interface SetupState {
   step: SetupStep;
@@ -58,8 +58,8 @@ export function setupReducer(
           {
             camera: "camera",
             calibration: "camera",
-            display: "calibration",
-            ready: "display",
+            preview: "calibration",
+            ready: "preview",
           } satisfies Record<SetupStep, SetupStep>
         )[state.step],
       };
@@ -70,7 +70,6 @@ export function setupReady(state: SetupState) {
   return (
     state.camera === "ready" &&
     state.calibration === "confirmed" &&
-    state.display === "connected" &&
     state.openai === "ready"
   );
 }
@@ -80,9 +79,9 @@ function advance(state: SetupState): SetupState {
     return { ...state, step: "calibration" };
   }
   if (state.step === "calibration" && state.calibration === "confirmed") {
-    return { ...state, step: "display" };
+    return { ...state, step: "preview" };
   }
-  if (state.step === "display" && state.display === "connected") {
+  if (state.step === "preview") {
     return { ...state, step: "ready" };
   }
   return state;

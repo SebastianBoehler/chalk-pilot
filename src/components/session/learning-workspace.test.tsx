@@ -28,11 +28,8 @@ describe("LearningWorkspace", () => {
         agentState="listening"
         boardNotice="Board images are sent only at turn boundaries."
         canvas={canvas}
-        diagnostic=""
         displayConnected
         error={undefined}
-        onDiagnosticChange={vi.fn()}
-        onDiagnosticSubmit={vi.fn()}
         onEnd={vi.fn()}
         onInspect={vi.fn()}
         onOpenDisplay={vi.fn()}
@@ -54,6 +51,12 @@ describe("LearningWorkspace", () => {
     expect(
       screen.getByRole("button", { name: "Inspect board now" }),
     ).toBeVisible();
+    const recordingButton = screen.getByRole("button", {
+      name: "Start 3 recordings",
+    });
+    expect(recordingButton).toBeVisible();
+    expect(screen.queryByText("Room display")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connection test")).not.toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", { name: "Hide session controls" }),
@@ -65,5 +68,11 @@ describe("LearningWorkspace", () => {
     expect(
       screen.getByRole("button", { name: "Show session controls" }),
     ).toBeVisible();
+    expect(
+      screen.getByRole("button", {
+        hidden: true,
+        name: "Start 3 recordings",
+      }),
+    ).toBe(recordingButton);
   });
 });

@@ -30,6 +30,8 @@ interface SessionControllerProps {
   onEnd: () => void;
 }
 
+const BOARD_SAMPLE_INTERVAL_MS = 500;
+
 export function SessionController(props: SessionControllerProps) {
   const { board, onAgentState, onCanvasChanged, sessionId } = props;
   const [state, dispatch] = useReducer(
@@ -42,7 +44,6 @@ export function SessionController(props: SessionControllerProps) {
     "Board images are sent only at turn boundaries.",
   );
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
-  const [diagnostic, setDiagnostic] = useState("");
   const realtimeRef = useRef<ChalkPilotRealtime | null>(null);
   const persisted = useRef(new Set<string>());
 
@@ -96,6 +97,15 @@ export function SessionController(props: SessionControllerProps) {
   useEffect(() => {
     let active = true;
     let sampling = false;
+    void props.video.play().catch((cause: unknown) => {
+      if (!active) return;
+      dispatch({ type: "camera_lost" });
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The board camera could not resume.",
+      );
+    });
     const sample = async () => {
       if (sampling) return;
       sampling = true;
@@ -116,7 +126,10 @@ export function SessionController(props: SessionControllerProps) {
       }
     };
     void sample();
-    const interval = window.setInterval(() => void sample(), 1_500);
+    const interval = window.setInterval(
+      () => void sample(),
+      BOARD_SAMPLE_INTERVAL_MS,
+    );
     return () => {
       active = false;
       window.clearInterval(interval);
@@ -142,15 +155,8 @@ export function SessionController(props: SessionControllerProps) {
       agentState={state.agentState}
       boardNotice={boardNotice}
       canvas={props.canvas}
-      diagnostic={diagnostic}
       displayConnected={props.displayConnected}
       error={error}
-      onDiagnosticChange={setDiagnostic}
-      onDiagnosticSubmit={() => {
-        if (!diagnostic.trim()) return;
-        realtimeRef.current?.sendDiagnostic(diagnostic.trim());
-        setDiagnostic("");
-      }}
       onEnd={props.onEnd}
       onInspect={() => void inspect()}
       onOpenDisplay={props.onOpenDisplay}
@@ -160,6 +166,7 @@ export function SessionController(props: SessionControllerProps) {
       preview={preview}
       realtimeConnected={state.realtime === "connected"}
       transcript={transcript}
+      video={props.video}
     />
   );
 }

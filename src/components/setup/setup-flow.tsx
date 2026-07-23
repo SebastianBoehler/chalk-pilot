@@ -31,7 +31,7 @@ import {
 } from "@/features/workspace/schema";
 import { CalibrationStep } from "./calibration-step";
 import { CameraStep } from "./camera-step";
-import { DisplayStep } from "./display-step";
+import { OutputPreviewStep } from "./output-preview-step";
 import { ReadyStep } from "./ready-step";
 import { SetupShell } from "./setup-shell";
 
@@ -52,12 +52,12 @@ export function SetupFlow() {
     [],
   );
   const [video, setVideo] = useState<HTMLVideoElement>();
+  const [cameraStream, setCameraStream] = useState<MediaStream>();
   const [calibration, setCalibration] = useState<BoardCalibration>();
   const [calibrationStatus, setCalibrationStatus] = useState<
     "detecting" | "ready" | "error"
   >("detecting");
   const [error, setError] = useState<string>();
-  const [displayError, setDisplayError] = useState<string>();
   const [starting, setStarting] = useState(false);
   const [sessionId, setSessionId] = useState<string>();
   const [mode, setMode] = useState<"setup" | "session">("setup");
@@ -141,15 +141,14 @@ export function SetupFlow() {
   };
 
   const openDisplay = () => {
-    setDisplayError(undefined);
     const popup = window.open(
       "/display",
       "chalkpilot-display",
       "popup,width=1440,height=900",
     );
     if (!popup) {
-      setDisplayError(
-        "Allow pop-ups for this site, then open the presentation again.",
+      window.alert(
+        "Allow pop-ups for this site, then open the clean display again.",
       );
       return;
     }
@@ -193,11 +192,19 @@ export function SetupFlow() {
 
   return (
     <>
-      <div className={showCamera ? "" : "hidden"}>
+      <div
+        aria-hidden={!showCamera}
+        className={
+          showCamera
+            ? ""
+            : "pointer-events-none fixed inset-0 -z-10 size-px overflow-hidden opacity-0"
+        }
+      >
         <SetupShell>
           <CameraStep
-            onReady={(readyVideo) => {
+            onReady={(readyVideo, readyStream) => {
               setVideo(readyVideo);
+              setCameraStream(readyStream);
               dispatch({ type: "camera_ready" });
             }}
           />
@@ -242,6 +249,7 @@ export function SetupFlow() {
                     onCornersChange={adjustCorners}
                     onDetect={() => void detectBoard()}
                     rectifiedUrl={calibration.rectifiedUrl}
+                    sourceSize={calibration.sourceSize}
                     sourceUrl={calibration.sourceUrl}
                     status={calibrationStatus}
                   />
@@ -249,20 +257,25 @@ export function SetupFlow() {
               )}
             </>
           )}
-          {setup.step === "display" && (
-            <DisplayStep
-              connected={setup.display === "connected"}
-              error={setup.display === "connected" ? undefined : displayError}
-              onContinue={() => dispatch({ type: "advance" })}
-              onOpen={openDisplay}
-            />
-          )}
+          {setup.step === "preview" &&
+            board &&
+            video &&
+            cameraStream &&
+            calibration && (
+              <OutputPreviewStep
+                board={board}
+                corners={calibration.corners}
+                onBack={() => dispatch({ type: "back" })}
+                onContinue={() => dispatch({ type: "advance" })}
+                sourceStream={cameraStream}
+                sourceVideo={video}
+              />
+            )}
           {setup.step === "ready" && (
             <ReadyStep
               boardReady={setup.calibration === "confirmed"}
               busy={starting}
               cameraReady={setup.camera === "ready"}
-              displayReady={setup.display === "connected"}
               error={error}
               onStart={() => void startSession()}
               openAiReady={setup.openai === "ready"}

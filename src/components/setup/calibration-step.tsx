@@ -1,13 +1,18 @@
 "use client";
 
 import Image from "next/image";
-import type { BoardCorners, NormalizedPoint } from "@/features/board/types";
+import type {
+  BoardCorners,
+  BoardSize,
+  NormalizedPoint,
+} from "@/features/board/types";
 
 const CORNER_NAMES = ["Top-left", "Top-right", "Bottom-right", "Bottom-left"];
 const KEY_STEP = 0.005;
 
 interface CalibrationStepProps {
   corners: BoardCorners;
+  sourceSize: BoardSize;
   sourceUrl: string;
   rectifiedUrl: string | null;
   status: "detecting" | "ready" | "error";
@@ -18,6 +23,7 @@ interface CalibrationStepProps {
 
 export function CalibrationStep({
   corners,
+  sourceSize,
   sourceUrl,
   rectifiedUrl,
   status,
@@ -50,7 +56,10 @@ export function CalibrationStep({
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <div className="border-border relative aspect-video overflow-hidden rounded-3xl border bg-black">
+        <div
+          className="border-border relative overflow-hidden rounded-3xl border bg-black"
+          style={{ aspectRatio: sourceSize.width / sourceSize.height }}
+        >
           <Image
             alt="Camera view for board calibration"
             className="object-contain"
