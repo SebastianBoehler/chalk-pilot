@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import { getSessionPaths } from "./paths";
 import {
   canvasSectionInputSchema,
+  canvasSectionSchema,
   learnerMemoryInputSchema,
   learningEventSchema,
   sessionRecordSchema,
@@ -23,9 +24,10 @@ import {
   type SessionRecord,
 } from "./schema";
 import {
+  payloadFileName,
   projectStoredCanvasState,
-  readTextSection,
-  requireTextSection,
+  readSection,
+  serializeSectionPayload,
 } from "./section-storage";
 
 const EMPTY_CANVAS: CanvasState = {
@@ -84,7 +86,7 @@ export function createWorkspaceRepository(rootDirectory: string) {
         const metadata = stored.sections[id];
         if (!metadata)
           throw new Error(`Missing canvas section metadata: ${id}`);
-        sections[id] = await readTextSection(paths.sectionsDirectory, metadata);
+        sections[id] = await readSection(paths.sectionsDirectory, metadata);
       }),
     );
     return { ...stored, sections };
@@ -123,14 +125,18 @@ export function createWorkspaceRepository(rootDirectory: string) {
   }
 
   async function appendSection(sessionId: string, raw: CanvasSectionInput) {
-    const input = requireTextSection(canvasSectionInputSchema.parse(raw));
+    const input = canvasSectionInputSchema.parse(raw);
     return queue(sessionId, async () => {
       const canvas = await readCanvas(sessionId);
       if (canvas.sections[input.id]) {
         throw new Error(`Canvas section ${input.id} already exists`);
       }
       const now = new Date().toISOString();
-      const section = { ...input, createdAt: now, updatedAt: now };
+      const section = canvasSectionSchema.parse({
+        ...input,
+        createdAt: now,
+        updatedAt: now,
+      });
       const next = {
         ...canvas,
         order: [...canvas.order, input.id],
@@ -138,44 +144,33 @@ export function createWorkspaceRepository(rootDirectory: string) {
       };
       const paths = getSessionPaths(root, sessionId);
       await atomicWrite(
-        join(paths.sectionsDirectory, `${input.id}.md`),
-        input.content,
+        join(paths.sectionsDirectory, payloadFileName(section)),
+        serializeSectionPayload(section),
       );
       await writeCanvasState(sessionId, next);
       return next;
     });
   }
 
-  async function updateSection(
-    sessionId: string,
-    input: { id: string; title?: string; content?: string },
-  ) {
+  async function updateSection(sessionId: string, raw: CanvasSectionInput) {
+    const input = canvasSectionInputSchema.parse(raw);
     return queue(sessionId, async () => {
       const canvas = await readCanvas(sessionId);
       const current = canvas.sections[input.id];
       if (!current) throw new Error(`Unknown canvas section: ${input.id}`);
-      const textSection = requireTextSection(current);
-      const parsed = requireTextSection(
-        canvasSectionInputSchema.parse({
-          id: current.id,
-          kind: current.kind,
-          title: input.title ?? current.title,
-          content: input.content ?? textSection.content,
-        }),
-      );
-      const section = {
-        ...parsed,
+      const section = canvasSectionSchema.parse({
+        ...input,
         createdAt: current.createdAt,
         updatedAt: new Date().toISOString(),
-      };
+      });
       const next = {
         ...canvas,
         sections: { ...canvas.sections, [input.id]: section },
       };
       const paths = getSessionPaths(root, sessionId);
       await atomicWrite(
-        join(paths.sectionsDirectory, `${input.id}.md`),
-        section.content,
+        join(paths.sectionsDirectory, payloadFileName(section)),
+        serializeSectionPayload(section),
       );
       await writeCanvasState(sessionId, next);
       return next;

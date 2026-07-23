@@ -56,6 +56,59 @@ describe("workspace API", () => {
     });
   });
 
+  it("accepts a complete structured section update", async () => {
+    const api = createWorkspaceApi(createWorkspaceRepository(root));
+    const session = await (await api.createSession()).json();
+    const section = {
+      id: "token-flow",
+      kind: "chart",
+      title: "Token flow",
+      data: {
+        variant: "line",
+        series: [{ name: "Steps", points: [{ x: 1, y: 1 }] }],
+      },
+    };
+    await api.mutateCanvas(
+      session.id,
+      jsonRequest({ action: "append", section }),
+    );
+
+    const response = await api.mutateCanvas(
+      session.id,
+      jsonRequest({
+        action: "update",
+        section: {
+          ...section,
+          title: "Token processing flow",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).sections["token-flow"]).toMatchObject({
+      kind: "chart",
+      title: "Token processing flow",
+    });
+  });
+
+  it("rejects a partial canvas section update", async () => {
+    const api = createWorkspaceApi(createWorkspaceRepository(root));
+    const session = await (await api.createSession()).json();
+
+    const response = await api.mutateCanvas(
+      session.id,
+      jsonRequest({
+        action: "update",
+        section: { id: "token-flow", title: "Incomplete" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "The request was invalid.",
+    });
+  });
+
   it("writes learner memory through the API", async () => {
     const api = createWorkspaceApi(createWorkspaceRepository(root));
     const session = await (await api.createSession()).json();

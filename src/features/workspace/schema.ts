@@ -176,9 +176,7 @@ export type LearnerMemoryInput = z.infer<typeof learnerMemoryInputSchema>;
 
 export function hasSectionContent(
   section: CanvasSectionInput | CanvasSection,
-): section is
-  | Extract<CanvasSectionInput, { content: string }>
-  | Extract<CanvasSection, { content: string }> {
+): section is Extract<CanvasSectionInput | CanvasSection, { content: string }> {
   return "content" in section;
 }
 

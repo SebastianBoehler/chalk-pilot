@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -95,6 +95,153 @@ describe("WorkspaceRepository", () => {
     ]);
   });
 
+  it("persists and restores structured sections as JSON", async () => {
+    const repository = createWorkspaceRepository(root);
+    const session = await repository.createSession();
+
+    await repository.appendSection(session.id, chartSection("embedding-space"));
+
+    expect(
+      JSON.parse(
+        await readFile(
+          join(
+            root,
+            "sessions",
+            session.id,
+            "canvas",
+            "sections",
+            "embedding-space.json",
+          ),
+          "utf8",
+        ),
+      ),
+    ).toEqual(chartSection("embedding-space").data);
+    await expect(
+      readFile(
+        join(
+          root,
+          "sessions",
+          session.id,
+          "canvas",
+          "sections",
+          "embedding-space.md",
+        ),
+        "utf8",
+      ),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    expect(
+      (await repository.readCanvas(session.id)).sections["embedding-space"],
+    ).toMatchObject(chartSection("embedding-space"));
+  });
+
+  it("updates a stable section ID across representations", async () => {
+    const repository = createWorkspaceRepository(root);
+    const session = await repository.createSession();
+    await repository.appendSection(session.id, {
+      id: "token-flow",
+      kind: "markdown",
+      title: "Token flow",
+      content: "Text becomes tokens.",
+    });
+    const initial = (await repository.readCanvas(session.id)).sections[
+      "token-flow"
+    ];
+
+    await repository.updateSection(session.id, chartSection("token-flow"));
+
+    const updated = (await repository.readCanvas(session.id)).sections[
+      "token-flow"
+    ];
+    expect(updated).toMatchObject(chartSection("token-flow"));
+    expect(updated?.createdAt).toBe(initial?.createdAt);
+    await expect(
+      readFile(
+        join(
+          root,
+          "sessions",
+          session.id,
+          "canvas",
+          "sections",
+          "token-flow.json",
+        ),
+        "utf8",
+      ),
+    ).resolves.toContain('"scatter"');
+  });
+
+  it("reads legacy Markdown sections from their original payload", async () => {
+    const repository = createWorkspaceRepository(root);
+    const session = await repository.createSession();
+    const directory = join(root, "sessions", session.id, "canvas", "sections");
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, "legacy.md"), "Existing note.", "utf8");
+    await writeFile(
+      join(root, "sessions", session.id, "canvas", "state.json"),
+      `${JSON.stringify({
+        version: 1,
+        focusId: "legacy",
+        order: ["legacy"],
+        sections: {
+          legacy: {
+            id: "legacy",
+            kind: "markdown",
+            title: "Legacy",
+            createdAt: "2026-07-23T10:00:00.000Z",
+            updatedAt: "2026-07-23T10:00:00.000Z",
+          },
+        },
+      })}\n`,
+      "utf8",
+    );
+
+    expect(
+      (await repository.readCanvas(session.id)).sections.legacy,
+    ).toMatchObject({
+      kind: "markdown",
+      content: "Existing note.",
+    });
+  });
+
+  it("fails rather than downgrading invalid structured JSON to Markdown", async () => {
+    const repository = createWorkspaceRepository(root);
+    const session = await repository.createSession();
+    await repository.appendSection(session.id, chartSection("embedding-space"));
+    await writeFile(
+      join(
+        root,
+        "sessions",
+        session.id,
+        "canvas",
+        "sections",
+        "embedding-space.json",
+      ),
+      "not-json",
+      "utf8",
+    );
+
+    await expect(repository.readCanvas(session.id)).rejects.toThrow();
+  });
+
+  it("rejects structured JSON that violates its artifact schema", async () => {
+    const repository = createWorkspaceRepository(root);
+    const session = await repository.createSession();
+    await repository.appendSection(session.id, chartSection("embedding-space"));
+    await writeFile(
+      join(
+        root,
+        "sessions",
+        session.id,
+        "canvas",
+        "sections",
+        "embedding-space.json",
+      ),
+      JSON.stringify({ variant: "scatter", series: [] }),
+      "utf8",
+    );
+
+    await expect(repository.readCanvas(session.id)).rejects.toThrow();
+  });
+
   it("writes bounded transcript and learning evidence records", async () => {
     const repository = createWorkspaceRepository(root);
     const session = await repository.createSession();
@@ -146,3 +293,15 @@ describe("WorkspaceRepository", () => {
     );
   });
 });
+
+function chartSection(id: string) {
+  return {
+    id,
+    kind: "chart" as const,
+    title: "Embedding space",
+    data: {
+      variant: "scatter" as const,
+      series: [{ name: "Tokens", points: [{ x: 0, y: 0 }] }],
+    },
+  };
+}

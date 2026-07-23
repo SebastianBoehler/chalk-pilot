@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  canvasSectionSchema,
   canvasSectionMetadataSchema,
+  canvasSectionSchema,
   hasSectionContent,
   storedCanvasStateSchema,
   type CanvasSection,
@@ -12,51 +12,31 @@ import {
   type StoredCanvasState,
 } from "./schema";
 
-const structuredSectionKinds = new Set<CanvasSection["kind"]>([
-  "chart",
-  "comparison",
-  "sequence",
-  "checkpoint",
-]);
+type SectionPayload = CanvasSectionInput | CanvasSection;
 
-type InputTextSection = Extract<CanvasSectionInput, { content: string }>;
-type StoredTextSection = Extract<CanvasSection, { content: string }>;
-
-export function requireTextSection(section: CanvasSection): StoredTextSection;
-export function requireTextSection(
-  section: CanvasSectionInput,
-): InputTextSection;
-export function requireTextSection(
-  section: CanvasSectionInput | CanvasSection,
-): InputTextSection | StoredTextSection {
-  if (!hasSectionContent(section)) {
-    throw new Error("Structured canvas sections are not available yet");
-  }
-  return section;
+export function payloadFileName(section: SectionPayload): string {
+  return `${section.id}.${payloadExtension(section.kind)}`;
 }
 
-export function requireTextSectionKind(kind: CanvasSection["kind"]) {
-  if (structuredSectionKinds.has(kind)) {
-    throw new Error("Structured canvas sections are not available yet");
-  }
+export function serializeSectionPayload(section: SectionPayload): string {
+  return hasSectionContent(section)
+    ? section.content
+    : `${JSON.stringify(section.data, null, 2)}\n`;
 }
 
-export function restoreTextSection(
-  metadata: CanvasSectionMetadata,
-  content: string,
-): CanvasSection {
-  requireTextSectionKind(metadata.kind);
-  return canvasSectionSchema.parse({ ...metadata, content });
-}
-
-export async function readTextSection(
+export async function readSection(
   directory: string,
   metadata: CanvasSectionMetadata,
 ): Promise<CanvasSection> {
-  return restoreTextSection(
-    metadata,
-    await readFile(join(directory, `${metadata.id}.md`), "utf8"),
+  const payload = await readFile(
+    join(directory, `${metadata.id}.${payloadExtension(metadata.kind)}`),
+    "utf8",
   );
+  const restored = hasContentKind(metadata.kind)
+    ? { ...metadata, content: payload }
+    : { ...metadata, data: JSON.parse(payload) };
+
+  return canvasSectionSchema.parse(restored);
 }
 
 export function projectStoredCanvasState(
@@ -66,8 +46,7 @@ export function projectStoredCanvasState(
     ...canvas,
     sections: Object.fromEntries(
       Object.entries(canvas.sections).map(([id, section]) => {
-        const textSection = requireTextSection(section);
-        const { createdAt, kind, title, updatedAt } = textSection;
+        const { createdAt, kind, title, updatedAt } = section;
         return [
           id,
           canvasSectionMetadataSchema.parse({
@@ -81,4 +60,12 @@ export function projectStoredCanvasState(
       }),
     ),
   });
+}
+
+function payloadExtension(kind: CanvasSection["kind"]): "md" | "json" {
+  return hasContentKind(kind) ? "md" : "json";
+}
+
+function hasContentKind(kind: CanvasSection["kind"]): boolean {
+  return !["chart", "comparison", "sequence", "checkpoint"].includes(kind);
 }

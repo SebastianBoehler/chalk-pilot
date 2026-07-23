@@ -14,11 +14,7 @@ const canvasMutationSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("update"),
-    section: z.object({
-      id: identifierSchema,
-      title: z.string().trim().min(1).max(120).optional(),
-      content: z.string().trim().min(1).max(20_000).optional(),
-    }),
+    section: canvasSectionInputSchema,
   }),
   z.object({
     action: z.literal("focus"),

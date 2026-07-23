@@ -47,6 +47,41 @@ describe("canvas worker actions", () => {
     });
   });
 
+  it("upserts a structured artifact with its complete payload", async () => {
+    const repository = createWorkspaceRepository(root);
+    const session = await repository.createSession();
+    const actions = createCanvasWorkerActions(repository, session.id);
+
+    await actions.upsertSection({
+      id: "token-types",
+      kind: "comparison",
+      title: "Token types",
+      data: {
+        columns: [
+          { heading: "Word", summary: "Whole words", points: ["intuitive"] },
+          { heading: "Subword", summary: "Pieces", points: ["flexible"] },
+        ],
+      },
+    });
+    await actions.upsertSection({
+      id: "token-types",
+      kind: "comparison",
+      title: "Token type tradeoffs",
+      data: {
+        columns: [
+          { heading: "Word", summary: "Whole words", points: ["intuitive"] },
+          { heading: "Subword", summary: "Pieces", points: ["flexible"] },
+        ],
+      },
+    });
+
+    expect((await actions.readCanvas()).sections["token-types"]).toMatchObject({
+      kind: "comparison",
+      title: "Token type tradeoffs",
+      data: { columns: [{ heading: "Word" }, { heading: "Subword" }] },
+    });
+  });
+
   it("validates a bounded canvas job", () => {
     expect(
       canvasJobRequestSchema.parse({
