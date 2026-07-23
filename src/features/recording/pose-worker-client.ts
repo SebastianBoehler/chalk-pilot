@@ -22,14 +22,19 @@ interface PendingDetection {
 export class PoseWorkerClient {
   private readonly pending = new Map<string, PendingDetection>();
   private previousTimestamp = -1;
+  private terminalError: Error | undefined;
 
   constructor(private readonly worker: PoseWorkerPort) {
     worker.onmessage = (event) => this.handleResponse(event.data);
     worker.onerror = () =>
-      this.rejectAll("Presenter tracking stopped unexpectedly.");
+      this.close(new Error("Presenter tracking stopped unexpectedly."));
   }
 
   detect(frame: ImageBitmap, timestampMs: number): Promise<PersonBox[]> {
+    if (this.terminalError) {
+      frame.close();
+      return Promise.reject(this.terminalError);
+    }
     const id = crypto.randomUUID();
     const monotonicTimestamp = Math.max(
       timestampMs,
@@ -38,16 +43,24 @@ export class PoseWorkerClient {
     this.previousTimestamp = monotonicTimestamp;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
-      this.worker.postMessage(
-        { frame, id, timestampMs: monotonicTimestamp, type: "detect" },
-        { transfer: [frame] },
-      );
+      try {
+        this.worker.postMessage(
+          { frame, id, timestampMs: monotonicTimestamp, type: "detect" },
+          { transfer: [frame] },
+        );
+      } catch (cause) {
+        frame.close();
+        this.close(
+          cause instanceof Error
+            ? cause
+            : new Error("The presenter frame could not be sent."),
+        );
+      }
     });
   }
 
   dispose(): void {
-    this.rejectAll("Presenter tracking was closed.");
-    this.worker.terminate();
+    this.close(new Error("Presenter tracking was closed."));
   }
 
   private handleResponse(raw: unknown) {
@@ -63,11 +76,16 @@ export class PoseWorkerClient {
     }
   }
 
-  private rejectAll(message: string) {
+  private close(error: Error) {
+    if (this.terminalError) return;
+    this.terminalError = error;
     for (const pending of this.pending.values()) {
-      pending.reject(new Error(message));
+      pending.reject(error);
     }
     this.pending.clear();
+    this.worker.onmessage = null;
+    this.worker.onerror = null;
+    this.worker.terminate();
   }
 }
 

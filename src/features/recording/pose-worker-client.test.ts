@@ -35,15 +35,64 @@ describe("PoseWorkerClient", () => {
     await expect(pending).rejects.toThrow("closed");
     expect(worker.terminate).toHaveBeenCalledOnce();
   });
+
+  it("is terminal after disposal and closes frames it can no longer transfer", async () => {
+    const worker = new FakePoseWorker();
+    const client = new PoseWorkerClient(worker);
+    client.dispose();
+    const frame = { close: vi.fn() } as unknown as ImageBitmap;
+
+    await expect(client.detect(frame, 10)).rejects.toThrow("closed");
+    expect(frame.close).toHaveBeenCalledOnce();
+    expect(worker.messages).toHaveLength(0);
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it("becomes terminal after a worker error", async () => {
+    const worker = new FakePoseWorker();
+    const client = new PoseWorkerClient(worker);
+    const pending = client.detect(
+      { close: vi.fn() } as unknown as ImageBitmap,
+      1,
+    );
+    worker.onerror?.({} as ErrorEvent);
+
+    await expect(pending).rejects.toThrow("unexpectedly");
+    const next = { close: vi.fn() } as unknown as ImageBitmap;
+    await expect(client.detect(next, 2)).rejects.toThrow("unexpectedly");
+    expect(next.close).toHaveBeenCalledOnce();
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it("closes the frame, rejects, and clears pending work when postMessage throws", async () => {
+    const worker = new FakePoseWorker();
+    const client = new PoseWorkerClient(worker);
+    const frame = { close: vi.fn() } as unknown as ImageBitmap;
+    worker.postError = new Error("structured clone failed");
+
+    await expect(client.detect(frame, 10)).rejects.toThrow(
+      "structured clone failed",
+    );
+    expect(frame.close).toHaveBeenCalledOnce();
+    expect(worker.terminate).toHaveBeenCalledOnce();
+    const next = { close: vi.fn() } as unknown as ImageBitmap;
+    await expect(client.detect(next, 20)).rejects.toThrow(
+      "structured clone failed",
+    );
+    expect(next.close).toHaveBeenCalledOnce();
+    expect(worker.messages).toHaveLength(0);
+  });
 });
 
 class FakePoseWorker implements PoseWorkerPort {
   readonly messages: { message: unknown; transfer?: Transferable[] }[] = [];
+  postError?: Error;
   onerror: ((event: ErrorEvent) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
   terminate = vi.fn();
 
   postMessage(message: unknown, options?: StructuredSerializeOptions): void {
+    if (this.postError) throw this.postError;
     this.messages.push({ message, transfer: options?.transfer });
   }
 

@@ -68,6 +68,44 @@ describe("presenter detection loop", () => {
     expect(scheduled.length).toBeGreaterThan(0);
     loop.stop();
   });
+
+  it("closes a bitmap that resolves after stop without invoking detection", async () => {
+    const scheduled: FrameRequestCallback[] = [];
+    let resolveBitmap!: (bitmap: ImageBitmap) => void;
+    const bitmap = { close: vi.fn() } as unknown as ImageBitmap;
+    const detect = vi.fn(async () => []);
+    const dispose = vi.fn();
+    const loop = startPresenterDetection(
+      {
+        readyState: HTMLMediaElement.HAVE_CURRENT_DATA,
+        videoHeight: 1_200,
+        videoWidth: 1_920,
+      } as HTMLVideoElement,
+      { detect, dispose },
+      { onBoxes: vi.fn(), onError: vi.fn() },
+      {
+        cancelFrame: vi.fn(),
+        createBitmap: vi.fn(
+          () =>
+            new Promise<ImageBitmap>((resolve) => {
+              resolveBitmap = resolve;
+            }),
+        ),
+        requestFrame: (callback) => {
+          scheduled.push(callback);
+          return scheduled.length;
+        },
+      },
+    );
+
+    scheduled.shift()?.(0);
+    loop.stop();
+    resolveBitmap(bitmap);
+    await vi.waitFor(() => expect(bitmap.close).toHaveBeenCalledOnce());
+
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(detect).not.toHaveBeenCalled();
+  });
 });
 
 async function runFrame(scheduled: FrameRequestCallback[], timestamp: number) {

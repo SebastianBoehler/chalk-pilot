@@ -32,7 +32,7 @@ describe("presenter tracking geometry", () => {
     const nearby = { ...presenter, id: "pose-2", x: 0.15 };
     const distant = { ...presenter, id: "pose-1", x: 0.7 };
 
-    expect(updatePresenter(state, [distant, nearby])).toEqual({
+    expect(updatePresenter(state, [distant, nearby])).toMatchObject({
       box: { ...nearby, id: "selected" },
       lossCount: 0,
       status: "tracking",
@@ -59,11 +59,106 @@ describe("presenter tracking geometry", () => {
       lossCount: 2,
       status: "lost",
     });
-    expect(
-      updatePresenter(missing, [{ ...presenter, id: "pose-0", x: 0.14 }]),
-    ).toMatchObject({
+    const candidate = { ...presenter, id: "pose-0", x: 0.14 };
+    const pending = updatePresenter(missing, [candidate]);
+    expect(pending).toMatchObject({
+      box: presenter,
+      lossCount: 2,
+      status: "lost",
+      reacquisition: { count: 1 },
+    });
+    expect(updatePresenter(pending, [candidate])).toMatchObject({
       box: { id: "selected", x: 0.14 },
       lossCount: 0,
+      status: "tracking",
+    });
+  });
+
+  it("uses motion continuity when two people cross", () => {
+    const moving = updatePresenter(
+      {
+        box: { ...presenter, x: 0.2 },
+        lossCount: 0,
+        status: "tracking",
+      },
+      [{ ...presenter, id: "pose-a", x: 0.3 }],
+    );
+    const selectedContinuingRight = { ...presenter, id: "pose-b", x: 0.39 };
+    const crossingLeft = { ...presenter, id: "pose-a", x: 0.27 };
+
+    expect(
+      updatePresenter(moving, [crossingLeft, selectedContinuingRight]),
+    ).toMatchObject({
+      box: { id: "selected", x: 0.39 },
+      status: "tracking",
+    });
+  });
+
+  it("rejects a nearby pose with incompatible scale and shape", () => {
+    const state = {
+      box: presenter,
+      lossCount: 0,
+      status: "tracking",
+    } as const;
+    const nearbyScreenPose = {
+      id: "screen",
+      x: 0.22,
+      y: 0.2,
+      width: 0.34,
+      height: 0.18,
+    };
+    const person = { ...presenter, id: "person", x: 0.24 };
+
+    expect(updatePresenter(state, [nearbyScreenPose, person])).toMatchObject({
+      box: { id: "selected", x: 0.24, height: presenter.height },
+      status: "tracking",
+    });
+  });
+
+  it("holds the crop when two candidates are similarly plausible", () => {
+    const state = {
+      box: presenter,
+      lossCount: 0,
+      status: "tracking",
+    } as const;
+    const left = { ...presenter, id: "left", x: presenter.x - 0.03 };
+    const right = { ...presenter, id: "right", x: presenter.x + 0.03 };
+
+    expect(updatePresenter(state, [left, right])).toMatchObject({
+      box: presenter,
+      lossCount: 1,
+      status: "lost",
+    });
+  });
+
+  it("requires a stable candidate before reacquiring after loss", () => {
+    const lost = {
+      box: presenter,
+      lossCount: 3,
+      status: "lost",
+    } as const;
+    const first = updatePresenter(lost, [
+      { ...presenter, id: "pose-0", x: 0.15 },
+    ]);
+    const changed = updatePresenter(first, [
+      { ...presenter, id: "pose-1", x: 0.28 },
+    ]);
+    const stable = updatePresenter(changed, [
+      { ...presenter, id: "pose-2", x: 0.28 },
+    ]);
+
+    expect(first).toMatchObject({
+      box: presenter,
+      status: "lost",
+      reacquisition: { count: 1, box: { x: 0.15 } },
+    });
+    expect(changed).toMatchObject({
+      box: presenter,
+      status: "lost",
+      reacquisition: { count: 1, box: { x: 0.28 } },
+    });
+    expect(stable).toMatchObject({
+      box: { id: "selected", x: 0.28 },
       status: "tracking",
     });
   });

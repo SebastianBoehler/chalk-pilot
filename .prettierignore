@@ -4,4 +4,5 @@ coverage
 node_modules
 package-lock.json
 playwright-report
+public/vendor/mediapipe
 test-results

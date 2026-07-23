@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
+import { MEDIAPIPE_WASM_PATH, POSE_LANDMARKER_MODEL_PATH } from "./pose-assets";
 import { poseLandmarksToBoxes } from "./pose-landmarks";
 
 interface DetectRequest {
@@ -9,11 +10,6 @@ interface DetectRequest {
   frame: ImageBitmap;
   timestampMs: number;
 }
-
-const WASM_URL =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
 let landmarkerPromise: Promise<PoseLandmarker> | undefined;
 
@@ -48,17 +44,18 @@ async function detect(request: DetectRequest) {
 }
 
 function getLandmarker() {
-  landmarkerPromise ??= FilesetResolver.forVisionTasks(WASM_URL).then(
-    (fileset) =>
-      PoseLandmarker.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: MODEL_URL },
-        minPoseDetectionConfidence: 0.45,
-        minPosePresenceConfidence: 0.45,
-        minTrackingConfidence: 0.45,
-        numPoses: 4,
-        outputSegmentationMasks: false,
-        runningMode: "VIDEO",
-      }),
+  landmarkerPromise ??= FilesetResolver.forVisionTasks(
+    MEDIAPIPE_WASM_PATH,
+  ).then((fileset) =>
+    PoseLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: POSE_LANDMARKER_MODEL_PATH },
+      minPoseDetectionConfidence: 0.45,
+      minPosePresenceConfidence: 0.45,
+      minTrackingConfidence: 0.45,
+      numPoses: 4,
+      outputSegmentationMasks: false,
+      runningMode: "VIDEO",
+    }),
   );
   return landmarkerPromise;
 }

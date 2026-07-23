@@ -66,9 +66,15 @@ export function startPresenterDetection(
       resizeQuality: "medium",
       resizeWidth: size.width,
     })
-      .then((frame) => detector.detect(frame, timestampMs))
+      .then((frame) => {
+        if (!active) {
+          frame.close();
+          return undefined;
+        }
+        return detector.detect(frame, timestampMs);
+      })
       .then((boxes) => {
-        if (active) callbacks.onBoxes(boxes);
+        if (active && boxes) callbacks.onBoxes(boxes);
       })
       .catch((cause: unknown) => {
         if (!active) return;

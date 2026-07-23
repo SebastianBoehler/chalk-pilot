@@ -10,6 +10,7 @@ export default defineConfig([
     ".chalkpilot/**",
     "coverage/**",
     "playwright-report/**",
+    "public/vendor/mediapipe/**",
     "test-results/**",
   ]),
 ]);

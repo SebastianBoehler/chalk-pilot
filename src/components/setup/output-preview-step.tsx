@@ -88,7 +88,9 @@ export function OutputPreviewStep({
         if (active) setError(message);
       },
       onTrackingState: (state) => {
-        if (active) setTracking(state ?? undefined);
+        if (!active) return;
+        setTracking(state ?? undefined);
+        if (state) setPresenter(state.box);
       },
       presenter: null,
     });

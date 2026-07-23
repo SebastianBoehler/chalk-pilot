@@ -7,6 +7,7 @@ docs/superpowers/
 .next/
 coverage/
 node_modules/
+public/vendor/mediapipe/
 playwright-report/
 test-results/
 *.tsbuildinfo

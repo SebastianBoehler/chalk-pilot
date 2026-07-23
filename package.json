@@ -15,7 +15,10 @@
   },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run prepare:mediapipe",
     "build": "next build",
+    "postinstall": "npm run prepare:mediapipe",
+    "prepare:mediapipe": "node scripts/prepare-mediapipe-assets.mjs",
     "start": "next start",
     "room": "next start",
     "lint": "eslint .",
@@ -29,7 +32,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.18",
-    "@mediapipe/tasks-vision": "^0.10.35",
+    "@mediapipe/tasks-vision": "0.10.35",
     "@openai/agents": "^0.13.5",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "@techstark/opencv-js": "^5.0.0-release.1",

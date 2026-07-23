@@ -49,6 +49,11 @@ describe("OutputPreviewStep", () => {
     renderPreview(onContinue, "room-wide");
     const options = createStreams.mock.calls[0]?.[1] as {
       onDetections: (boxes: PersonBox[]) => void;
+      onTrackingState: (state: {
+        box: PersonBox;
+        lossCount: number;
+        status: "tracking" | "lost";
+      }) => void;
     };
 
     expect(
@@ -70,13 +75,21 @@ describe("OutputPreviewStep", () => {
       toJSON: () => ({}),
     });
     fireEvent.click(surface, { clientX: 160, clientY: 200 });
+    const moved = { ...presenter, x: 0.32 };
+    act(() => {
+      options.onTrackingState({
+        box: moved,
+        lossCount: 0,
+        status: "tracking",
+      });
+    });
     fireEvent.click(screen.getByRole("button", { name: "Outputs look right" }));
 
     expect(
       createStreams.mock.results[0]?.value.confirmPresenter,
     ).toHaveBeenCalledWith(presenter);
     expect(screen.getByText("Presenter confirmed")).toBeVisible();
-    expect(onContinue).toHaveBeenCalledWith(presenter);
+    expect(onContinue).toHaveBeenCalledWith(moved);
   });
 
   it("surfaces model errors and temporary presenter loss", () => {
