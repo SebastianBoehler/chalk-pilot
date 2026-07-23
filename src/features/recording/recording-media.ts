@@ -1,5 +1,14 @@
 import type { TrackKind } from "./schema";
 
+export class TrackUnavailableError extends Error {
+  constructor(
+    readonly track: TrackKind,
+    label: string,
+  ) {
+    super(`The ${label} stream is unavailable.`);
+  }
+}
+
 export interface MediaRecorderPort {
   state: RecordingState;
   ondataavailable: ((event: { data: Blob }) => void) | null;
@@ -34,27 +43,51 @@ export function selectRequiredTracks(
   sources: CaptureSources,
   display: MediaStream,
 ) {
-  const board = requireLive(sources.board.getVideoTracks(), "board video");
+  const board = requireLive(
+    sources.board.getVideoTracks(),
+    "board",
+    "board video",
+  );
   const speaker = requireLive(
     sources.speaker.getVideoTracks(),
+    "speaker",
     "speaker video",
   );
   const microphone = requireLive(
     sources.microphone.getAudioTracks(),
+    "microphone",
     "microphone audio",
   );
-  const displayVideo = requireLive(display.getVideoTracks(), "display video");
-  const displayAudio = requireLive(display.getAudioTracks(), "desktop audio");
+  const displayVideo = requireLive(
+    display.getVideoTracks(),
+    "canvas",
+    "display video",
+  );
+  const displayAudio = requireLive(
+    display.getAudioTracks(),
+    "desktop-audio",
+    "desktop audio",
+  );
   return {
     displayAudio,
     displayVideo,
-    all: [board, speaker, displayVideo, microphone, displayAudio],
+    entries: [
+      ["board", board],
+      ["speaker", speaker],
+      ["canvas", displayVideo],
+      ["microphone", microphone],
+      ["desktop-audio", displayAudio],
+    ] as Array<[TrackKind, MediaStreamTrack]>,
   };
 }
 
-function requireLive(tracks: MediaStreamTrack[], label: string) {
+function requireLive(
+  tracks: MediaStreamTrack[],
+  kind: TrackKind,
+  label: string,
+) {
   const track = tracks.find(({ readyState }) => readyState === "live");
-  if (!track) throw new Error(`The ${label} stream is unavailable.`);
+  if (!track) throw new TrackUnavailableError(kind, label);
   return track;
 }
 
@@ -95,4 +128,9 @@ export function toError(cause: unknown) {
     return new Error(cause.message);
   }
   return new Error("Recording failed.");
+}
+
+export function isDisplayCancellation(error: unknown) {
+  if (!error || typeof error !== "object" || !("name" in error)) return false;
+  return error.name === "NotAllowedError" || error.name === "AbortError";
 }

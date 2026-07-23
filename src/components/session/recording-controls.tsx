@@ -32,7 +32,7 @@ export function RecordingControls({
         <p className="text-danger mt-3 text-sm">{recording.error}</p>
       )}
 
-      {recording.status === "recording" ? (
+      {recording.canStop ? (
         <div className="mt-3 space-y-3">
           <p className="flex items-center gap-2 text-sm font-semibold">
             <span className="bg-danger size-2.5 animate-pulse rounded-full" />

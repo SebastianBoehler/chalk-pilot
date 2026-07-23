@@ -76,4 +76,33 @@ describe("RecordingClient", () => {
       "invalid recording manifest",
     );
   });
+
+  it("persists one interrupted track through its exact route", async () => {
+    const interrupted = manifest("session-1", "interrupted");
+    interrupted.tracks.speaker.health = "interrupted";
+    interrupted.tracks.speaker.interruption = {
+      message: "The speaker track ended.",
+      at: "2026-07-23T10:00:01.000Z",
+    };
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(interrupted));
+    const client = new RecordingClient(fetcher);
+
+    const result = await client.interrupt(
+      "session-1",
+      "speaker",
+      "The speaker track ended.",
+    );
+
+    expect(result.tracks.speaker.health).toBe("interrupted");
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/sessions/session-1/recording/tracks/speaker/interrupt",
+      {
+        method: "POST",
+        body: JSON.stringify({ message: "The speaker track ended." }),
+        headers: { "content-type": "application/json" },
+      },
+    );
+  });
 });

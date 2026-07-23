@@ -23,6 +23,10 @@ const finalizeSchema = z
   .object({ durationMs: z.number().finite().nonnegative() })
   .strict();
 
+const interruptionSchema = z
+  .object({ message: z.string().trim().min(1).max(500) })
+  .strict();
+
 export function createRecordingApi(dependencies: RecordingApiDependencies) {
   const { repository, rootDirectory, sessionExists } = dependencies;
 
@@ -85,6 +89,27 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
     });
   }
 
+  async function interruptRecording(
+    rawSessionId: string,
+    rawTrack: string,
+    request: Request,
+  ) {
+    return recordingResponse(async () => {
+      const sessionId = parseRecordingRequest(() =>
+        identifierSchema.parse(rawSessionId),
+      );
+      const track = parseRecordingRequest(() =>
+        trackKindSchema.parse(rawTrack),
+      );
+      const { message } = await parseRecordingRequestAsync(async () =>
+        interruptionSchema.parse(await request.json()),
+      );
+      return Response.json(
+        await repository.interrupt(sessionId, track, message),
+      );
+    });
+  }
+
   async function finalizeRecording(rawSessionId: string, request: Request) {
     return recordingResponse(async () => {
       const sessionId = parseRecordingRequest(() =>
@@ -135,6 +160,7 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
     readManifest,
     appendChunk,
     appendTimeline,
+    interruptRecording,
     finalizeRecording,
     streamTrack,
     exportRecording,

@@ -23,9 +23,11 @@ export function useSessionRecording(
   microphone?: MediaStream,
 ) {
   const [status, setStatus] = useState<RecordingCoordinatorStatus>("idle");
+  const [canStop, setCanStop] = useState(false);
   const [error, setError] = useState<string>();
   const [replayUrl, setReplayUrl] = useState<string>();
   const coordinator = useRef<RecordingCoordinator | null>(null);
+  const unsubscribe = useRef<(() => void) | null>(null);
   const derived = useRef<DerivedVideoStreams | null>(null);
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export function useSessionRecording(
 
   useEffect(
     () => () => {
+      unsubscribe.current?.();
       void coordinator.current?.stop().catch(() => undefined);
       derived.current?.stop();
     },
@@ -50,6 +53,11 @@ export function useSessionRecording(
     void nextDerived.updateBoard(boardPreview);
     const nextCoordinator = new RecordingCoordinator();
     coordinator.current = nextCoordinator;
+    const syncCoordinator = () => {
+      setStatus(nextCoordinator.status);
+      setError(nextCoordinator.error?.message);
+    };
+    unsubscribe.current = nextCoordinator.subscribe(syncCoordinator);
     try {
       await nextCoordinator.start({
         sessionId,
@@ -57,13 +65,22 @@ export function useSessionRecording(
         speaker: nextDerived.speaker,
         microphone,
       });
+      setCanStop(true);
       setStatus("recording");
     } catch (cause) {
+      unsubscribe.current?.();
+      unsubscribe.current = null;
       nextDerived.stop();
       derived.current = null;
       coordinator.current = null;
-      setStatus("error");
-      setError(recordingError(cause));
+      setCanStop(false);
+      if (isDisplayCancellation(cause)) {
+        setStatus("idle");
+        setError(undefined);
+      } else {
+        setStatus("error");
+        setError(recordingError(cause));
+      }
     }
   };
 
@@ -79,14 +96,18 @@ export function useSessionRecording(
       setStatus("error");
       setError(recordingError(cause));
     } finally {
+      unsubscribe.current?.();
+      unsubscribe.current = null;
       derived.current?.stop();
       derived.current = null;
       coordinator.current = null;
+      setCanStop(false);
     }
   };
 
   return {
     canStart: Boolean(video && boardPreview && sessionId && microphone),
+    canStop,
     downloads: [] as RecordingDownload[],
     error,
     replayUrl,
@@ -97,8 +118,10 @@ export function useSessionRecording(
 }
 
 function recordingError(cause: unknown) {
-  if (cause instanceof DOMException && cause.name === "NotAllowedError") {
-    return "Canvas capture was cancelled. Start again and select the clean-display tab or this ChalkPilot tab.";
-  }
   return cause instanceof Error ? cause.message : "Recording could not start.";
+}
+
+function isDisplayCancellation(cause: unknown) {
+  if (!cause || typeof cause !== "object" || !("name" in cause)) return false;
+  return cause.name === "NotAllowedError" || cause.name === "AbortError";
 }

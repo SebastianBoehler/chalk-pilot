@@ -1,59 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { RecordingCoordinator } from "./recording-coordinator";
+import { coordinatorFixture as fixture } from "./recording-coordinator-fixture";
 import {
   deferred,
-  FakeRecorder,
-  FakeRecordingClient,
   FakeTrack,
+  manifest,
   stream,
 } from "./recording-test-helpers";
-
-function fixture(maxPendingUploads = 10) {
-  const boardTrack = new FakeTrack("video");
-  const speakerTrack = new FakeTrack("video");
-  const microphoneTrack = new FakeTrack("audio");
-  const displayVideoTrack = new FakeTrack("video");
-  const displayAudioTrack = new FakeTrack("audio");
-  const board = stream(boardTrack);
-  const speaker = stream(speakerTrack);
-  const microphone = stream(microphoneTrack);
-  const display = stream(displayVideoTrack, displayAudioTrack);
-  const recorders: FakeRecorder[] = [];
-  const client = new FakeRecordingClient();
-  let clock = 100;
-  const getDisplayMedia = vi.fn(async () => display);
-  const coordinator = new RecordingCoordinator({
-    client,
-    createMediaStream: (tracks) =>
-      stream(...(tracks as unknown as FakeTrack[])),
-    createRecorder: (source) => {
-      const recorder = new FakeRecorder(source);
-      recorders.push(recorder);
-      return recorder;
-    },
-    getDisplayMedia,
-    maxPendingUploads,
-    now: () => clock,
-  });
-  return {
-    board,
-    boardTrack,
-    client,
-    coordinator,
-    display,
-    displayAudioTrack,
-    displayVideoTrack,
-    getDisplayMedia,
-    microphone,
-    microphoneTrack,
-    recorders,
-    setClock: (value: number) => {
-      clock = value;
-    },
-    speaker,
-    speakerTrack,
-  };
-}
 
 describe("RecordingCoordinator start", () => {
   it("requests protected display audio and starts five two-second recorders", async () => {
@@ -122,6 +74,87 @@ describe("RecordingCoordinator start", () => {
       expect(test.microphoneTrack.stop).not.toHaveBeenCalled();
     },
   );
+
+  it("aborts and persists a track ending while recording creation is pending", async () => {
+    const test = fixture();
+    const creation = deferred<ReturnType<typeof manifest>>();
+    test.client.createRecording.mockReturnValueOnce(creation.promise);
+
+    const starting = test.coordinator.start({
+      sessionId: "session-1",
+      board: test.board,
+      speaker: test.speaker,
+      microphone: test.microphone,
+    });
+    await Promise.resolve();
+    test.boardTrack.end();
+    creation.resolve(manifest());
+
+    await expect(starting).rejects.toThrow("board");
+    expect(test.recorders).toHaveLength(0);
+    expect(test.client.interrupt).toHaveBeenCalledWith(
+      "session-1",
+      "board",
+      expect.stringContaining("board"),
+    );
+  });
+
+  it("does not interrupt a server recording that was never created", async () => {
+    const test = fixture();
+    const creation = deferred<ReturnType<typeof manifest>>();
+    test.client.createRecording.mockReturnValueOnce(creation.promise);
+
+    const starting = test.coordinator.start({
+      sessionId: "session-1",
+      board: test.board,
+      speaker: test.speaker,
+      microphone: test.microphone,
+    });
+    await Promise.resolve();
+    test.boardTrack.end();
+    creation.reject(new Error("creation failed"));
+
+    await expect(starting).rejects.toThrow("creation failed");
+    expect(test.client.interrupt).not.toHaveBeenCalled();
+  });
+
+  it("returns idle when the display picker is cancelled", async () => {
+    const test = fixture();
+    test.getDisplayMedia.mockRejectedValueOnce(
+      new DOMException("cancelled", "NotAllowedError"),
+    );
+
+    await expect(
+      test.coordinator.start({
+        sessionId: "session-1",
+        board: test.board,
+        speaker: test.speaker,
+        microphone: test.microphone,
+      }),
+    ).rejects.toThrow("cancelled");
+
+    expect(test.coordinator.status).toBe("idle");
+    expect(test.coordinator.error).toBeNull();
+  });
+
+  it("cleans every acquired display track when validation fails", async () => {
+    const test = fixture();
+    const video = new FakeTrack("video");
+    const missingAudio = new FakeTrack("audio", false);
+    test.getDisplayMedia.mockResolvedValueOnce(stream(video, missingAudio));
+
+    await expect(
+      test.coordinator.start({
+        sessionId: "session-1",
+        board: test.board,
+        speaker: test.speaker,
+        microphone: test.microphone,
+      }),
+    ).rejects.toThrow("desktop audio");
+
+    expect(video.stop).toHaveBeenCalledOnce();
+    expect(missingAudio.stop).toHaveBeenCalledOnce();
+  });
 });
 
 describe("RecordingCoordinator chunks", () => {
@@ -170,95 +203,52 @@ describe("RecordingCoordinator chunks", () => {
     });
 
     test.setClock(2_100);
-    test.recorders[0]?.emit("board-0");
+    const retained = test.recorders[0]?.emit("board-0");
     test.recorders[1]?.emit("speaker-0");
     expect(test.coordinator.pendingUploadCount).toBe(2);
+    expect(test.coordinator.pendingUploadJobs).toEqual([
+      expect.objectContaining({ data: retained, track: "board" }),
+      expect.objectContaining({ track: "speaker" }),
+    ]);
     test.recorders[2]?.emit("canvas-0");
 
     expect(test.coordinator.status).toBe("error");
     expect(test.client.uploadChunk).toHaveBeenCalledTimes(2);
+    expect(test.recorders[2]?.stop).toHaveBeenCalledOnce();
+    expect(test.recorders[0]?.stop).not.toHaveBeenCalled();
+    expect(test.recorders[1]?.stop).not.toHaveBeenCalled();
     first.resolve();
     await first.promise;
     await Promise.resolve();
     expect(test.coordinator.pendingUploadCount).toBe(1);
+    expect(
+      test.coordinator.pendingUploadJobs.some(({ data }) => data === retained),
+    ).toBe(false);
     second.resolve();
   });
-});
 
-describe("RecordingCoordinator stop and interruption", () => {
-  it("waits for acknowledged uploads before finalizing and cleans only display tracks", async () => {
+  it("interrupts only the track whose upload fails", async () => {
     const test = fixture();
-    const upload = deferred();
-    test.client.uploadChunk.mockReturnValueOnce(upload.promise);
+    test.client.uploadChunk.mockRejectedValueOnce(new Error("disk stalled"));
     await test.coordinator.start({
       sessionId: "session-1",
       board: test.board,
       speaker: test.speaker,
       microphone: test.microphone,
     });
-    test.setClock(2_100);
+
     test.recorders[0]?.emit("board");
-
-    const stopped = test.coordinator.stop();
-    await Promise.resolve();
-    expect(test.client.finalizeRecording).not.toHaveBeenCalled();
-    upload.resolve();
-    const result = await stopped;
-
-    expect(result.state).toBe("complete");
-    expect(test.client.finalizeRecording).toHaveBeenCalledWith(
-      "session-1",
-      2_000,
+    await vi.waitFor(() =>
+      expect(test.client.interrupt).toHaveBeenCalledWith(
+        "session-1",
+        "board",
+        expect.stringContaining("disk stalled"),
+      ),
     );
-    expect(test.displayVideoTrack.stop).toHaveBeenCalledOnce();
-    expect(test.displayAudioTrack.stop).toHaveBeenCalledOnce();
-    expect(test.boardTrack.stop).not.toHaveBeenCalled();
-    expect(test.speakerTrack.stop).not.toHaveBeenCalled();
-    expect(test.microphoneTrack.stop).not.toHaveBeenCalled();
-    expect(test.coordinator.status).toBe("complete");
-  });
 
-  it("enters error and stops capture when a live source track ends", async () => {
-    const test = fixture();
-    await test.coordinator.start({
-      sessionId: "session-1",
-      board: test.board,
-      speaker: test.speaker,
-      microphone: test.microphone,
-    });
-
-    test.boardTrack.end();
-    await Promise.resolve();
-
-    expect(test.coordinator.status).toBe("error");
+    expect(test.recorders[0]?.stop).toHaveBeenCalledOnce();
     expect(
-      test.recorders.every(({ stop }) => stop.mock.calls.length === 1),
+      test.recorders.slice(1).every(({ stop }) => stop.mock.calls.length === 0),
     ).toBe(true);
-    expect(test.displayVideoTrack.stop).toHaveBeenCalledOnce();
-    expect(test.displayAudioTrack.stop).toHaveBeenCalledOnce();
-    expect(test.boardTrack.stop).not.toHaveBeenCalled();
-    expect(test.client.finalizeRecording).not.toHaveBeenCalled();
-  });
-
-  it("cleans display capture when a recorder fails during stop", async () => {
-    const test = fixture();
-    await test.coordinator.start({
-      sessionId: "session-1",
-      board: test.board,
-      speaker: test.speaker,
-      microphone: test.microphone,
-    });
-    test.recorders[0]?.stop.mockImplementationOnce(() => {
-      test.recorders[0]!.state = "inactive";
-      test.recorders[0]!.onerror?.({
-        error: new DOMException("encoder failed"),
-      });
-    });
-
-    await expect(test.coordinator.stop()).rejects.toThrow("encoder failed");
-
-    expect(test.displayVideoTrack.stop).toHaveBeenCalledOnce();
-    expect(test.displayAudioTrack.stop).toHaveBeenCalledOnce();
-    expect(test.coordinator.status).toBe("error");
   });
 });

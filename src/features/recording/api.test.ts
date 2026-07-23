@@ -117,6 +117,46 @@ describe("recording API mutations", () => {
     });
   });
 
+  it("durably interrupts one track and preserves it through finalization", async () => {
+    fixture = await createApiFixture();
+    await fixture.api.createRecording("session-1");
+    await fixture.api.appendChunk(
+      "session-1",
+      "board",
+      "0",
+      chunkRequest(Buffer.from("board")),
+    );
+
+    const interrupted = await fixture.api.interruptRecording(
+      "session-1",
+      "speaker",
+      jsonRequest({ message: "The speaker video track ended." }),
+    );
+    const finalized = await fixture.api.finalizeRecording(
+      "session-1",
+      jsonRequest({ durationMs: 2_000 }),
+    );
+
+    expect(interrupted.status).toBe(200);
+    expect(await interrupted.json()).toMatchObject({
+      state: "interrupted",
+      tracks: {
+        board: { health: "healthy" },
+        speaker: {
+          health: "interrupted",
+          interruption: { message: "The speaker video track ended." },
+        },
+      },
+    });
+    expect(await finalized.json()).toMatchObject({
+      state: "interrupted",
+      tracks: {
+        board: { health: "complete" },
+        speaker: { health: "interrupted" },
+      },
+    });
+  });
+
   it("rejects chunk and timeline mutations after finalization", async () => {
     fixture = await createApiFixture();
     await fixture.api.createRecording("session-1");

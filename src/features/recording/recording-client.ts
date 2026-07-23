@@ -17,6 +17,11 @@ export interface UploadChunkInput {
 export interface RecordingClientPort {
   createRecording(sessionId: string): Promise<RecordingManifest>;
   uploadChunk(input: UploadChunkInput): Promise<void>;
+  interrupt(
+    sessionId: string,
+    track: TrackKind,
+    message: string,
+  ): Promise<RecordingManifest>;
   finalizeRecording(
     sessionId: string,
     durationMs: number,
@@ -56,6 +61,19 @@ export class RecordingClient implements RecordingClientPort {
         body: JSON.stringify({ durationMs }),
         headers: { "content-type": "application/json" },
       }),
+    );
+  }
+
+  async interrupt(sessionId: string, track: TrackKind, message: string) {
+    return this.manifest(
+      await this.fetcher(
+        `${recordingUrl(sessionId)}/tracks/${track}/interrupt`,
+        {
+          method: "POST",
+          body: JSON.stringify({ message }),
+          headers: { "content-type": "application/json" },
+        },
+      ),
     );
   }
 

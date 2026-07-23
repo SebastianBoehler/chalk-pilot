@@ -68,11 +68,18 @@ export class FakeRecorder implements MediaRecorderPort {
   constructor(readonly source: MediaStream) {}
 
   emit(label: string, type = "video/webm") {
-    this.ondataavailable?.({ data: new Blob([label], { type }) });
+    const data = new Blob([label], { type });
+    this.ondataavailable?.({ data });
+    return data;
+  }
+
+  fail(message: string) {
+    this.onerror?.({ error: new DOMException(message) });
   }
 }
 
 export class FakeRecordingClient implements RecordingClientPort {
+  readonly interrupted = new Set<TrackKind>();
   readonly createRecording = vi.fn(async (sessionId: string) =>
     manifest(sessionId),
   );
@@ -81,9 +88,34 @@ export class FakeRecordingClient implements RecordingClientPort {
       void input;
     },
   );
+  readonly interrupt = vi.fn(
+    async (sessionId: string, track: TrackKind, message: string) => {
+      this.interrupted.add(track);
+      const result = manifest(sessionId, "interrupted");
+      result.tracks[track].health = "interrupted";
+      result.tracks[track].interruption = {
+        message,
+        at: "2026-07-23T10:00:01.000Z",
+      };
+      return result;
+    },
+  );
   readonly finalizeRecording = vi.fn(
-    async (sessionId: string, durationMs: number) =>
-      manifest(sessionId, "complete", durationMs),
+    async (sessionId: string, durationMs: number) => {
+      const result = manifest(
+        sessionId,
+        this.interrupted.size ? "interrupted" : "complete",
+        durationMs,
+      );
+      this.interrupted.forEach((track) => {
+        result.tracks[track].health = "interrupted";
+        result.tracks[track].interruption = {
+          message: `The ${track} track was interrupted.`,
+          at: "2026-07-23T10:00:01.000Z",
+        };
+      });
+      return result;
+    },
   );
   readonly replayUrl = vi.fn(
     (sessionId: string) => `/replay/${encodeURIComponent(sessionId)}`,
