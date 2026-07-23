@@ -24,6 +24,7 @@
 ### Task 1: Open-source application foundation
 
 **Files:**
+
 - Create: `package.json`, `package-lock.json`, `tsconfig.json`, `next.config.ts`
 - Create: `postcss.config.mjs`, `eslint.config.mjs`, `vitest.config.ts`
 - Create: `src/test/setup.ts`, `src/app/page.test.tsx`
@@ -31,6 +32,7 @@
 - Create: `.gitignore`, `.env.example`, `LICENSE`
 
 **Interfaces:**
+
 - Produces: npm scripts `dev`, `build`, `lint`, `typecheck`, `test`, `test:e2e`, `check`
 - Produces: root page redirecting to `/setup`
 
@@ -82,6 +84,7 @@ Commit: `chore: initialize ChalkPilot web application`
 ### Task 2: Workspace, canvas, and learner-memory core
 
 **Files:**
+
 - Create: `src/features/workspace/schema.ts`, `paths.ts`, `repository.ts`
 - Create: `src/features/workspace/repository.test.ts`
 - Create: `src/app/api/sessions/route.ts`
@@ -89,6 +92,7 @@ Commit: `chore: initialize ChalkPilot web application`
 - Create: `src/app/api/sessions/[sessionId]/memory/route.ts`
 
 **Interfaces:**
+
 - Produces: `createSession(): Promise<SessionRecord>`
 - Produces: `readCanvas(id): Promise<CanvasState>`
 - Produces: `appendSection(id, input): Promise<CanvasState>`
@@ -108,9 +112,11 @@ await repository.appendSection(session.id, {
   id: "derivative-hint",
   kind: "markdown",
   title: "Try this",
-  content: "Differentiate the outer function first."
+  content: "Differentiate the outer function first.",
 });
-expect((await repository.readCanvas(session.id)).order).toEqual(["derivative-hint"]);
+expect((await repository.readCanvas(session.id)).order).toEqual([
+  "derivative-hint",
+]);
 ```
 
 Also assert duplicate IDs, unknown sessions, `../` identifiers, invalid media URLs,
@@ -145,6 +151,7 @@ Commit: `feat(workspace): persist sessions and learning canvas`
 ### Task 3: Display protocol and presentation canvas
 
 **Files:**
+
 - Create: `src/features/display/protocol.ts`, `display-reducer.ts`
 - Create: `src/features/display/display-reducer.test.ts`
 - Create: `src/features/display/use-display-channel.ts`
@@ -153,6 +160,7 @@ Commit: `feat(workspace): persist sessions and learning canvas`
 - Create: `src/app/display/page.tsx`
 
 **Interfaces:**
+
 - Produces: `DisplayMessage` version `1`
 - Produces: `reduceDisplayState(state, message): DisplayState`
 - Produces: `useDisplayChannel(role, state?)`
@@ -160,11 +168,13 @@ Commit: `feat(workspace): persist sessions and learning canvas`
 - [ ] **Step 1: Write reducer and renderer tests**
 
 ```ts
-expect(reduceDisplayState(emptyDisplayState, {
-  version: 1,
-  type: "snapshot",
-  payload: { canvas, agentState: "listening" }
-}).canvas).toEqual(canvas);
+expect(
+  reduceDisplayState(emptyDisplayState, {
+    version: 1,
+    type: "snapshot",
+    payload: { canvas, agentState: "listening" },
+  }).canvas,
+).toEqual(canvas);
 ```
 
 Render each safe block type and assert a script-bearing Markdown link or invalid
@@ -191,6 +201,7 @@ Commit: `feat(display): add synchronized presentation canvas`
 ### Task 4: Camera calibration and bounded board observation
 
 **Files:**
+
 - Create: `src/features/board/types.ts`, `geometry.ts`, `change-detector.ts`
 - Create: `src/features/board/geometry.test.ts`, `change-detector.test.ts`
 - Create: `src/features/board/camera.ts`, `frame.ts`
@@ -199,6 +210,7 @@ Commit: `feat(display): add synchronized presentation canvas`
 - Create: `src/components/setup/calibration-step.test.tsx`
 
 **Interfaces:**
+
 - Produces: `orderCorners(points): BoardCorners`
 - Produces: `measureBoardChange(previous, current): number`
 - Produces: `BoardWorkerClient.detect(imageData): Promise<DetectionResult>`
@@ -242,12 +254,14 @@ Commit: `feat(board): calibrate and observe the physical board`
 ### Task 5: OpenAI Realtime agent and tools
 
 **Files:**
+
 - Create: `src/features/realtime/client-secret.ts`, `client-secret.test.ts`
 - Create: `src/app/api/realtime-token/route.ts`
 - Create: `src/features/realtime/instructions.ts`, `tools.ts`, `session.ts`
 - Create: `src/features/realtime/tools.test.ts`, `session.test.ts`
 
 **Interfaces:**
+
 - Produces: `createClientSecret(apiKey, fetcher): Promise<string>`
 - Produces: `createChalkPilotAgent(toolContext): RealtimeAgent`
 - Produces: `ChalkPilotSession.connect(ephemeralKey): Promise<void>`
@@ -296,6 +310,7 @@ Commit: `feat(agent): connect the room-aware realtime tutor`
 ### Task 6: Setup and live-session vertical slice
 
 **Files:**
+
 - Create: `src/features/setup/setup-machine.ts`, `setup-machine.test.ts`
 - Create: `src/features/session/session-machine.ts`, `session-machine.test.ts`
 - Create: `src/components/ui/button.tsx`, `status-pill.tsx`, `error-panel.tsx`
@@ -304,6 +319,7 @@ Commit: `feat(agent): connect the room-aware realtime tutor`
 - Create: `src/app/setup/page.tsx`, `src/app/session/page.tsx`
 
 **Interfaces:**
+
 - Consumes: board worker, workspace routes, display channel, Realtime adapter
 - Produces: complete four-step setup and controller state machines
 
@@ -334,12 +350,14 @@ Commit: `feat: deliver the ChalkPilot room-learning flow`
 ### Task 7: End-to-end readiness, documentation, and public release
 
 **Files:**
+
 - Create: `playwright.config.ts`, `e2e/setup.spec.ts`, `e2e/display.spec.ts`
 - Create: `README.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`
 - Create: `.github/workflows/ci.yml`
 - Modify: `docs/superpowers/specs/2026-07-23-chalk-pilot-mvp-design.md`
 
 **Interfaces:**
+
 - Produces: documented fresh-clone path and reproducible room checklist
 
 - [ ] **Step 1: Write and run failing browser flows**
