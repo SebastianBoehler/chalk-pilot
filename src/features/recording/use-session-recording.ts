@@ -5,10 +5,13 @@ import {
   createDerivedVideoStreams,
   type DerivedVideoStreams,
 } from "./derived-video-streams";
-import { SessionRecorder, type SessionRecordings } from "./session-recorder";
+import {
+  RecordingCoordinator,
+  type RecordingCoordinatorStatus,
+} from "./recording-coordinator";
 
 export interface RecordingDownload {
-  kind: keyof SessionRecordings;
+  kind: "board" | "speaker" | "canvas" | "microphone" | "desktop-audio";
   filename: string;
   url: string;
 }
@@ -16,13 +19,13 @@ export interface RecordingDownload {
 export function useSessionRecording(
   video: HTMLVideoElement | undefined,
   boardPreview: string | null,
+  sessionId?: string,
+  microphone?: MediaStream,
 ) {
-  const [status, setStatus] = useState<
-    "idle" | "starting" | "recording" | "stopping"
-  >("idle");
+  const [status, setStatus] = useState<RecordingCoordinatorStatus>("idle");
   const [error, setError] = useState<string>();
-  const [downloads, setDownloads] = useState<RecordingDownload[]>([]);
-  const recorder = useRef<SessionRecorder | null>(null);
+  const [replayUrl, setReplayUrl] = useState<string>();
+  const coordinator = useRef<RecordingCoordinator | null>(null);
   const derived = useRef<DerivedVideoStreams | null>(null);
 
   useEffect(() => {
@@ -31,74 +34,62 @@ export function useSessionRecording(
 
   useEffect(
     () => () => {
-      void recorder.current?.stop().catch(() => undefined);
+      void coordinator.current?.stop().catch(() => undefined);
       derived.current?.stop();
     },
     [],
   );
 
-  useEffect(
-    () => () => {
-      downloads.forEach(({ url }) => URL.revokeObjectURL(url));
-    },
-    [downloads],
-  );
-
   const start = async () => {
-    if (!video || !boardPreview) return;
+    if (!video || !boardPreview || !sessionId || !microphone) return;
     setStatus("starting");
     setError(undefined);
-    downloads.forEach(({ url }) => URL.revokeObjectURL(url));
-    setDownloads([]);
+    setReplayUrl(undefined);
     const nextDerived = createDerivedVideoStreams(video);
     derived.current = nextDerived;
     void nextDerived.updateBoard(boardPreview);
-    const nextRecorder = new SessionRecorder();
-    recorder.current = nextRecorder;
+    const nextCoordinator = new RecordingCoordinator();
+    coordinator.current = nextCoordinator;
     try {
-      await nextRecorder.start({
+      await nextCoordinator.start({
+        sessionId,
         board: nextDerived.board,
         speaker: nextDerived.speaker,
+        microphone,
       });
       setStatus("recording");
     } catch (cause) {
       nextDerived.stop();
       derived.current = null;
-      recorder.current = null;
-      setStatus("idle");
+      coordinator.current = null;
+      setStatus("error");
       setError(recordingError(cause));
     }
   };
 
   const stop = async () => {
-    if (!recorder.current) return;
+    if (!coordinator.current) return;
     setStatus("stopping");
     setError(undefined);
     try {
-      const recordings = await recorder.current.stop();
-      setDownloads(
-        (Object.keys(recordings) as Array<keyof SessionRecordings>).map(
-          (kind) => ({
-            kind,
-            filename: recordings[kind].filename,
-            url: URL.createObjectURL(recordings[kind].blob),
-          }),
-        ),
-      );
+      await coordinator.current.stop();
+      setReplayUrl(coordinator.current.replayUrl ?? undefined);
+      setStatus("complete");
     } catch (cause) {
+      setStatus("error");
       setError(recordingError(cause));
     } finally {
       derived.current?.stop();
       derived.current = null;
-      recorder.current = null;
-      setStatus("idle");
+      coordinator.current = null;
     }
   };
 
   return {
-    canStart: Boolean(video && boardPreview),
-    downloads,
+    canStart: Boolean(video && boardPreview && sessionId && microphone),
+    downloads: [] as RecordingDownload[],
     error,
+    replayUrl,
     start,
     status,
     stop,
