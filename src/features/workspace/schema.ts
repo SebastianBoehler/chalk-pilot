@@ -1,8 +1,13 @@
 import { z } from "zod";
+import {
+  chartArtifactDataSchema,
+  checkpointArtifactDataSchema,
+  comparisonArtifactDataSchema,
+  sequenceArtifactDataSchema,
+} from "./artifact-schemas";
+import { identifierSchema } from "./primitives";
 
-export const identifierSchema = z
-  .string()
-  .regex(/^[a-z0-9][a-z0-9-]{0,63}$/, "Invalid identifier");
+export { identifierSchema } from "./primitives";
 
 const titleSchema = z.string().trim().min(1).max(120);
 const textContentSchema = z.string().trim().min(1).max(20_000);
@@ -26,35 +31,74 @@ const sectionBase = z.object({
   title: titleSchema,
 });
 
-export const canvasSectionInputSchema = z.discriminatedUnion("kind", [
-  sectionBase.extend({
+const markdownSectionInputSchema = sectionBase
+  .extend({
     kind: z.enum(["markdown", "math", "mermaid"]),
     content: textContentSchema,
-  }),
-  sectionBase.extend({
-    kind: z.literal("image"),
-    content: httpUrlSchema,
-  }),
-  sectionBase.extend({
-    kind: z.literal("youtube"),
-    content: youtubeUrlSchema,
-  }),
+  })
+  .strict();
+const imageSectionInputSchema = sectionBase
+  .extend({ kind: z.literal("image"), content: httpUrlSchema })
+  .strict();
+const youtubeSectionInputSchema = sectionBase
+  .extend({ kind: z.literal("youtube"), content: youtubeUrlSchema })
+  .strict();
+const chartSectionInputSchema = sectionBase
+  .extend({ kind: z.literal("chart"), data: chartArtifactDataSchema })
+  .strict();
+const comparisonSectionInputSchema = sectionBase
+  .extend({ kind: z.literal("comparison"), data: comparisonArtifactDataSchema })
+  .strict();
+const sequenceSectionInputSchema = sectionBase
+  .extend({ kind: z.literal("sequence"), data: sequenceArtifactDataSchema })
+  .strict();
+const checkpointSectionInputSchema = sectionBase
+  .extend({ kind: z.literal("checkpoint"), data: checkpointArtifactDataSchema })
+  .strict();
+
+export const canvasSectionInputSchema = z.discriminatedUnion("kind", [
+  markdownSectionInputSchema,
+  imageSectionInputSchema,
+  youtubeSectionInputSchema,
+  chartSectionInputSchema,
+  comparisonSectionInputSchema,
+  sequenceSectionInputSchema,
+  checkpointSectionInputSchema,
 ]);
 
-export const canvasSectionSchema = canvasSectionInputSchema.and(
-  z.object({
+const timestamps = { createdAt: z.iso.datetime(), updatedAt: z.iso.datetime() };
+
+export const canvasSectionSchema = z.discriminatedUnion("kind", [
+  markdownSectionInputSchema.extend(timestamps).strict(),
+  imageSectionInputSchema.extend(timestamps).strict(),
+  youtubeSectionInputSchema.extend(timestamps).strict(),
+  chartSectionInputSchema.extend(timestamps).strict(),
+  comparisonSectionInputSchema.extend(timestamps).strict(),
+  sequenceSectionInputSchema.extend(timestamps).strict(),
+  checkpointSectionInputSchema.extend(timestamps).strict(),
+]);
+
+export const canvasSectionKindSchema = z.enum([
+  "markdown",
+  "math",
+  "mermaid",
+  "image",
+  "youtube",
+  "chart",
+  "comparison",
+  "sequence",
+  "checkpoint",
+]);
+
+export const canvasSectionMetadataSchema = z
+  .object({
+    id: identifierSchema,
+    kind: canvasSectionKindSchema,
+    title: titleSchema,
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
-  }),
-);
-
-export const canvasSectionMetadataSchema = z.object({
-  id: identifierSchema,
-  kind: z.enum(["markdown", "math", "mermaid", "image", "youtube"]),
-  title: titleSchema,
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
-});
+  })
+  .strict();
 
 export const storedCanvasStateSchema = z.object({
   version: z.literal(1),
@@ -127,6 +171,14 @@ export type SessionRecord = z.infer<typeof sessionRecordSchema>;
 export type TranscriptTurn = z.infer<typeof transcriptTurnSchema>;
 export type LearningEvent = z.infer<typeof learningEventSchema>;
 export type LearnerMemoryInput = z.infer<typeof learnerMemoryInputSchema>;
+
+export function hasSectionContent(
+  section: CanvasSectionInput | CanvasSection,
+): section is
+  | Extract<CanvasSectionInput, { content: string }>
+  | Extract<CanvasSection, { content: string }> {
+  return "content" in section;
+}
 
 export interface LearnerMemoryEntry extends LearnerMemoryInput {
   id: string;

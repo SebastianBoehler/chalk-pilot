@@ -117,7 +117,10 @@ function canvasSnapshot(canvas: CanvasState) {
         id: section.id,
         kind: section.kind,
         title: section.title,
-        content: section.content.slice(0, 4_000),
+        content:
+          "content" in section
+            ? section.content.slice(0, 4_000)
+            : JSON.stringify(section.data).slice(0, 4_000),
       };
     }),
   };

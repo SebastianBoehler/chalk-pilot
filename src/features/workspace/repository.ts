@@ -12,6 +12,7 @@ import {
   canvasSectionInputSchema,
   canvasSectionMetadataSchema,
   canvasSectionSchema,
+  hasSectionContent,
   learnerMemoryInputSchema,
   learningEventSchema,
   sessionRecordSchema,
@@ -78,12 +79,22 @@ export function createWorkspaceRepository(rootDirectory: string) {
     const sections: CanvasState["sections"] = {};
     await Promise.all(
       stored.order.map(async (id) => {
+        const metadata = stored.sections[id];
+        if (!metadata)
+          throw new Error(`Missing canvas section metadata: ${id}`);
+        if (
+          ["chart", "comparison", "sequence", "checkpoint"].includes(
+            metadata.kind,
+          )
+        ) {
+          throw new Error("Structured canvas sections are not available yet");
+        }
         const content = await readFile(
           join(paths.sectionsDirectory, `${id}.md`),
           "utf8",
         );
         sections[id] = canvasSectionSchema.parse({
-          ...stored.sections[id],
+          ...metadata,
           content,
         });
       }),
@@ -96,10 +107,19 @@ export function createWorkspaceRepository(rootDirectory: string) {
     const metadata = {
       ...canvas,
       sections: Object.fromEntries(
-        Object.entries(canvas.sections).map(([id, section]) => [
-          id,
-          canvasSectionMetadataSchema.parse(section),
-        ]),
+        Object.entries(canvas.sections).map(([id, section]) => {
+          const { createdAt, kind, title, updatedAt } = section;
+          return [
+            id,
+            canvasSectionMetadataSchema.parse({
+              id,
+              kind,
+              title,
+              createdAt,
+              updatedAt,
+            }),
+          ];
+        }),
       ),
     };
     await atomicWrite(
@@ -133,6 +153,9 @@ export function createWorkspaceRepository(rootDirectory: string) {
 
   async function appendSection(sessionId: string, raw: CanvasSectionInput) {
     const input = canvasSectionInputSchema.parse(raw);
+    if (!hasSectionContent(input)) {
+      throw new Error("Structured canvas sections are not available yet");
+    }
     return queue(sessionId, async () => {
       const canvas = await readCanvas(sessionId);
       if (canvas.sections[input.id]) {
@@ -163,10 +186,21 @@ export function createWorkspaceRepository(rootDirectory: string) {
       const canvas = await readCanvas(sessionId);
       const current = canvas.sections[input.id];
       if (!current) throw new Error(`Unknown canvas section: ${input.id}`);
-      const parsed = canvasSectionInputSchema.parse({ ...current, ...input });
+      if (!hasSectionContent(current)) {
+        throw new Error("Structured canvas sections are not available yet");
+      }
+      const parsed = canvasSectionInputSchema.parse({
+        id: current.id,
+        kind: current.kind,
+        title: input.title ?? current.title,
+        content: input.content ?? current.content,
+      });
+      if (!hasSectionContent(parsed)) {
+        throw new Error("Structured canvas sections are not available yet");
+      }
       const section = {
-        ...current,
         ...parsed,
+        createdAt: current.createdAt,
         updatedAt: new Date().toISOString(),
       };
       const next = {

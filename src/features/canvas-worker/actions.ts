@@ -1,5 +1,6 @@
 import {
   canvasSectionInputSchema,
+  hasSectionContent,
   identifierSchema,
   type CanvasSectionInput,
 } from "@/features/workspace/schema";
@@ -16,6 +17,9 @@ export function createCanvasWorkerActions(
 
     async upsertSection(raw: CanvasSectionInput) {
       const section = canvasSectionInputSchema.parse(raw);
+      if (!hasSectionContent(section)) {
+        throw new Error("Structured canvas sections are not available yet");
+      }
       const canvas = await repository.readCanvas(sessionId);
       if (!canvas.sections[section.id]) {
         await repository.appendSection(sessionId, section);

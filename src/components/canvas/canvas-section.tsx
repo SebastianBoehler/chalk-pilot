@@ -37,6 +37,9 @@ export function CanvasSection({
 }
 
 function SectionContent({ section }: { section: CanvasSectionModel }) {
+  if (!("content" in section)) {
+    return <p className="text-muted">This learning artifact is unavailable.</p>;
+  }
   if (section.kind === "mermaid")
     return <MermaidBlock source={section.content} />;
   if (section.kind === "image") {
