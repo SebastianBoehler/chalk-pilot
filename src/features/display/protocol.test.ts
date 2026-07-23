@@ -54,6 +54,49 @@ describe("display protocol", () => {
     });
   });
 
+  it("accepts a structured canvas update without a new snapshot", () => {
+    const message = parseDisplayMessage({
+      version: 1,
+      type: "canvas",
+      payload: {
+        version: 1,
+        focusId: "check",
+        order: ["check"],
+        sections: {
+          check: {
+            id: "check",
+            kind: "checkpoint",
+            title: "Prediction",
+            createdAt: "2026-07-23T10:00:00.000Z",
+            updatedAt: "2026-07-23T10:01:00.000Z",
+            data: {
+              mode: "prediction",
+              prompt: "What happens next?",
+              expectedAnswer: "Retrieve before feedback.",
+              status: "correct",
+              showAnswer: true,
+              showFeedback: false,
+              showHint: false,
+            },
+          },
+        },
+      },
+    });
+
+    expect(message).toMatchObject({
+      type: "canvas",
+      payload: {
+        focusId: "check",
+        sections: {
+          check: {
+            kind: "checkpoint",
+            data: { showAnswer: true, status: "correct" },
+          },
+        },
+      },
+    });
+  });
+
   it("rejects a malformed structured artifact", () => {
     expect(
       parseDisplayMessage({

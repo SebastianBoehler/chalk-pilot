@@ -80,6 +80,26 @@ test("renders persisted typed artifacts on the synchronized display", async ({
   );
   await expect(page.getByText("Recall versus rereading")).toBeVisible();
 
+  const updatedCanvas = structuredClone(canvas);
+  updatedCanvas.sections["retrieval-check"].updatedAt =
+    "2026-07-23T10:01:00.000Z";
+  updatedCanvas.sections["retrieval-check"].data.status = "correct";
+  updatedCanvas.sections["retrieval-check"].data.showAnswer = true;
+  await page.evaluate(async (nextCanvas) => {
+    const channel = new BroadcastChannel("chalkpilot-display-v1");
+    channel.postMessage({
+      version: 1,
+      type: "canvas",
+      payload: nextCanvas,
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+    channel.close();
+  }, updatedCanvas);
+  await expect(page.getByLabel("Prediction checkpoint")).toContainText(
+    "Correct",
+  );
+  await expect(page.getByText("Retrieve from memory.")).toBeVisible();
+
   await expect(
     page.getByText("This diagram could not be rendered."),
   ).toBeVisible();
