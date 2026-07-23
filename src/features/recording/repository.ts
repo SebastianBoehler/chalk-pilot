@@ -4,11 +4,13 @@ import {
   TRACK_KINDS,
   chunkMetadataSchema,
   recordingManifestSchema,
+  replayTimelineSchema,
   recordingTimelineEventSchema,
   trackKindSchema,
   type ChunkMetadata,
   type RecordingManifest,
   type RecordingTimelineEvent,
+  type ReplayTimeline,
   type TrackKind,
 } from "./schema";
 import {
@@ -69,6 +71,17 @@ export function createRecordingRepository(root: string) {
 
   async function read(sessionId: string): Promise<RecordingManifest> {
     return queue(sessionId, () => load(sessionId));
+  }
+
+  async function readTimeline(sessionId: string): Promise<ReplayTimeline> {
+    return queue(sessionId, async () => {
+      await load(sessionId);
+      const paths = getRecordingPaths(root, sessionId);
+      return replayTimelineSchema.parse({
+        transcript: await readJson(paths.transcript),
+        canvasEvents: await readJson(paths.canvasEvents),
+      });
+    });
   }
 
   async function create(sessionId: string): Promise<RecordingManifest> {
@@ -286,6 +299,7 @@ export function createRecordingRepository(root: string) {
     interrupt,
     finalize,
     read,
+    readTimeline,
     list,
   };
 }

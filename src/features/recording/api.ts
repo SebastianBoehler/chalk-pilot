@@ -57,6 +57,15 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
     });
   }
 
+  async function readTimeline(rawSessionId: string) {
+    return recordingResponse(async () => {
+      const sessionId = parseRecordingRequest(() =>
+        identifierSchema.parse(rawSessionId),
+      );
+      return Response.json(await repository.readTimeline(sessionId));
+    });
+  }
+
   async function appendChunk(
     rawSessionId: string,
     rawTrack: string,
@@ -158,6 +167,7 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
     listRecordings,
     createRecording,
     readManifest,
+    readTimeline,
     appendChunk,
     appendTimeline,
     interruptRecording,

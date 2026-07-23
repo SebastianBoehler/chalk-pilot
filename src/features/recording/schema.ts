@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { identifierSchema } from "../workspace/schema";
+import { canvasStateSchema, identifierSchema } from "../workspace/schema";
 
 export const trackKindSchema = z.enum([
   "board",
@@ -95,7 +95,7 @@ export const recordingSummarySchema = z
   })
   .strict();
 
-const transcriptTimelineEventSchema = z
+export const transcriptTimelineEventSchema = z
   .object({
     type: z.literal("transcript"),
     speaker: z.enum(["user", "assistant"]),
@@ -108,7 +108,7 @@ const transcriptTimelineEventSchema = z
     message: "Transcript end must not precede its start",
   });
 
-const canvasTimelineEventSchema = z
+export const canvasTimelineEventSchema = z
   .object({
     type: z.literal("canvas"),
     offsetMs: z.number().finite().nonnegative(),
@@ -121,6 +121,15 @@ export const recordingTimelineEventSchema = z.union([
   canvasTimelineEventSchema,
 ]);
 
+export const replayTimelineSchema = z
+  .object({
+    transcript: z.array(transcriptTimelineEventSchema),
+    canvasEvents: z.array(
+      canvasTimelineEventSchema.extend({ revision: canvasStateSchema }),
+    ),
+  })
+  .strict();
+
 export type TrackKind = z.infer<typeof trackKindSchema>;
 export type TrackHealth = z.infer<typeof trackHealthSchema>;
 export type ChunkMetadata = z.infer<typeof chunkMetadataSchema>;
@@ -129,3 +138,4 @@ export type RecordingSummary = z.infer<typeof recordingSummarySchema>;
 export type RecordingTimelineEvent = z.infer<
   typeof recordingTimelineEventSchema
 >;
+export type ReplayTimeline = z.infer<typeof replayTimelineSchema>;
