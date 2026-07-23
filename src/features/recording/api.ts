@@ -2,7 +2,12 @@ import { z } from "zod";
 import { identifierSchema } from "../workspace/schema";
 import type { RecordingRepository } from "./repository";
 import { recordingTimelineEventSchema, trackKindSchema } from "./schema";
-import { RecordingHttpError, recordingResponse } from "./api-errors";
+import {
+  parseRecordingRequest,
+  parseRecordingRequestAsync,
+  RecordingHttpError,
+  recordingResponse,
+} from "./api-errors";
 import { MAX_CHUNK_BYTES, parseChunkInput, readBoundedBody } from "./api-input";
 import { exportResponse, trackResponse } from "./api-streams";
 
@@ -29,7 +34,9 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
 
   async function createRecording(rawSessionId: string) {
     return recordingResponse(async () => {
-      const sessionId = identifierSchema.parse(rawSessionId);
+      const sessionId = parseRecordingRequest(() =>
+        identifierSchema.parse(rawSessionId),
+      );
       if (!(await sessionExists(sessionId))) {
         throw new RecordingHttpError(404, "Session not found.");
       }
@@ -39,7 +46,9 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
 
   async function readManifest(rawSessionId: string) {
     return recordingResponse(async () => {
-      const sessionId = identifierSchema.parse(rawSessionId);
+      const sessionId = parseRecordingRequest(() =>
+        identifierSchema.parse(rawSessionId),
+      );
       return Response.json(await repository.read(sessionId));
     });
   }
@@ -51,11 +60,11 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
     request: Request,
   ) {
     return recordingResponse(async () => {
-      const sessionId = identifierSchema.parse(rawSessionId);
-      const { track, sequence, metadata } = parseChunkInput(
-        rawTrack,
-        rawSequence,
-        request.headers,
+      const sessionId = parseRecordingRequest(() =>
+        identifierSchema.parse(rawSessionId),
+      );
+      const { track, sequence, metadata } = parseRecordingRequest(() =>
+        parseChunkInput(rawTrack, rawSequence, request.headers),
       );
       const bytes = await readBoundedBody(request);
       await repository.appendChunk(sessionId, track, sequence, metadata, bytes);
@@ -65,8 +74,12 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
 
   async function appendTimeline(rawSessionId: string, request: Request) {
     return recordingResponse(async () => {
-      const sessionId = identifierSchema.parse(rawSessionId);
-      const event = recordingTimelineEventSchema.parse(await request.json());
+      const sessionId = parseRecordingRequest(() =>
+        identifierSchema.parse(rawSessionId),
+      );
+      const event = await parseRecordingRequestAsync(async () =>
+        recordingTimelineEventSchema.parse(await request.json()),
+      );
       await repository.appendTimeline(sessionId, event);
       return Response.json(event, { status: 201 });
     });
@@ -74,8 +87,12 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
 
   async function finalizeRecording(rawSessionId: string, request: Request) {
     return recordingResponse(async () => {
-      const sessionId = identifierSchema.parse(rawSessionId);
-      const { durationMs } = finalizeSchema.parse(await request.json());
+      const sessionId = parseRecordingRequest(() =>
+        identifierSchema.parse(rawSessionId),
+      );
+      const { durationMs } = await parseRecordingRequestAsync(async () =>
+        finalizeSchema.parse(await request.json()),
+      );
       return Response.json(await repository.finalize(sessionId, durationMs));
     });
   }
@@ -86,8 +103,12 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
     request: Request,
   ) {
     return recordingResponse(async () => {
-      const sessionId = identifierSchema.parse(rawSessionId);
-      const track = trackKindSchema.parse(rawTrack);
+      const sessionId = parseRecordingRequest(() =>
+        identifierSchema.parse(rawSessionId),
+      );
+      const track = parseRecordingRequest(() =>
+        trackKindSchema.parse(rawTrack),
+      );
       const manifest = await repository.read(sessionId);
       return trackResponse(
         rootDirectory,
@@ -100,7 +121,9 @@ export function createRecordingApi(dependencies: RecordingApiDependencies) {
 
   async function exportRecording(rawSessionId: string) {
     return recordingResponse(async () => {
-      const sessionId = identifierSchema.parse(rawSessionId);
+      const sessionId = parseRecordingRequest(() =>
+        identifierSchema.parse(rawSessionId),
+      );
       const manifest = await repository.read(sessionId);
       return exportResponse(rootDirectory, manifest);
     });

@@ -44,12 +44,13 @@ export function parseChunkInput(
 
 export async function readBoundedBody(request: Request): Promise<Uint8Array> {
   const declaredLength = request.headers.get("content-length");
-  if (
-    declaredLength &&
-    /^\d+$/.test(declaredLength) &&
-    Number(declaredLength) > MAX_CHUNK_BYTES
-  ) {
-    throw new RecordingHttpError(413, "The recording chunk is too large.");
+  if (declaredLength !== null) {
+    if (!/^\d+$/.test(declaredLength)) {
+      throw new RecordingHttpError(400, "The request was invalid.");
+    }
+    if (BigInt(declaredLength) > BigInt(MAX_CHUNK_BYTES)) {
+      throw new RecordingHttpError(413, "The recording chunk is too large.");
+    }
   }
   if (!request.body) return new Uint8Array();
 

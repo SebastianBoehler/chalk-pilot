@@ -20,11 +20,26 @@ export async function recordingResponse(
   }
 }
 
+export function parseRecordingRequest<T>(operation: () => T): T {
+  try {
+    return operation();
+  } catch (error) {
+    throwRequestError(error);
+  }
+}
+
+export async function parseRecordingRequestAsync<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    throwRequestError(error);
+  }
+}
+
 function mapRecordingError(error: unknown): RecordingHttpError {
   if (error instanceof RecordingHttpError) return error;
-  if (error instanceof z.ZodError || error instanceof SyntaxError) {
-    return new RecordingHttpError(400, "The request was invalid.");
-  }
   if (isMissingFile(error) || hasMessage(error, "Unknown recording:")) {
     return new RecordingHttpError(404, "Recording not found.");
   }
@@ -45,6 +60,13 @@ function mapRecordingError(error: unknown): RecordingHttpError {
     return new RecordingHttpError(400, "The request was invalid.");
   }
   return new RecordingHttpError(500, "The recording operation failed.");
+}
+
+function throwRequestError(error: unknown): never {
+  if (error instanceof z.ZodError || error instanceof SyntaxError) {
+    throw new RecordingHttpError(400, "The request was invalid.");
+  }
+  throw error;
 }
 
 function hasMessage(error: unknown, prefix: string): boolean {

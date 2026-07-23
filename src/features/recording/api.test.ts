@@ -1,5 +1,7 @@
 // @vitest-environment node
 
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   chunkRequest,
@@ -36,6 +38,22 @@ describe("recording API mutations", () => {
       "0",
       chunkRequest(Buffer.from("chunk"), {
         "x-chalkpilot-duration-ms": "not-a-number",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects a malformed declared content length", async () => {
+    fixture = await createApiFixture();
+    await fixture.api.createRecording("session-1");
+
+    const response = await fixture.api.appendChunk(
+      "session-1",
+      "board",
+      "0",
+      chunkRequest(Buffer.from("chunk"), {
+        "content-length": "12x",
       }),
     );
 
@@ -156,5 +174,56 @@ describe("recording API mutations", () => {
     expect(await response.json()).toEqual({
       error: "The recording operation failed.",
     });
+  });
+
+  it("maps a corrupt persisted manifest to a server error", async () => {
+    fixture = await createApiFixture();
+    await fixture.api.createRecording("session-1");
+    await writeFile(
+      join(fixture.root, "sessions/session-1/recordings/manifest.json"),
+      "{}",
+    );
+
+    const response = await fixture.api.readManifest("session-1");
+
+    expect(response.status).toBe(500);
+  });
+
+  it("maps corrupt persisted timeline JSON to a server error", async () => {
+    fixture = await createApiFixture();
+    await fixture.api.createRecording("session-1");
+    await writeFile(
+      join(fixture.root, "sessions/session-1/recordings/transcript.json"),
+      "{",
+    );
+
+    const response = await fixture.api.appendTimeline(
+      "session-1",
+      jsonRequest({
+        type: "transcript",
+        speaker: "user",
+        startMs: 0,
+        endMs: 100,
+        text: "hello",
+      }),
+    );
+
+    expect(response.status).toBe(500);
+  });
+
+  it("keeps malformed client JSON mapped to a client error", async () => {
+    fixture = await createApiFixture();
+    await fixture.api.createRecording("session-1");
+
+    const response = await fixture.api.finalizeRecording(
+      "session-1",
+      new Request("http://localhost/finalize", {
+        method: "POST",
+        body: "{",
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
   });
 });
