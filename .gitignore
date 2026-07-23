@@ -1,5 +1,6 @@
 .worktrees/
 .chalkpilot/
+docs/superpowers/
 .env*
 !.env.example
 .next/
