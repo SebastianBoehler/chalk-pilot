@@ -8,6 +8,7 @@ test.skip(
 test("submits a board image and lets the live agent update the display", async ({
   page,
 }) => {
+  test.setTimeout(90_000);
   await page.goto("/setup");
   await page.getByRole("button", { name: "Allow camera" }).click();
   await expect(page.getByLabel("Camera")).toBeVisible();
@@ -18,12 +19,7 @@ test("submits a board image and lets the live agent update the display", async (
   });
   await expect(confirmFrame).toBeEnabled({ timeout: 45_000 });
   await confirmFrame.click();
-
-  const popupPromise = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "Open presentation window" }).click();
-  const display = await popupPromise;
-  await expect(page.getByText("Canvas connected")).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Outputs look right" }).click();
 
   const start = page.getByRole("button", {
     name: "Start learning session",
@@ -42,21 +38,17 @@ test("submits a board image and lets the live agent update the display", async (
     page.getByText("Corrected board shared with the learning partner."),
   ).toBeVisible();
 
-  await page.getByText("Connection test", { exact: true }).click();
-  await page
-    .getByLabel("Typed diagnostic turn")
-    .fill(
-      "For this connection check, call append_section now with id live-check, " +
-        "kind markdown, title Live check, and content Realtime canvas tool verified. " +
-        "Then answer in one sentence.",
-    );
-  await page.getByRole("button", { name: "Send test" }).click();
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Open clean display" }).click();
+  const display = await popupPromise;
 
-  await expect(
-    display.getByRole("heading", { name: "Live check" }),
-  ).toBeVisible({ timeout: 45_000 });
-  await expect(page.getByRole("heading", { name: "Live check" })).toBeVisible();
-  await expect(
-    display.getByText("Realtime canvas tool verified."),
-  ).toBeVisible();
+  const sessionCanvas = page
+    .getByRole("heading", { name: "Learning canvas" })
+    .locator("xpath=ancestor::main");
+  const canvasSection = sessionCanvas.locator("section").first();
+  await expect(canvasSection).toBeVisible({ timeout: 45_000 });
+  await expect(display.locator("main section").first()).toBeVisible();
+  await expect(canvasSection.getByRole("heading")).not.toHaveText(
+    "Start at the board.",
+  );
 });

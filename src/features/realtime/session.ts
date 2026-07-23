@@ -56,6 +56,8 @@ export class ChalkPilotRealtime {
   private session: RealtimeSessionPort | null = null;
   private pending = Promise.resolve();
   private turnNumber = 0;
+  private responseActive = false;
+  private responseWaiters: Array<() => void> = [];
 
   constructor(options: ChalkPilotRealtimeOptions) {
     this.options = options;
@@ -93,17 +95,15 @@ export class ChalkPilotRealtime {
   }
 
   async inspectBoardNow(): Promise<BoardInspectionStatus> {
+    await this.waitForActiveResponse();
     const status = await this.attachBoard(false);
     if (status === "sent") {
+      this.responseActive = true;
       this.requireSession().sendMessage(
-        "Inspect the newly attached board image, then give one concise learning-oriented response.",
+        "Inspect the newly attached board image. Add or update one concise canvas section with useful learning context grounded in what is visible, then give one short spoken cue.",
       );
     }
     return status;
-  }
-
-  sendDiagnostic(message: string) {
-    this.requireSession().sendMessage(message);
   }
 
   pause(paused: boolean) {
@@ -114,6 +114,7 @@ export class ChalkPilotRealtime {
   close() {
     this.session?.close();
     this.session = null;
+    this.finishActiveResponse();
     this.options.onState?.("idle");
   }
 
@@ -134,6 +135,12 @@ export class ChalkPilotRealtime {
           .then(() => this.finishSpokenTurn())
           .catch((error: unknown) => this.handleError(error));
       }
+      if (event?.type === "response.created") {
+        this.responseActive = true;
+      }
+      if (event?.type === "response.done") {
+        this.finishActiveResponse();
+      }
     });
     session.on("agent_start", () => this.options.onState?.("thinking"));
     session.on("audio_start", () => this.options.onState?.("speaking"));
@@ -145,8 +152,21 @@ export class ChalkPilotRealtime {
   }
 
   private async finishSpokenTurn() {
+    await this.waitForActiveResponse();
     await this.attachBoard(true);
+    this.responseActive = true;
     this.requireSession().transport.sendEvent({ type: "response.create" });
+  }
+
+  private waitForActiveResponse() {
+    if (!this.responseActive) return Promise.resolve();
+    return new Promise<void>((resolve) => this.responseWaiters.push(resolve));
+  }
+
+  private finishActiveResponse() {
+    this.responseActive = false;
+    const waiters = this.responseWaiters.splice(0);
+    waiters.forEach((resolve) => resolve());
   }
 
   private async attachBoard(
@@ -173,11 +193,26 @@ export class ChalkPilotRealtime {
   }
 
   private handleError(error: unknown) {
+    this.finishActiveResponse();
     this.options.onState?.("error");
-    this.options.onError?.(
-      error instanceof Error ? error.message : "The voice session failed.",
-    );
+    this.options.onError?.(realtimeErrorMessage(error));
   }
+}
+
+function realtimeErrorMessage(error: unknown, depth = 0): string {
+  if (depth > 3) return "The voice session failed.";
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (!error || typeof error !== "object") return "The voice session failed.";
+
+  const value = error as { error?: unknown; message?: unknown };
+  if (typeof value.message === "string" && value.message.trim()) {
+    return value.message;
+  }
+  if (value.error !== undefined) {
+    return realtimeErrorMessage(value.error, depth + 1);
+  }
+  return "The voice session failed.";
 }
 
 function createOpenAiSession(tools: ToolSet): RealtimeSessionPort {

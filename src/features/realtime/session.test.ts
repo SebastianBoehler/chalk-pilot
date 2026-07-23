@@ -12,6 +12,7 @@ const emptyCanvas: CanvasState = {
 function createHarness(changed = true) {
   const order: string[] = [];
   const listeners = new Map<string, (value?: unknown) => void>();
+  const onError = vi.fn();
   const session: RealtimeSessionPort = {
     transport: {
       sendEvent: (event) => order.push(String(event.type)),
@@ -41,8 +42,9 @@ function createHarness(changed = true) {
     fetcher,
     createSession: () => session,
     onCanvasChanged: vi.fn(),
+    onError,
   });
-  return { board, listeners, order, realtime, session };
+  return { board, listeners, onError, order, realtime, session };
 }
 
 describe("ChalkPilotRealtime", () => {
@@ -105,12 +107,51 @@ describe("ChalkPilotRealtime", () => {
     expect(order).toEqual(["response.create"]);
   });
 
+  it("waits for the active response to finish before starting the next turn", async () => {
+    const { listeners, order, realtime } = createHarness(false);
+    await realtime.connect();
+
+    listeners.get("transport_event")?.({
+      type: "input_audio_buffer.speech_stopped",
+    });
+    await realtime.whenIdle();
+    listeners.get("transport_event")?.({
+      type: "input_audio_buffer.speech_stopped",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(order).toEqual(["response.create"]);
+
+    listeners.get("transport_event")?.({ type: "response.done" });
+    await realtime.whenIdle();
+
+    expect(order).toEqual(["response.create", "response.create"]);
+  });
+
   it("supports an explicit board inspection", async () => {
-    const { order, realtime } = createHarness(false);
+    const { order, realtime, session } = createHarness(false);
     await realtime.connect();
 
     await realtime.inspectBoardNow();
 
     expect(order).toEqual(["image", "marked", "message"]);
+    expect(session.sendMessage).toHaveBeenCalledWith(
+      expect.stringContaining("canvas section"),
+    );
+  });
+
+  it("surfaces the provider message from a nested SDK error event", async () => {
+    const { listeners, onError, realtime } = createHarness();
+    await realtime.connect();
+
+    listeners.get("error")?.({
+      type: "error",
+      error: {
+        type: "error",
+        error: { message: "A response is already in progress." },
+      },
+    });
+
+    expect(onError).toHaveBeenCalledWith("A response is already in progress.");
   });
 });
