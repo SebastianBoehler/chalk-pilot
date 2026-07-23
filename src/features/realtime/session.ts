@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  OpenAIRealtimeWebRTC,
   RealtimeAgent,
   RealtimeSession,
   type RealtimeItem,
@@ -16,6 +15,7 @@ import type { AgentState } from "@/features/display/protocol";
 import type { CanvasState } from "@/features/workspace/schema";
 import { readableRealtimeTokenError, realtimeErrorMessage } from "./errors";
 import { chalkPilotInstructions } from "./instructions";
+import { createMicrophoneTransport } from "./microphone-transport";
 import { CHALKPILOT_REALTIME_MODEL } from "./model";
 import { createChalkPilotTools, type BoardInspectionStatus } from "./tools";
 
@@ -267,9 +267,7 @@ function createOpenAiSession(
     instructions: chalkPilotInstructions,
     tools,
   });
-  const transport = new OpenAIRealtimeWebRTC({
-    mediaStream: microphone,
-  });
+  const transport = createMicrophoneTransport(microphone);
   return new RealtimeSession(agent, {
     model: CHALKPILOT_REALTIME_MODEL,
     transport,

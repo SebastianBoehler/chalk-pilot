@@ -6,6 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MicrophoneStep } from "./microphone-step";
 
@@ -22,6 +23,14 @@ function microphoneStream(deviceId: string) {
     } as unknown as MediaStream,
     track,
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 const devices = [
@@ -132,5 +141,102 @@ describe("MicrophoneStep", () => {
     view.unmount();
 
     expect(input.track.stop).toHaveBeenCalledOnce();
+  });
+
+  it("stops a stale acquisition without replacing the newer selection", async () => {
+    const initial = microphoneStream("mic-1");
+    const stale = microphoneStream("mic-2");
+    const newest = microphoneStream("mic-1");
+    const staleRequest = deferred<MediaStream>();
+    const newestRequest = deferred<MediaStream>();
+    const mediaDevices = {
+      getUserMedia: vi
+        .fn()
+        .mockResolvedValueOnce(initial.stream)
+        .mockReturnValueOnce(staleRequest.promise)
+        .mockReturnValueOnce(newestRequest.promise),
+      enumerateDevices: vi.fn().mockResolvedValue(devices),
+    } as unknown as Pick<MediaDevices, "enumerateDevices" | "getUserMedia">;
+    const onConfirm = vi.fn();
+    render(
+      <MicrophoneStep
+        mediaDevices={mediaDevices}
+        monitorLevel={() => vi.fn()}
+        onConfirm={onConfirm}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Allow microphone" }));
+    await screen.findByLabelText("Microphone");
+
+    fireEvent.change(screen.getByLabelText("Microphone"), {
+      target: { value: "mic-2" },
+    });
+    fireEvent.change(screen.getByLabelText("Microphone"), {
+      target: { value: "mic-1" },
+    });
+    await act(async () => newestRequest.resolve(newest.stream));
+    await act(async () => staleRequest.resolve(stale.stream));
+
+    await waitFor(() => expect(stale.track.stop).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "Confirm microphone" }));
+    expect(onConfirm).toHaveBeenCalledWith(newest.stream);
+    expect(initial.track.stop).toHaveBeenCalledOnce();
+  });
+
+  it("stops a pending acquisition that resolves after unmount", async () => {
+    const pending = deferred<MediaStream>();
+    const acquired = microphoneStream("mic-1");
+    const mediaDevices = {
+      getUserMedia: vi.fn().mockReturnValue(pending.promise),
+      enumerateDevices: vi.fn().mockResolvedValue(devices),
+    } as unknown as Pick<MediaDevices, "enumerateDevices" | "getUserMedia">;
+    const view = render(
+      <MicrophoneStep mediaDevices={mediaDevices} onConfirm={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Allow microphone" }));
+
+    view.unmount();
+    await act(async () => pending.resolve(acquired.stream));
+
+    expect(acquired.track.stop).toHaveBeenCalledOnce();
+    expect(mediaDevices.enumerateDevices).not.toHaveBeenCalled();
+  });
+
+  it("stops an acquired stream when device enumeration fails", async () => {
+    const acquired = microphoneStream("mic-1");
+    const mediaDevices = {
+      getUserMedia: vi.fn().mockResolvedValue(acquired.stream),
+      enumerateDevices: vi
+        .fn()
+        .mockRejectedValue(new Error("Device list unavailable")),
+    } as unknown as Pick<MediaDevices, "enumerateDevices" | "getUserMedia">;
+    render(<MicrophoneStep mediaDevices={mediaDevices} onConfirm={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Allow microphone" }));
+
+    expect(await screen.findByText("Device list unavailable")).toBeVisible();
+    expect(acquired.track.stop).toHaveBeenCalledOnce();
+  });
+
+  it("accepts acquisition after the Strict Mode effect replay", async () => {
+    const acquired = microphoneStream("mic-1");
+    const mediaDevices = {
+      getUserMedia: vi.fn().mockResolvedValue(acquired.stream),
+      enumerateDevices: vi.fn().mockResolvedValue(devices),
+    } as unknown as Pick<MediaDevices, "enumerateDevices" | "getUserMedia">;
+    render(
+      <StrictMode>
+        <MicrophoneStep
+          mediaDevices={mediaDevices}
+          monitorLevel={() => vi.fn()}
+          onConfirm={vi.fn()}
+        />
+      </StrictMode>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Allow microphone" }));
+
+    expect(await screen.findByLabelText("Microphone")).toHaveValue("mic-1");
+    expect(acquired.track.stop).not.toHaveBeenCalled();
   });
 });

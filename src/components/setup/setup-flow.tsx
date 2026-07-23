@@ -10,7 +10,6 @@ import {
 } from "react";
 import { SessionController } from "@/components/session/session-controller";
 import { Button } from "@/components/ui/button";
-import { ErrorPanel } from "@/components/ui/error-panel";
 import {
   BoardController,
   type BoardCalibration,
@@ -30,12 +29,9 @@ import {
   sessionRecordSchema,
   type CanvasState,
 } from "@/features/workspace/schema";
-import { CalibrationStep } from "./calibration-step";
 import { CameraStep } from "./camera-step";
-import { MicrophoneStep } from "./microphone-step";
-import { OutputPreviewStep } from "./output-preview-step";
-import { ReadyStep } from "./ready-step";
 import { SetupShell } from "./setup-shell";
+import { SetupStage } from "./setup-stage";
 
 const EMPTY_CANVAS: CanvasState = {
   version: 1,
@@ -215,9 +211,7 @@ export function SetupFlow() {
           {setup.camera === "ready" && (
             <Button
               className="mt-6"
-              onClick={() => {
-                dispatch({ type: "advance" });
-              }}
+              onClick={() => dispatch({ type: "advance" })}
               type="button"
             >
               Continue
@@ -227,75 +221,28 @@ export function SetupFlow() {
       </div>
 
       {mode === "setup" && setup.step !== "camera" && (
-        <SetupShell>
-          {setup.step === "microphone" && (
-            <MicrophoneStep
-              onConfirm={(stream) => {
-                setMicrophoneStream(stream);
-                dispatch({ type: "microphone_confirmed" });
-                dispatch({ type: "advance" });
-                void detectBoard();
-              }}
-            />
-          )}
-          {setup.step === "calibration" && (
-            <>
-              {error && !calibration && (
-                <ErrorPanel
-                  actionLabel="Try detection again"
-                  message={error}
-                  onAction={() => void detectBoard()}
-                  title="Board processing needs attention"
-                />
-              )}
-              {calibration && (
-                <>
-                  {!calibration.autoDetected && (
-                    <p className="text-muted mb-4 text-sm">
-                      No clear rectangle was found. Position the four visible
-                      handles manually, then confirm the corrected preview.
-                    </p>
-                  )}
-                  <CalibrationStep
-                    corners={calibration.corners}
-                    onConfirm={confirmCalibration}
-                    onCornersChange={adjustCorners}
-                    onDetect={() => void detectBoard()}
-                    rectifiedUrl={calibration.rectifiedUrl}
-                    sourceSize={calibration.sourceSize}
-                    sourceUrl={calibration.sourceUrl}
-                    status={calibrationStatus}
-                  />
-                </>
-              )}
-            </>
-          )}
-          {setup.step === "preview" &&
-            board &&
-            video &&
-            cameraStream &&
-            calibration && (
-              <OutputPreviewStep
-                board={board}
-                corners={calibration.corners}
-                onBack={() => dispatch({ type: "back" })}
-                onContinue={() => dispatch({ type: "advance" })}
-                sourceStream={cameraStream}
-                sourceVideo={video}
-              />
-            )}
-          {setup.step === "ready" && (
-            <ReadyStep
-              boardReady={setup.calibration === "confirmed"}
-              busy={starting}
-              cameraReady={setup.camera === "ready"}
-              microphoneReady={setup.microphone === "confirmed"}
-              error={error}
-              onStart={() => void startSession()}
-              openAiReady={setup.openai === "ready"}
-            />
-          )}
-        </SetupShell>
+        <SetupStage
+          board={board}
+          calibration={calibration}
+          calibrationStatus={calibrationStatus}
+          cameraStream={cameraStream}
+          error={error}
+          onCalibrationConfirm={confirmCalibration}
+          onCornersChange={adjustCorners}
+          onDetectBoard={() => void detectBoard()}
+          onMicrophoneConfirm={(stream) => {
+            setMicrophoneStream(stream);
+            dispatch({ type: "microphone_confirmed" });
+            dispatch({ type: "advance" });
+            void detectBoard();
+          }}
+          onPreviewBack={() => dispatch({ type: "back" })}
+          onPreviewContinue={() => dispatch({ type: "advance" })}
+          onStart={() => void startSession()}
+          setup={setup}
+          starting={starting}
+          video={video}
+        />
       )}
 
       {mode === "session" &&

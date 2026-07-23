@@ -33,6 +33,8 @@ export function MicrophoneStep(_props: MicrophoneStepProps) {
   const [error, setError] = useState<string>();
   const streamRef = useRef<MediaStream | undefined>(undefined);
   const confirmedRef = useRef<MediaStream | undefined>(undefined);
+  const requestGeneration = useRef(0);
+  const mounted = useRef(true);
 
   useEffect(() => {
     streamRef.current = stream;
@@ -43,40 +45,57 @@ export function MicrophoneStep(_props: MicrophoneStepProps) {
     return monitorLevel(stream, setLevel);
   }, [monitorLevel, stream]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      requestGeneration.current += 1;
       const current = streamRef.current;
       if (current !== confirmedRef.current) stopMicrophone(current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const openMicrophone = async (deviceId?: string) => {
+    const generation = ++requestGeneration.current;
+    const isCurrent = () =>
+      mounted.current && generation === requestGeneration.current;
+    let acquired: MediaStream | undefined;
     setBusy(true);
     setError(undefined);
     try {
       const browserMediaDevices = mediaDevices ?? navigator.mediaDevices;
-      const nextStream = await requestMicrophone(browserMediaDevices, deviceId);
-      if (!hasLiveMicrophoneTrack(nextStream)) {
-        stopMicrophone(nextStream);
+      acquired = await requestMicrophone(browserMediaDevices, deviceId);
+      if (!isCurrent()) {
+        stopMicrophone(acquired);
+        acquired = undefined;
+        return;
+      }
+      if (!hasLiveMicrophoneTrack(acquired)) {
         throw new Error("The selected microphone has no live audio track.");
       }
       const nextDevices = await listMicrophones(browserMediaDevices);
+      if (!isCurrent()) {
+        stopMicrophone(acquired);
+        acquired = undefined;
+        return;
+      }
       stopMicrophone(streamRef.current);
-      streamRef.current = nextStream;
+      streamRef.current = acquired;
       setLevel(0);
-      setStream(nextStream);
+      setStream(acquired);
       setDevices(nextDevices);
       setSelectedId(
-        nextStream.getAudioTracks()[0]?.getSettings().deviceId ??
+        acquired.getAudioTracks()[0]?.getSettings().deviceId ??
           deviceId ??
           nextDevices[0]?.deviceId ??
           "",
       );
+      acquired = undefined;
     } catch (cause) {
-      setError(microphoneError(cause));
+      stopMicrophone(acquired);
+      if (isCurrent()) setError(microphoneError(cause));
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   };
 
