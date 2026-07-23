@@ -30,3 +30,16 @@ export function getSessionPaths(root: string, sessionId: string) {
     sectionsDirectory: join(directory, "canvas", "sections"),
   };
 }
+
+export function getRecordingPaths(root: string, sessionId: string) {
+  const session = getSessionPaths(root, sessionId);
+  const directory = containedPath(session.directory, "recordings");
+  return {
+    directory,
+    manifest: containedPath(directory, "manifest.json"),
+    tracksDirectory: containedPath(directory, "tracks"),
+    chunksDirectory: containedPath(directory, "chunks"),
+    transcript: containedPath(directory, "transcript.json"),
+    canvasEvents: containedPath(directory, "canvas-events.json"),
+  };
+}
