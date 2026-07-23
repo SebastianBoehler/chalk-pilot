@@ -8,23 +8,18 @@ import {
 } from "./section-storage";
 
 describe("section storage boundary", () => {
-  it("projects complete canvas sections to metadata only", () => {
+  it("projects text canvas sections to metadata only", () => {
     const stored = projectStoredCanvasState(
       canvasStateSchema.parse({
         version: 1,
-        focusId: "token-choices",
-        order: ["token-choices"],
+        focusId: "token-note",
+        order: ["token-note"],
         sections: {
-          "token-choices": {
-            id: "token-choices",
-            kind: "comparison",
-            title: "Token choices",
-            data: {
-              columns: [
-                { heading: "Word", summary: "Whole words", points: [] },
-                { heading: "Subword", summary: "Word pieces", points: [] },
-              ],
-            },
+          "token-note": {
+            id: "token-note",
+            kind: "markdown",
+            title: "Token note",
+            content: "Tokenize first.",
             createdAt: "2026-07-23T10:00:00.000Z",
             updatedAt: "2026-07-23T10:00:00.000Z",
           },
@@ -32,10 +27,10 @@ describe("section storage boundary", () => {
       }),
     );
 
-    expect(stored.sections["token-choices"]).toEqual({
-      id: "token-choices",
-      kind: "comparison",
-      title: "Token choices",
+    expect(stored.sections["token-note"]).toEqual({
+      id: "token-note",
+      kind: "markdown",
+      title: "Token note",
       createdAt: "2026-07-23T10:00:00.000Z",
       updatedAt: "2026-07-23T10:00:00.000Z",
     });
@@ -68,6 +63,22 @@ describe("section storage boundary", () => {
           updatedAt: "2026-07-23T10:00:00.000Z",
         },
         "not a markdown fallback",
+      ),
+    ).toThrow("Structured canvas sections are not available yet");
+    expect(() =>
+      projectStoredCanvasState(
+        canvasStateSchema.parse({
+          version: 1,
+          focusId: chart.id,
+          order: [chart.id],
+          sections: {
+            [chart.id]: {
+              ...chart,
+              createdAt: "2026-07-23T10:00:00.000Z",
+              updatedAt: "2026-07-23T10:00:00.000Z",
+            },
+          },
+        }),
       ),
     ).toThrow("Structured canvas sections are not available yet");
   });

@@ -19,14 +19,16 @@ const structuredSectionKinds = new Set<CanvasSection["kind"]>([
   "checkpoint",
 ]);
 
-type TextSection = Extract<
-  CanvasSectionInput | CanvasSection,
-  { content: string }
->;
+type InputTextSection = Extract<CanvasSectionInput, { content: string }>;
+type StoredTextSection = Extract<CanvasSection, { content: string }>;
 
+export function requireTextSection(section: CanvasSection): StoredTextSection;
+export function requireTextSection(
+  section: CanvasSectionInput,
+): InputTextSection;
 export function requireTextSection(
   section: CanvasSectionInput | CanvasSection,
-): TextSection {
+): InputTextSection | StoredTextSection {
   if (!hasSectionContent(section)) {
     throw new Error("Structured canvas sections are not available yet");
   }
@@ -64,7 +66,8 @@ export function projectStoredCanvasState(
     ...canvas,
     sections: Object.fromEntries(
       Object.entries(canvas.sections).map(([id, section]) => {
-        const { createdAt, kind, title, updatedAt } = section;
+        const textSection = requireTextSection(section);
+        const { createdAt, kind, title, updatedAt } = textSection;
         return [
           id,
           canvasSectionMetadataSchema.parse({
