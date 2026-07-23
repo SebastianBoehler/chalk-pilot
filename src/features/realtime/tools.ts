@@ -1,10 +1,12 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
 import {
-  canvasSectionInputSchema,
+  canvasArtifactSchema,
+  type CanvasDelegationInput,
+} from "@/features/canvas-worker/schema";
+import {
   canvasStateSchema,
   identifierSchema,
-  type CanvasSectionInput,
   type CanvasState,
 } from "@/features/workspace/schema";
 
@@ -17,16 +19,16 @@ export type BoardInspectionStatus = "sent" | "unchanged" | "unavailable";
 
 interface ToolRuntime {
   sessionId: string;
+  delegateCanvas: (input: CanvasDelegationInput) => { jobId: string };
   inspectBoard: () => Promise<BoardInspectionStatus>;
   getEvidenceId: () => string;
   onCanvasChanged: (canvas: CanvasState) => void;
   fetcher?: Fetcher;
 }
 
-const updateSectionSchema = z.object({
-  id: identifierSchema,
-  title: z.string().trim().min(1).max(120).nullable(),
-  content: z.string().trim().min(1).max(20_000),
+export const canvasDelegationSchema = z.object({
+  goal: z.string().trim().min(1).max(2_000),
+  artifact: canvasArtifactSchema,
 });
 
 const rememberLearnerSchema = z.object({
@@ -49,6 +51,11 @@ export function createChalkPilotActions(runtime: ToolRuntime) {
   }
 
   return {
+    async delegateCanvas(raw: CanvasDelegationInput) {
+      const input = canvasDelegationSchema.parse(raw);
+      return { accepted: true, ...runtime.delegateCanvas(input) };
+    },
+
     async inspectBoard() {
       const status = await runtime.inspectBoard();
       const messages = {
@@ -62,25 +69,6 @@ export function createChalkPilotActions(runtime: ToolRuntime) {
     async setFocus(input: { sectionId: string | null }) {
       await mutateCanvas({ action: "focus", sectionId: input.sectionId });
       return { focused: input.sectionId };
-    },
-
-    async appendSection(section: CanvasSectionInput) {
-      const validSection = canvasSectionInputSchema.parse(section);
-      await mutateCanvas({ action: "append", section: validSection });
-      return { appended: validSection.id };
-    },
-
-    async updateSection(input: z.infer<typeof updateSectionSchema>) {
-      const validInput = updateSectionSchema.parse(input);
-      await mutateCanvas({
-        action: "update",
-        section: {
-          id: validInput.id,
-          content: validInput.content,
-          ...(validInput.title ? { title: validInput.title } : {}),
-        },
-      });
-      return { updated: validInput.id };
     },
 
     async rememberLearner(input: z.infer<typeof rememberLearnerSchema>) {
@@ -117,22 +105,11 @@ export function createChalkPilotTools(runtime: ToolRuntime) {
       execute: actions.setFocus,
     }),
     tool({
-      name: "append_section",
+      name: "delegate_canvas_task",
       description:
-        "Append durable visual context to the room display. Prefer this over long speech.",
-      parameters: z.object({
-        id: identifierSchema,
-        kind: z.enum(["markdown", "math", "mermaid", "image", "youtube"]),
-        title: z.string().trim().min(1).max(120),
-        content: z.string().trim().min(1).max(20_000),
-      }),
-      execute: actions.appendSection,
-    }),
-    tool({
-      name: "update_section",
-      description: "Replace an existing canvas section with corrected content.",
-      parameters: updateSectionSchema,
-      execute: actions.updateSection,
+        "Delegate durable visual context to the background canvas specialist. Returns immediately.",
+      parameters: canvasDelegationSchema,
+      execute: actions.delegateCanvas,
     }),
     tool({
       name: "remember_learner",

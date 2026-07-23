@@ -1,53 +1,48 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CanvasState } from "@/features/workspace/schema";
-import { createChalkPilotActions } from "./tools";
-
-const emptyCanvas: CanvasState = {
-  version: 1,
-  focusId: null,
-  order: [],
-  sections: {},
-};
+import { createChalkPilotActions, createChalkPilotTools } from "./tools";
 
 describe("ChalkPilot agent actions", () => {
-  it("persists canvas changes before broadcasting them", async () => {
-    const order: string[] = [];
-    const fetcher = vi.fn(
-      async (input: string | URL | Request, init?: RequestInit) => {
-        void input;
-        void init;
-        order.push("persist");
-        return Response.json(emptyCanvas);
-      },
-    );
+  it("delegates durable canvas work without awaiting its completion", async () => {
+    const delegateCanvas = vi.fn(() => ({ jobId: "job-1" }));
     const actions = createChalkPilotActions({
       sessionId: "session-1",
-      fetcher,
+      fetcher: vi.fn(),
+      delegateCanvas,
       inspectBoard: vi.fn(),
       getEvidenceId: () => "turn-1",
-      onCanvasChanged: () => order.push("broadcast"),
+      onCanvasChanged: vi.fn(),
     });
 
-    await actions.appendSection({
-      id: "core-idea",
-      kind: "markdown",
-      title: "Core idea",
-      content: "Attempt the transformation first.",
+    await expect(
+      actions.delegateCanvas({
+        goal: "Add a comparison between ascent and descent.",
+        artifact: "comparison",
+      }),
+    ).resolves.toEqual({
+      accepted: true,
+      jobId: "job-1",
+    });
+    expect(delegateCanvas).toHaveBeenCalledWith({
+      goal: "Add a comparison between ascent and descent.",
+      artifact: "comparison",
+    });
+  });
+
+  it("does not expose direct canvas-writing tools to the voice tutor", () => {
+    const tools = createChalkPilotTools({
+      sessionId: "session-1",
+      delegateCanvas: vi.fn(),
+      inspectBoard: vi.fn(),
+      getEvidenceId: () => "turn-1",
+      onCanvasChanged: vi.fn(),
     });
 
-    const [url, request] = fetcher.mock.calls[0];
-    expect(url).toBe("/api/sessions/session-1/canvas");
-    expect(request?.method).toBe("POST");
-    expect(JSON.parse(String(request?.body))).toEqual({
-      action: "append",
-      section: {
-        id: "core-idea",
-        kind: "markdown",
-        title: "Core idea",
-        content: "Attempt the transformation first.",
-      },
-    });
-    expect(order).toEqual(["persist", "broadcast"]);
+    expect(tools.map((item) => item.name)).toEqual([
+      "inspect_board",
+      "set_focus",
+      "delegate_canvas_task",
+      "remember_learner",
+    ]);
   });
 
   it("links learner memory to the current turn", async () => {
@@ -57,6 +52,7 @@ describe("ChalkPilot agent actions", () => {
     const actions = createChalkPilotActions({
       sessionId: "session-1",
       fetcher,
+      delegateCanvas: vi.fn(),
       inspectBoard: vi.fn(),
       getEvidenceId: () => "turn-4",
       onCanvasChanged: vi.fn(),
@@ -86,6 +82,7 @@ describe("ChalkPilot agent actions", () => {
     const actions = createChalkPilotActions({
       sessionId: "session-1",
       fetcher: vi.fn(),
+      delegateCanvas: vi.fn(),
       inspectBoard,
       getEvidenceId: () => "turn-1",
       onCanvasChanged: vi.fn(),

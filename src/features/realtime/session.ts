@@ -6,10 +6,22 @@ import {
   type RealtimeItem,
 } from "@openai/agents/realtime";
 import { z } from "zod";
+import {
+  CanvasJobClient,
+  type CanvasJobState,
+} from "@/features/canvas-worker/client";
+import type { CanvasDelegationInput } from "@/features/canvas-worker/schema";
 import type { AgentState } from "@/features/display/protocol";
 import type { CanvasState } from "@/features/workspace/schema";
+import {
+  readableRealtimeTokenError,
+  realtimeErrorMessage,
+} from "./errors";
 import { chalkPilotInstructions } from "./instructions";
-import { createChalkPilotTools, type BoardInspectionStatus } from "./tools";
+import {
+  createChalkPilotTools,
+  type BoardInspectionStatus,
+} from "./tools";
 
 type Fetcher = (
   input: string | URL | Request,
@@ -23,7 +35,9 @@ export interface BoardImageSource {
 }
 
 export interface RealtimeSessionPort {
-  transport: { sendEvent(event: { type: string }): void };
+  transport: {
+    sendEvent(event: { type: string; [key: string]: unknown }): void;
+  };
   on(event: string, listener: (value?: unknown) => void): void;
   connect(options: { apiKey: string; model: string }): Promise<void>;
   addImage(image: string, options?: { triggerResponse?: boolean }): void;
@@ -43,9 +57,14 @@ interface ChalkPilotRealtimeOptions {
   onError?: (message: string) => void;
   onTranscript?: (history: RealtimeItem[]) => void;
   onBoardSent?: () => void;
+  onCanvasJobState?: (state: CanvasJobState) => void;
+  onCanvasJobError?: (message: string) => void;
   fetcher?: Fetcher;
   createSession?: SessionFactory;
+  createJobId?: () => string;
 }
+
+export type { CanvasJobState } from "@/features/canvas-worker/client";
 
 const tokenSchema = z.object({ value: z.string().startsWith("ek_") });
 
@@ -53,6 +72,7 @@ export class ChalkPilotRealtime {
   private readonly options: ChalkPilotRealtimeOptions;
   private readonly fetcher: Fetcher;
   private readonly createSession: SessionFactory;
+  private readonly canvasJobs: CanvasJobClient;
   private session: RealtimeSessionPort | null = null;
   private pending = Promise.resolve();
   private turnNumber = 0;
@@ -64,6 +84,17 @@ export class ChalkPilotRealtime {
     this.fetcher =
       options.fetcher ?? ((input, init) => globalThis.fetch(input, init));
     this.createSession = options.createSession ?? createOpenAiSession;
+    this.canvasJobs = new CanvasJobClient({
+      sessionId: options.sessionId,
+      fetcher: this.fetcher,
+      getBoardImage: () => options.board.getLatestImage(),
+      onCanvasChanged: options.onCanvasChanged,
+      onState: options.onCanvasJobState,
+      onError: options.onCanvasJobError,
+      onCompleted: (jobId, summary) =>
+        this.noteCanvasCompletion(jobId, summary),
+      createJobId: options.createJobId,
+    });
   }
 
   async connect() {
@@ -72,7 +103,7 @@ export class ChalkPilotRealtime {
       method: "POST",
     });
     if (!response.ok) {
-      const error = await readableError(response);
+      const error = await readableRealtimeTokenError(response);
       this.options.onState?.("error");
       throw new Error(error);
     }
@@ -80,6 +111,7 @@ export class ChalkPilotRealtime {
 
     const tools = createChalkPilotTools({
       sessionId: this.options.sessionId,
+      delegateCanvas: (input) => this.delegateCanvasTask(input),
       fetcher: this.fetcher,
       inspectBoard: () => this.attachBoard(false),
       getEvidenceId: () => `turn-${Math.max(this.turnNumber, 1)}`,
@@ -100,7 +132,7 @@ export class ChalkPilotRealtime {
     if (status === "sent") {
       this.responseActive = true;
       this.requireSession().sendMessage(
-        "Inspect the newly attached board image. Add or update one concise canvas section with useful learning context grounded in what is visible, then give one short spoken cue.",
+        "Inspect the newly attached board image. Delegate one concise canvas task with useful learning context grounded in what is visible, then give one short spoken cue.",
       );
     }
     return status;
@@ -120,6 +152,14 @@ export class ChalkPilotRealtime {
 
   whenIdle() {
     return this.pending;
+  }
+
+  whenCanvasJobsIdle() {
+    return this.canvasJobs.whenIdle();
+  }
+
+  delegateCanvasTask(input: CanvasDelegationInput) {
+    return this.canvasJobs.delegate(input);
   }
 
   private bindEvents(session: RealtimeSessionPort) {
@@ -192,27 +232,29 @@ export class ChalkPilotRealtime {
     return this.session;
   }
 
+  private noteCanvasCompletion(jobId: string, summary: string) {
+    this.session?.transport.sendEvent({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "system",
+        content: [
+          {
+            type: "input_text",
+            text:
+              `Canvas job ${jobId} completed: ${summary} ` +
+              "Do not interrupt; acknowledge it only when useful.",
+          },
+        ],
+      },
+    });
+  }
+
   private handleError(error: unknown) {
     this.finishActiveResponse();
     this.options.onState?.("error");
     this.options.onError?.(realtimeErrorMessage(error));
   }
-}
-
-function realtimeErrorMessage(error: unknown, depth = 0): string {
-  if (depth > 3) return "The voice session failed.";
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === "string" && error.trim()) return error;
-  if (!error || typeof error !== "object") return "The voice session failed.";
-
-  const value = error as { error?: unknown; message?: unknown };
-  if (typeof value.message === "string" && value.message.trim()) {
-    return value.message;
-  }
-  if (value.error !== undefined) {
-    return realtimeErrorMessage(value.error, depth + 1);
-  }
-  return "The voice session failed.";
 }
 
 function createOpenAiSession(tools: ToolSet): RealtimeSessionPort {
@@ -242,11 +284,4 @@ function createOpenAiSession(tools: ToolSet): RealtimeSessionPort {
       },
     },
   }) as unknown as RealtimeSessionPort;
-}
-
-async function readableError(response: Response): Promise<string> {
-  const parsed = z
-    .object({ error: z.string() })
-    .safeParse(await response.json().catch(() => null));
-  return parsed.success ? parsed.data.error : "Could not start voice.";
 }

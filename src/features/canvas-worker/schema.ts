@@ -39,3 +39,7 @@ export const canvasJobResultSchema = z
 export type CanvasArtifact = z.infer<typeof canvasArtifactSchema>;
 export type CanvasJobRequest = z.infer<typeof canvasJobRequestSchema>;
 export type CanvasJobResult = z.infer<typeof canvasJobResultSchema>;
+export type CanvasDelegationInput = Pick<
+  CanvasJobRequest,
+  "goal" | "artifact"
+>;

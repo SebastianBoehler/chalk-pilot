@@ -13,6 +13,9 @@ function createHarness(changed = true) {
   const order: string[] = [];
   const listeners = new Map<string, (value?: unknown) => void>();
   const onError = vi.fn();
+  const onCanvasChanged = vi.fn();
+  const onCanvasJobError = vi.fn();
+  const onCanvasJobState = vi.fn();
   const session: RealtimeSessionPort = {
     transport: {
       sendEvent: (event) => order.push(String(event.type)),
@@ -41,10 +44,24 @@ function createHarness(changed = true) {
     board,
     fetcher,
     createSession: () => session,
-    onCanvasChanged: vi.fn(),
+    createJobId: () => "job-1",
+    onCanvasChanged,
+    onCanvasJobError,
+    onCanvasJobState,
     onError,
   });
-  return { board, listeners, onError, order, realtime, session };
+  return {
+    board,
+    fetcher,
+    listeners,
+    onCanvasChanged,
+    onCanvasJobError,
+    onCanvasJobState,
+    onError,
+    order,
+    realtime,
+    session,
+  };
 }
 
 describe("ChalkPilotRealtime", () => {
@@ -136,8 +153,62 @@ describe("ChalkPilotRealtime", () => {
 
     expect(order).toEqual(["image", "marked", "message"]);
     expect(session.sendMessage).toHaveBeenCalledWith(
-      expect.stringContaining("canvas section"),
+      expect.stringContaining("Delegate one concise canvas task"),
     );
+  });
+
+  it("runs canvas work in the background and privately reports completion", async () => {
+    const { fetcher, onCanvasChanged, onCanvasJobState, order, realtime } =
+      createHarness();
+    let releaseJob: (response: Response) => void = () => {};
+    const jobResponse = new Promise<Response>((resolve) => {
+      releaseJob = resolve;
+    });
+    fetcher.mockImplementation(async (input: string | URL | Request) => {
+      if (String(input).endsWith("/api/realtime-token")) {
+        return Response.json({ value: "ek_test_secret" });
+      }
+      return jobResponse;
+    });
+    await realtime.connect();
+
+    const accepted = realtime.delegateCanvasTask({
+      goal: "Add a visual explanation of the attention flow.",
+      artifact: "diagram",
+    });
+
+    expect(accepted).toEqual({ jobId: "job-1" });
+    expect(onCanvasJobState).toHaveBeenCalledWith("building");
+    expect(onCanvasChanged).not.toHaveBeenCalled();
+
+    const completedCanvas: CanvasState = {
+      ...emptyCanvas,
+      focusId: "attention-flow",
+      order: ["attention-flow"],
+      sections: {
+        "attention-flow": {
+          id: "attention-flow",
+          kind: "mermaid",
+          title: "Attention flow",
+          content: "flowchart LR\nTokens --> Context",
+          createdAt: "2026-07-23T08:00:00.000Z",
+          updatedAt: "2026-07-23T08:00:00.000Z",
+        },
+      },
+    };
+    releaseJob(
+      Response.json({
+        jobId: "job-1",
+        summary: "Added the attention flow.",
+        canvas: completedCanvas,
+      }),
+    );
+    await realtime.whenCanvasJobsIdle();
+
+    expect(onCanvasChanged).toHaveBeenCalledWith(completedCanvas);
+    expect(onCanvasJobState).toHaveBeenLastCalledWith("complete");
+    expect(order).toContain("conversation.item.create");
+    expect(order).not.toContain("response.create");
   });
 
   it("surfaces the provider message from a nested SDK error event", async () => {
