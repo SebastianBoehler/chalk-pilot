@@ -17,6 +17,8 @@ export interface CanvasProviderEnvironment {
   OPENROUTER_API_KEY?: string;
 }
 
+export class CanvasProviderConfigurationError extends Error {}
+
 export function resolveCanvasProvider(
   env: CanvasProviderEnvironment,
 ): CanvasProviderConfig {
@@ -36,7 +38,9 @@ export function resolveCanvasProvider(
       apiKey: required(env.OPENROUTER_API_KEY, "OPENROUTER_API_KEY"),
     };
   }
-  throw new Error(`Unsupported canvas agent provider: ${provider}`);
+  throw new CanvasProviderConfigurationError(
+    `Unsupported canvas agent provider: ${provider}`,
+  );
 }
 
 export function createCanvasModel(
@@ -62,6 +66,10 @@ export function createCanvasModel(
 
 function required(value: string | undefined, name: string): string {
   const normalized = value?.trim();
-  if (!normalized) throw new Error(`${name} is required for the canvas agent.`);
+  if (!normalized) {
+    throw new CanvasProviderConfigurationError(
+      `${name} is required for the canvas agent.`,
+    );
+  }
   return normalized;
 }
