@@ -12,8 +12,9 @@ export function createMicrophoneTransport(
   }
 }
 
-class OwnedMicrophoneWebRTC extends OpenAIRealtimeWebRTC {
+export class OwnedMicrophoneWebRTC extends OpenAIRealtimeWebRTC {
   private released = false;
+  private closed = false;
 
   constructor(private readonly transportStream: MediaStream) {
     super({ mediaStream: transportStream });
@@ -22,20 +23,38 @@ class OwnedMicrophoneWebRTC extends OpenAIRealtimeWebRTC {
   override async connect(
     options: Parameters<OpenAIRealtimeWebRTC["connect"]>[0],
   ): Promise<void> {
+    if (this.closed) throw microphoneTransportClosedError();
     try {
-      await super.connect(options);
+      await this.connectBase(options);
     } catch (error) {
+      if (this.closed) this.closeBase();
       this.release();
       throw error;
+    }
+    if (this.closed) {
+      this.closeBase();
+      throw microphoneTransportClosedError();
     }
   }
 
   override close(): void {
+    if (this.closed) return;
+    this.closed = true;
     try {
-      super.close();
+      this.closeBase();
     } finally {
       this.release();
     }
+  }
+
+  protected connectBase(
+    options: Parameters<OpenAIRealtimeWebRTC["connect"]>[0],
+  ) {
+    return super.connect(options);
+  }
+
+  protected closeBase() {
+    super.close();
   }
 
   private release() {
@@ -49,4 +68,8 @@ function stopLiveTracks(stream: MediaStream) {
   stream.getTracks().forEach((track) => {
     if (track.readyState !== "ended") track.stop();
   });
+}
+
+function microphoneTransportClosedError() {
+  return new Error("The microphone transport is closed.");
 }
