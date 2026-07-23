@@ -1,6 +1,6 @@
 # ChalkPilot MVP Design
 
-**Status:** Proposed for implementation · **Date:** 2026-07-23 · **Repository:** `chalk-pilot`
+**Status:** Approved for implementation · **Date:** 2026-07-23 · **Repository:** `chalk-pilot`
 
 ## 1. Product intent
 
