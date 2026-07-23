@@ -6,7 +6,7 @@ export type SetupStep =
 export interface SetupState {
   step: SetupStep;
   camera: "pending" | "ready" | "error";
-  cameraUse: CameraUse | "pending";
+  cameraUse: CameraUse;
   microphone: "pending" | "confirmed" | "error";
   calibration: "pending" | "confirmed";
   display: "closed" | "connected";
@@ -31,7 +31,7 @@ export type SetupAction =
 export const initialSetupState: SetupState = {
   step: "camera",
   camera: "pending",
-  cameraUse: "pending",
+  cameraUse: "board-focused",
   microphone: "pending",
   calibration: "pending",
   display: "closed",
@@ -86,7 +86,6 @@ export function setupReducer(
 export function setupReady(state: SetupState) {
   return (
     state.camera === "ready" &&
-    state.cameraUse !== "pending" &&
     state.microphone === "confirmed" &&
     state.calibration === "confirmed" &&
     state.openai === "ready"
@@ -94,11 +93,7 @@ export function setupReady(state: SetupState) {
 }
 
 function advance(state: SetupState): SetupState {
-  if (
-    state.step === "camera" &&
-    state.camera === "ready" &&
-    state.cameraUse !== "pending"
-  ) {
+  if (state.step === "camera" && state.camera === "ready") {
     return { ...state, step: "microphone" };
   }
   if (state.step === "microphone" && state.microphone === "confirmed") {

@@ -6,10 +6,6 @@ describe("setup machine", () => {
     let state = initialSetupState;
 
     state = setupReducer(state, { type: "camera_ready" });
-    state = setupReducer(state, {
-      type: "camera_use_selected",
-      cameraUse: "room-wide",
-    });
     state = setupReducer(state, { type: "advance" });
     expect(state.step).toBe("microphone");
 
@@ -44,16 +40,9 @@ describe("setup machine", () => {
     ).toBe(false);
   });
 
-  it("does not leave camera setup until a camera use is selected", () => {
+  it("uses fixed-camera behavior by default and advances after camera access", () => {
     let state = setupReducer(initialSetupState, { type: "camera_ready" });
 
-    state = setupReducer(state, { type: "advance" });
-    expect(state.step).toBe("camera");
-
-    state = setupReducer(state, {
-      type: "camera_use_selected",
-      cameraUse: "board-focused",
-    });
     state = setupReducer(state, { type: "advance" });
     expect(state.step).toBe("microphone");
     expect(state.cameraUse).toBe("board-focused");

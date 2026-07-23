@@ -74,8 +74,7 @@ export function SetupStage(props: SetupStageProps) {
         props.board &&
         props.video &&
         props.cameraStream &&
-        props.calibration &&
-        props.setup.cameraUse !== "pending" && (
+        props.calibration && (
           <OutputPreviewStep
             board={props.board}
             cameraUse={props.setup.cameraUse}

@@ -29,10 +29,10 @@ describe("CameraStep", () => {
 
     render(
       <CameraStep
-        cameraUse="pending"
         mediaDevices={mediaDevices}
-        onCameraUseChange={vi.fn()}
+        onPresenterTrackingChange={vi.fn()}
         onReady={vi.fn()}
+        presenterTracking={false}
       />,
     );
 
@@ -45,14 +45,14 @@ describe("CameraStep", () => {
     expect(mediaDevices.getUserMedia).toHaveBeenCalledOnce();
   });
 
-  it("uses a generic heading and home guidance for a board-focused camera", () => {
-    const onCameraUseChange = vi.fn();
+  it("keeps camera choice generic and leaves presenter tracking off by default", () => {
+    const onPresenterTrackingChange = vi.fn();
 
     render(
       <CameraStep
-        cameraUse="board-focused"
-        onCameraUseChange={onCameraUseChange}
+        onPresenterTrackingChange={onPresenterTrackingChange}
         onReady={vi.fn()}
+        presenterTracking={false}
       />,
     );
 
@@ -60,29 +60,31 @@ describe("CameraStep", () => {
       screen.getByRole("heading", { name: "Connect a camera" }),
     ).toBeVisible();
     expect(
-      screen.getByText(/nearby webcam or iPhone Continuity Camera/i),
+      screen.getByText(/point the selected camera at the board or flip chart/i),
     ).toBeVisible();
     expect(
-      screen.getByText(/presenter tracking is skipped/i),
-    ).toBeVisible();
-
-    fireEvent.click(screen.getByRole("radio", { name: /Room-wide camera/i }));
-
-    expect(onCameraUseChange).toHaveBeenCalledWith("room-wide");
+      screen.queryByRole("radio", { name: /room-wide|board-focused/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /track a presenter/i }),
+    ).not.toBeChecked();
   });
 
-  it("explains auditorium setup for a room-wide camera", () => {
+  it("maps enabled presenter tracking through the single checkbox", () => {
+    const onPresenterTrackingChange = vi.fn();
+
     render(
       <CameraStep
-        cameraUse="room-wide"
-        onCameraUseChange={vi.fn()}
+        onPresenterTrackingChange={onPresenterTrackingChange}
         onReady={vi.fn()}
+        presenterTracking={false}
       />,
     );
 
-    expect(
-      screen.getByText(/manual, widest view/i),
-    ).toBeVisible();
-    expect(screen.getByText(/presenter tracking/i)).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /track a presenter/i }),
+    );
+
+    expect(onPresenterTrackingChange).toHaveBeenCalledWith(true);
   });
 });

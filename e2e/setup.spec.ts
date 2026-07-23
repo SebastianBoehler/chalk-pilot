@@ -33,7 +33,7 @@ test("uses the live camera aspect and skips presenter tracking at home", async (
 }) => {
   await installMediaFixture(page, { height: 200, width: 320 });
   await stubRealtime(page);
-  await openCamera(page, "Board-focused camera");
+  await openCamera(page);
   await confirmMicrophone(page);
 
   const frame = calibrationSurface(page);
@@ -73,7 +73,7 @@ test("requires presenter confirmation for a room-wide camera", async ({
     width: 320,
   });
   await stubRealtime(page);
-  await openCamera(page, "Room-wide camera");
+  await openCamera(page, { trackPresenter: true });
   await confirmMicrophone(page);
   await confirmBoard(page);
 
@@ -100,7 +100,7 @@ test("keeps five-track recording alive across sidebar collapse and opens replay"
   await installMediaFixture(page, { height: 180, width: 320 });
   await installDisplayCaptureFixture(page);
   await stubRealtime(page);
-  await openCamera(page, "Board-focused camera");
+  await openCamera(page);
   await confirmMicrophone(page);
   await confirmBoard(page);
   await page.getByRole("button", { name: "Outputs look right" }).click();
@@ -184,15 +184,19 @@ test("explains denied camera permission", async ({ page }) => {
     };
   });
   await page.goto("/setup");
-  await page.getByRole("radio", { name: /board-focused camera/i }).check();
   await page.getByRole("button", { name: "Allow camera" }).click();
   await expect(page.getByText("Camera unavailable")).toBeVisible();
   await expect(page.getByText(/permission was denied/i)).toBeVisible();
 });
 
-async function openCamera(page: Page, cameraUse: string) {
+async function openCamera(
+  page: Page,
+  options: { trackPresenter?: boolean } = {},
+) {
   await page.goto("/setup");
-  await page.getByRole("radio", { name: new RegExp(cameraUse, "i") }).check();
+  if (options.trackPresenter) {
+    await page.getByRole("checkbox", { name: /track a presenter/i }).check();
+  }
   await page.getByRole("button", { name: "Allow camera" }).click();
   await expect(page.locator("#camera-device")).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();

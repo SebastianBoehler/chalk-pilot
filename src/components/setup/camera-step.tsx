@@ -6,8 +6,6 @@ import {
   requestCamera,
   stopCamera,
 } from "@/features/board/camera";
-import type { CameraUse } from "@/features/setup/camera-use";
-
 type CameraMediaDevices = Pick<
   MediaDevices,
   "enumerateDevices" | "getUserMedia"
@@ -15,16 +13,16 @@ type CameraMediaDevices = Pick<
 
 interface CameraStepProps {
   onReady: (video: HTMLVideoElement, stream: MediaStream) => void;
-  cameraUse: CameraUse | "pending";
-  onCameraUseChange: (cameraUse: CameraUse) => void;
+  presenterTracking: boolean;
+  onPresenterTrackingChange: (enabled: boolean) => void;
   mediaDevices?: CameraMediaDevices;
 }
 
 export function CameraStep({
-  cameraUse,
-  onCameraUseChange,
   onReady,
   mediaDevices,
+  onPresenterTrackingChange,
+  presenterTracking,
 }: CameraStepProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream>();
@@ -32,8 +30,6 @@ export function CameraStep({
   const [selectedId, setSelectedId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const guidance = cameraGuidance(cameraUse);
-
   useEffect(() => {
     const video = videoRef.current;
     if (video && stream) video.srcObject = stream;
@@ -78,27 +74,25 @@ export function CameraStep({
           board image when you finish a turn or explicitly ask it to look.
         </p>
         <p className="text-muted mt-2 max-w-2xl text-sm">
-          {guidance}
+          Point the selected camera at the board or flip chart. A room camera,
+          webcam, or iPhone Continuity Camera can all be used here.
         </p>
       </div>
 
-      <fieldset>
-        <legend className="text-sm font-semibold">Camera use</legend>
-        <div className="mt-2 grid max-w-2xl gap-3 sm:grid-cols-2">
-          <CameraUseOption
-            checked={cameraUse === "room-wide"}
-            description="A wide room view where ChalkPilot follows a confirmed presenter."
-            label="Room-wide camera"
-            onChange={() => onCameraUseChange("room-wide")}
-          />
-          <CameraUseOption
-            checked={cameraUse === "board-focused"}
-            description="A fixed nearby view pointed at a whiteboard or flip chart."
-            label="Board-focused camera"
-            onChange={() => onCameraUseChange("board-focused")}
-          />
-        </div>
-      </fieldset>
+      <label className="border-border bg-surface flex max-w-2xl cursor-pointer gap-3 rounded-2xl border p-4">
+        <input
+          checked={presenterTracking}
+          onChange={(event) => onPresenterTrackingChange(event.target.checked)}
+          type="checkbox"
+        />
+        <span>
+          <span className="block font-semibold">Track a presenter</span>
+          <span className="text-muted mt-1 block text-sm">
+            Use the full camera view to select and follow a presenter. Leave
+            this off when the fixed camera view is enough.
+          </span>
+        </span>
+      </label>
 
       {error && (
         <div className="border-danger/30 bg-danger/5 rounded-2xl border p-5">
@@ -146,52 +140,13 @@ export function CameraStep({
               ))}
             </select>
             <p className="text-muted text-sm">
-              Choose the camera for this setup. A nearby webcam, room camera,
-              or iPhone Continuity Camera can appear here.
+              Choose the camera for this setup. A nearby webcam, room camera, or
+              iPhone Continuity Camera can appear here.
             </p>
           </div>
         </div>
       )}
     </section>
-  );
-}
-
-function cameraGuidance(cameraUse: CameraUse | "pending"): string {
-  if (cameraUse === "board-focused") {
-    return "At home, point a nearby webcam or iPhone Continuity Camera at a whiteboard or flip chart. ChalkPilot uses the fixed frame for the board, so presenter tracking is skipped.";
-  }
-
-  if (cameraUse === "room-wide") {
-    return "In an auditorium, set the room camera to its manual, widest view. ChalkPilot derives the board and speaker crops from that full frame, then uses presenter tracking for the speaker crop.";
-  }
-
-  return "Choose whether this is a room-wide or board-focused camera before allowing access.";
-}
-
-function CameraUseOption({
-  checked,
-  description,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  description: string;
-  label: string;
-  onChange: () => void;
-}) {
-  return (
-    <label className="border-border bg-surface flex cursor-pointer gap-3 rounded-2xl border p-4">
-      <input
-        checked={checked}
-        name="camera-use"
-        onChange={onChange}
-        type="radio"
-      />
-      <span>
-        <span className="block font-semibold">{label}</span>
-        <span className="text-muted mt-1 block text-sm">{description}</span>
-      </span>
-    </label>
   );
 }
 

@@ -181,16 +181,19 @@ export function SetupFlow() {
       >
         <SetupShell>
           <CameraStep
-            cameraUse={setup.cameraUse}
-            onCameraUseChange={(cameraUse) => {
+            onPresenterTrackingChange={(enabled) => {
               setPresenter(undefined);
-              dispatch({ type: "camera_use_selected", cameraUse });
+              dispatch({
+                type: "camera_use_selected",
+                cameraUse: enabled ? "room-wide" : "board-focused",
+              });
             }}
             onReady={(readyVideo, readyStream) => {
               setVideo(readyVideo);
               setCameraStream(readyStream);
               dispatch({ type: "camera_ready" });
             }}
+            presenterTracking={setup.cameraUse === "room-wide"}
           />
           {setup.camera === "ready" && (
             <Button
@@ -246,7 +249,6 @@ export function SetupFlow() {
         board &&
         calibration &&
         microphoneStream &&
-        setup.cameraUse !== "pending" &&
         (setup.cameraUse === "board-focused" || presenter) && (
           <SessionController
             board={board}
