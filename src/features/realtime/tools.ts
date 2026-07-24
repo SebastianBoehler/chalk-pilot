@@ -2,6 +2,7 @@ import { tool } from "@openai/agents";
 import { z } from "zod";
 import {
   canvasArtifactSchema,
+  canvasDelegationSchema,
   type CanvasDelegationInput,
 } from "@/features/canvas-worker/schema";
 import {
@@ -16,8 +17,10 @@ import {
 } from "@/features/canvas-navigation/targets";
 import {
   canvasStateSchema,
+  identifierSchema,
   type CanvasState,
 } from "@/features/workspace/schema";
+import { createStudyPackTools } from "@/features/study-pack/realtime-tools";
 
 type Fetcher = (
   input: string | URL | Request,
@@ -37,11 +40,6 @@ interface ToolRuntime {
   fetcher?: Fetcher;
 }
 
-export const canvasDelegationSchema = z.object({
-  goal: z.string().trim().min(1).max(2_000),
-  artifact: canvasArtifactSchema,
-});
-
 const rememberLearnerSchema = z.object({
   claim: z.string().trim().min(1).max(500),
   scope: z.string().trim().min(1).max(120),
@@ -51,6 +49,11 @@ const rememberLearnerSchema = z.object({
 const canvasTargetSchema = z.object({ targetId: canvasTargetIdSchema });
 const canvasHighlightSchema = canvasTargetSchema.extend({
   text: z.string().trim().min(1).max(240),
+});
+const canvasDelegationToolSchema = z.object({
+  goal: z.string().trim().min(1).max(2_000),
+  artifact: canvasArtifactSchema,
+  sourceChunkIds: z.array(identifierSchema).max(5).nullable(),
 });
 
 export function createChalkPilotActions(runtime: ToolRuntime) {
@@ -185,8 +188,12 @@ export function createChalkPilotTools(runtime: ToolRuntime) {
       name: "delegate_canvas_task",
       description:
         "Delegate durable visual context to the background canvas specialist. Returns immediately.",
-      parameters: canvasDelegationSchema,
-      execute: actions.delegateCanvas,
+      parameters: canvasDelegationToolSchema,
+      execute: (input) =>
+        actions.delegateCanvas({
+          ...input,
+          sourceChunkIds: input.sourceChunkIds ?? undefined,
+        }),
     }),
     tool({
       name: "remember_learner",
@@ -194,6 +201,10 @@ export function createChalkPilotTools(runtime: ToolRuntime) {
         "Store a concise, evidence-linked learning preference or difficulty.",
       parameters: rememberLearnerSchema,
       execute: actions.rememberLearner,
+    }),
+    ...createStudyPackTools({
+      sessionId: runtime.sessionId,
+      fetcher: runtime.fetcher,
     }),
   ];
 }

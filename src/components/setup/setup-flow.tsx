@@ -269,6 +269,7 @@ export function SetupFlow() {
             displayConnected={setup.display === "connected"}
             microphone={microphoneStream}
             presenter={presenter}
+            studyPack={selectedStudyPack}
             onAgentState={setAgentState}
             onCanvasChanged={setCanvas}
             navigation={navigation}

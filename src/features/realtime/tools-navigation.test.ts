@@ -56,6 +56,9 @@ describe("semantic canvas tools", () => {
       "highlight_canvas",
       "delegate_canvas_task",
       "remember_learner",
+      "get_study_pack_outline",
+      "search_study_pack",
+      "read_study_passage",
     ]);
   });
 

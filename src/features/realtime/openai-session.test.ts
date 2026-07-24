@@ -10,7 +10,7 @@ describe("createOpenAiSession", () => {
     } as unknown as OpenAIRealtimeWebRTC;
 
     expect(() =>
-      createOpenAiSession([], {} as MediaStream, {
+      createOpenAiSession([], {} as MediaStream, undefined, {
         createSession: () => {
           throw failure;
         },

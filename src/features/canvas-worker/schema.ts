@@ -29,8 +29,15 @@ export const canvasJobRequestSchema = z
     goal: z.string().trim().min(1).max(2_000),
     artifact: canvasArtifactSchema,
     boardImage: boardImageSchema.optional(),
+    sourceChunkIds: z.array(identifierSchema).max(5).optional(),
   })
   .strict();
+
+export const canvasDelegationSchema = canvasJobRequestSchema.pick({
+  goal: true,
+  artifact: true,
+  sourceChunkIds: true,
+});
 
 export const canvasJobResultSchema = z
   .object({
@@ -55,4 +62,4 @@ export const canvasJobResultSchema = z
 export type CanvasArtifact = z.infer<typeof canvasArtifactSchema>;
 export type CanvasJobRequest = z.infer<typeof canvasJobRequestSchema>;
 export type CanvasJobResult = z.infer<typeof canvasJobResultSchema>;
-export type CanvasDelegationInput = Pick<CanvasJobRequest, "goal" | "artifact">;
+export type CanvasDelegationInput = z.infer<typeof canvasDelegationSchema>;

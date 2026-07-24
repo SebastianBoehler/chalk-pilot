@@ -54,6 +54,35 @@ describe("ChalkPilotRealtime", () => {
     expect(createSession).toHaveBeenCalledWith(expect.any(Array), microphone);
   });
 
+  it("passes selected study-pack context to the session factory", async () => {
+    const { board, fetcher, microphone, session } = createHarness();
+    const createSession = vi.fn(() => session);
+    const studyPack = {
+      id: "pack-1",
+      title: "NLP",
+      sources: [],
+    };
+    const realtime = new ChalkPilotRealtime({
+      sessionId: "session-1",
+      board,
+      microphone,
+      fetcher,
+      createSession,
+      studyPack,
+      getCanvas: () => emptyCanvas,
+      onCanvasChanged: vi.fn(),
+      onNavigation: vi.fn(),
+    });
+
+    await realtime.connect();
+
+    expect(createSession).toHaveBeenCalledWith(
+      expect.any(Array),
+      microphone,
+      studyPack,
+    );
+  });
+
   it("does not create a session when closed before the token resolves", async () => {
     const { createSession, fetcher, realtime } = createHarness();
     const token = deferred<Response>();

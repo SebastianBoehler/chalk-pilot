@@ -6,6 +6,7 @@ import type { BoardCorners } from "@/features/board/types";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
 import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { AgentState } from "@/features/display/protocol";
+import type { StudyPackOutline } from "@/features/study-pack/schema";
 import type { PersonBox } from "@/features/recording/presenter-tracker";
 import { useSessionRecording } from "@/features/recording/use-session-recording";
 import { ChalkPilotRealtime } from "@/features/realtime/session";
@@ -28,6 +29,7 @@ interface SessionControllerProps {
   corners: BoardCorners;
   canvas: CanvasState;
   microphone: MediaStream;
+  studyPack?: StudyPackOutline;
   cameraUse: CameraUse;
   presenter?: PersonBox;
   displayConnected: boolean;
@@ -121,6 +123,7 @@ export function SessionController(props: SessionControllerProps) {
       sessionId,
       board,
       microphone,
+      studyPack: props.studyPack,
       onCanvasChanged: onRealtimeCanvasChanged,
       getCanvas: () => canvasRef.current,
       onNavigation: onRealtimeNavigation,
@@ -188,6 +191,7 @@ export function SessionController(props: SessionControllerProps) {
     onAgentState,
     onRealtimeCanvasChanged,
     onRealtimeNavigation,
+    props.studyPack,
     sessionId,
   ]);
 

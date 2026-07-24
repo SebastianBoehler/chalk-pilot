@@ -79,6 +79,41 @@ describe("ChalkPilot agent actions", () => {
     ).resolves.toMatchObject({ accepted: true, jobId: "job-flow" });
   });
 
+  it("passes only a bounded list of canonical study chunks to the worker", async () => {
+    const delegateCanvas = vi.fn(() => ({ jobId: "job-grounded" }));
+    const actions = createChalkPilotActions({
+      sessionId: "session-1",
+      fetcher: vi.fn(),
+      delegateCanvas,
+      inspectBoard: vi.fn(),
+      getCanvas: () => canvas,
+      getEvidenceId: () => "turn-1",
+      onCanvasChanged: vi.fn(),
+      onNavigation: vi.fn(),
+    });
+    await actions.delegateCanvas({
+      goal: "Compare the two definitions from the notes.",
+      artifact: "comparison",
+      sourceChunkIds: ["source-1-c-1", "source-1-c-2"],
+    });
+    expect(delegateCanvas).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceChunkIds: ["source-1-c-1", "source-1-c-2"],
+      }),
+    );
+
+    await expect(
+      actions.delegateCanvas({
+        goal: "Too much material.",
+        artifact: "comparison",
+        sourceChunkIds: Array.from(
+          { length: 6 },
+          (_, index) => `chunk-${index}`,
+        ),
+      }),
+    ).rejects.toThrow();
+  });
+
   it("links learner memory to the current turn", async () => {
     const fetcher = vi.fn(async () =>
       Response.json({ version: 1, entries: [] }),

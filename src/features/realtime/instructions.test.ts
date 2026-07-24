@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { chalkPilotInstructions } from "./instructions";
+import {
+  buildChalkPilotInstructions,
+  chalkPilotInstructions,
+} from "./instructions";
 
 describe("ChalkPilot instructions", () => {
   it("inventories artifact types before choosing a genuinely different one", () => {
@@ -47,5 +50,39 @@ describe("ChalkPilot instructions", () => {
     expect(chalkPilotInstructions).toContain("list_canvas_targets");
     expect(chalkPilotInstructions).toContain("materially supports");
     expect(chalkPilotInstructions).toContain("tool result");
+  });
+
+  it("grounds a selected course first and labels outside knowledge", () => {
+    const instructions = buildChalkPilotInstructions({
+      id: "pack-1",
+      title: "Probabilistic ML",
+      sources: [
+        {
+          id: "source-1",
+          packId: "pack-1",
+          title: "Lecture 4",
+          fileName: "lecture-4.md",
+          format: "markdown",
+          mimeType: "text/markdown",
+          sizeBytes: 100,
+          chunkCount: 1,
+          locators: ["Variational inference"],
+          createdAt: "2026-07-24T08:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(instructions).toContain("Search before answering");
+    expect(instructions).toContain("primary reference");
+    expect(instructions).toContain('"Supplemental context"');
+    expect(instructions).toContain("without retrieved evidence");
+    expect(instructions).toContain("sourceChunkIds");
+    expect(instructions).toContain("Lecture 4");
+  });
+
+  it("does not imply course verification without a selected pack", () => {
+    expect(buildChalkPilotInstructions()).toContain(
+      "do not imply that course-specific material was checked",
+    );
   });
 });

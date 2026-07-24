@@ -4,7 +4,8 @@ import {
   RealtimeSession,
 } from "@openai/agents/realtime";
 import type { RealtimeSessionPort } from "./session";
-import { chalkPilotInstructions } from "./instructions";
+import type { StudyPackOutline } from "@/features/study-pack/schema";
+import { buildChalkPilotInstructions } from "./instructions";
 import { createMicrophoneTransport } from "./microphone-transport";
 import { CHALKPILOT_REALTIME_MODEL } from "./model";
 import { type createChalkPilotTools } from "./tools";
@@ -45,12 +46,13 @@ const defaultFactories: OpenAiSessionFactories = {
 export function createOpenAiSession(
   tools: ReturnType<typeof createChalkPilotTools>,
   microphone: MediaStream,
+  studyPack?: StudyPackOutline,
   factories: OpenAiSessionFactories = defaultFactories,
 ): RealtimeSessionPort {
   const agent = new RealtimeAgent({
     name: "ChalkPilot",
     voice: "marin",
-    instructions: chalkPilotInstructions,
+    instructions: buildChalkPilotInstructions(studyPack),
     tools,
   });
   const transport = factories.createTransport(microphone);

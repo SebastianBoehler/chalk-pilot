@@ -9,6 +9,7 @@ import {
 import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { CanvasDelegationInput } from "@/features/canvas-worker/schema";
 import type { AgentState } from "@/features/display/protocol";
+import type { StudyPackOutline } from "@/features/study-pack/schema";
 import type { CanvasState } from "@/features/workspace/schema";
 import { RealtimeConnection } from "./connection";
 import { readableRealtimeTokenError, realtimeErrorMessage } from "./errors";
@@ -44,12 +45,14 @@ type ToolSet = ReturnType<typeof createChalkPilotTools>;
 type SessionFactory = (
   tools: ToolSet,
   microphone: MediaStream,
+  studyPack?: StudyPackOutline,
 ) => RealtimeSessionPort;
 
 export interface ChalkPilotRealtimeOptions {
   sessionId: string;
   board: BoardImageSource;
   microphone: MediaStream;
+  studyPack?: StudyPackOutline;
   onCanvasChanged: (canvas: CanvasState) => void;
   getCanvas: () => CanvasState;
   onNavigation: (navigation: CanvasNavigation, canvas: CanvasState) => void;
@@ -139,7 +142,13 @@ export class ChalkPilotRealtime {
       onCanvasChanged: this.options.onCanvasChanged,
       onNavigation: this.options.onNavigation,
     });
-    return this.createSession(tools, this.options.microphone);
+    return this.options.studyPack
+      ? this.createSession(
+          tools,
+          this.options.microphone,
+          this.options.studyPack,
+        )
+      : this.createSession(tools, this.options.microphone);
   }
 
   async inspectBoardNow(): Promise<BoardInspectionStatus> {
