@@ -160,6 +160,14 @@ export const flowArtifactDataSchema = z
         path: ["activeNodeId"],
       });
     }
+    const edgeIds = edges.map(({ from, to }) => `${from}->${to}`);
+    if (new Set(edgeIds).size !== edgeIds.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Flow edges must be unique",
+        path: ["edges"],
+      });
+    }
 
     let referencesAreValid = knownNodes.size === nodeIds.length;
     for (const [index, edge] of edges.entries()) {

@@ -196,6 +196,15 @@ describe("structured learning artifact schemas", () => {
         ...flow,
         edges: [
           { from: "input", to: "transform" },
+          { from: "input", to: "transform" },
+        ],
+      }),
+    ).toThrow(/unique/i);
+    expect(() =>
+      flowArtifactDataSchema.parse({
+        ...flow,
+        edges: [
+          { from: "input", to: "transform" },
           { from: "transform", to: "result" },
           { from: "result", to: "input" },
         ],
