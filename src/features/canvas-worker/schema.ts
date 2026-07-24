@@ -12,6 +12,7 @@ export const canvasArtifactSchema = z.enum([
   "example",
   "exercise",
   "explanation",
+  "flow",
   "formula",
   "mixed",
   "sequence",

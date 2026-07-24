@@ -45,6 +45,25 @@ describe("ChalkPilot agent actions", () => {
     ]);
   });
 
+  it("accepts a trusted flow as a delegated learning-move artifact", async () => {
+    const delegateCanvas = vi.fn(() => ({ jobId: "job-flow" }));
+    const actions = createChalkPilotActions({
+      sessionId: "session-1",
+      fetcher: vi.fn(),
+      delegateCanvas,
+      inspectBoard: vi.fn(),
+      getEvidenceId: () => "turn-1",
+      onCanvasChanged: vi.fn(),
+    });
+
+    await expect(
+      actions.delegateCanvas({
+        goal: "Show the causal mechanism without revealing a solution.",
+        artifact: "flow",
+      }),
+    ).resolves.toMatchObject({ accepted: true, jobId: "job-flow" });
+  });
+
   it("links learner memory to the current turn", async () => {
     const fetcher = vi.fn(async () =>
       Response.json({ version: 1, entries: [] }),

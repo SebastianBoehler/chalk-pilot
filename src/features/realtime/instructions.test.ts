@@ -19,4 +19,17 @@ describe("ChalkPilot instructions", () => {
     expect(chalkPilotInstructions).toContain("flexible policy");
     expect(chalkPilotInstructions).toContain("not a rigid state machine");
   });
+
+  it("routes artifacts by the learning move rather than the subject", () => {
+    expect(chalkPilotInstructions).toContain("mechanism or causal chain");
+    expect(chalkPilotInstructions).toContain("quantitative relationship");
+    expect(chalkPilotInstructions).toContain("distinction or trade-off");
+    expect(chalkPilotInstructions).toContain(
+      "progressively revealed procedure",
+    );
+    expect(chalkPilotInstructions).toContain(
+      "prediction, retrieval, classification, or transfer",
+    );
+    expect(chalkPilotInstructions).toContain("not by subject");
+  });
 });
