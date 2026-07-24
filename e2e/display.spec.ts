@@ -1,6 +1,13 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { artifactSections } from "./display-artifacts";
+
+declare global {
+  interface Window {
+    navigationScrollCalls?: Array<{ block?: string }>;
+  }
+}
 
 const createdSessions = new Set<string>();
 
@@ -61,7 +68,7 @@ test("renders persisted typed artifacts on the synchronized display", async ({
     channel.postMessage({
       version: 1,
       type: "snapshot",
-      payload: { agentState: "speaking", canvas: snapshot },
+      payload: { agentState: "speaking", canvas: snapshot, navigation: null },
     });
     await new Promise((resolve) => window.setTimeout(resolve, 50));
     channel.close();
@@ -121,6 +128,87 @@ test("renders persisted typed artifacts on the synchronized display", async ({
   await expect(page.locator('[aria-roledescription="error"]')).toHaveCount(0);
 });
 
+test("centers and pulses each semantic navigation request on the clean display", async ({
+  page,
+  request,
+}) => {
+  const sessionId = await createArtifactSession(request);
+  const canvas = await (
+    await request.get(`/api/sessions/${sessionId}/canvas`)
+  ).json();
+  await page.goto("/display");
+  await page.evaluate(() => {
+    const calls: Array<{ block?: string }> = [];
+    Element.prototype.scrollIntoView = function (
+      options?: ScrollIntoViewOptions,
+    ) {
+      if (
+        this instanceof HTMLElement &&
+        this.dataset.canvasTarget === "learning-mechanism"
+      ) {
+        calls.push({ block: options?.block });
+      }
+    };
+    window.navigationScrollCalls = calls;
+  });
+  await page.evaluate(
+    async ({ canvas, navigation }) => {
+      const channel = new BroadcastChannel("chalkpilot-display-v1");
+      channel.postMessage({
+        version: 1,
+        type: "snapshot",
+        payload: { agentState: "speaking", canvas, navigation },
+      });
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      channel.close();
+    },
+    { canvas, navigation: navigation("navigation-1") },
+  );
+
+  const target = page.locator('[data-canvas-target="learning-mechanism"]');
+  await expect(target).toBeVisible();
+  await expect(target).toHaveAttribute("data-canvas-attention", "focus");
+  await expect
+    .poll(() => page.evaluate(() => window.navigationScrollCalls ?? []))
+    .toEqual([{ block: "center" }]);
+
+  await publishNavigation(page, "navigation-2");
+  await expect
+    .poll(() => page.evaluate(() => window.navigationScrollCalls?.length ?? 0))
+    .toBe(2);
+  await expect(page.locator("main").getByRole("button")).toHaveCount(0);
+});
+
+async function publishNavigation(
+  page: import("@playwright/test").Page,
+  requestId: string,
+) {
+  await page.evaluate(async (id) => {
+    const channel = new BroadcastChannel("chalkpilot-display-v1");
+    channel.postMessage({
+      version: 1,
+      type: "navigation",
+      payload: {
+        requestId: id,
+        targetId: "learning-mechanism",
+        kind: "focus",
+        issuedAt: "2026-07-24T10:00:00.000Z",
+      },
+    });
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+    channel.close();
+  }, requestId);
+}
+
+function navigation(requestId: string) {
+  return {
+    requestId,
+    targetId: "learning-mechanism",
+    kind: "focus" as const,
+    issuedAt: "2026-07-24T10:00:00.000Z",
+  };
+}
+
 async function createArtifactSession(request: APIRequestContext) {
   const sessionResponse = await request.post("/api/sessions");
   expect(sessionResponse.status()).toBe(201);
@@ -139,126 +227,3 @@ async function createArtifactSession(request: APIRequestContext) {
   expect(focus.ok()).toBe(true);
   return id;
 }
-
-const artifactSections = [
-  {
-    id: "recall-growth",
-    kind: "chart",
-    title: "Recall growth",
-    data: {
-      variant: "line",
-      xLabel: "Practice round",
-      yLabel: "Correct recalls",
-      series: [
-        {
-          name: "Recall",
-          points: [
-            { x: 1, y: 2 },
-            { x: 2, y: 5 },
-            { x: 3, y: 8 },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: "learning-mechanism",
-    kind: "flow",
-    title: "From evidence to transfer",
-    data: {
-      orientation: "horizontal",
-      activeNodeId: "connect",
-      nodes: [
-        {
-          id: "observe",
-          title: "Observe evidence",
-          detail: "Notice the part that changes.",
-        },
-        {
-          id: "connect",
-          title: "Connect the mechanism",
-          detail: "Explain why the evidence produces the result.",
-        },
-        {
-          id: "transfer",
-          title: "Try a new case",
-          detail: "Use the same mechanism in a different situation.",
-        },
-      ],
-      edges: [
-        { from: "observe", to: "connect", label: "supports" },
-        { from: "connect", to: "transfer", label: "generalizes to" },
-      ],
-    },
-  },
-  {
-    id: "retrieval-loop",
-    kind: "sequence",
-    title: "Retrieval loop",
-    data: {
-      activeStepId: "recall",
-      reveal: "active",
-      steps: [
-        {
-          id: "recall",
-          title: "Retrieve from memory",
-          content: "Say what you remember before seeing the answer.",
-        },
-        {
-          id: "check",
-          title: "Check the evidence",
-          content: "Compare with notes and repair only the missing link.",
-        },
-        {
-          id: "apply",
-          title: "Apply again",
-          content: "Use the idea in a fresh example.",
-        },
-      ],
-    },
-  },
-  {
-    id: "retrieval-check",
-    kind: "checkpoint",
-    title: "Prediction before feedback",
-    data: {
-      mode: "prediction",
-      prompt: "Which step comes before checking notes?",
-      choices: ["Retrieve from memory", "Read the answer first"],
-      hint: "Commit to your best guess before seeing feedback.",
-      expectedAnswer: "Retrieve from memory.",
-      feedback: "Effortful recall makes the gap visible.",
-      status: "unanswered",
-      showHint: false,
-      showAnswer: false,
-      showFeedback: false,
-    },
-  },
-  {
-    id: "compare-recall",
-    kind: "comparison",
-    title: "Recall versus rereading",
-    data: {
-      columns: [
-        {
-          heading: "Retrieve",
-          summary: "Attempt before feedback.",
-          points: ["Makes gaps visible", "Strengthens recall routes"],
-          emphasis: "positive",
-        },
-        {
-          heading: "Reread",
-          summary: "Review without a prior attempt.",
-          points: ["Feels fluent", "Can hide gaps"],
-          emphasis: "caution",
-        },
-      ],
-    },
-  },
-  {
-    id: "invalid-diagram",
-    kind: "mermaid",
-    title: "Contained diagram failure",
-    content: "flowchart TD\nA -->",
-  },
-] as const;

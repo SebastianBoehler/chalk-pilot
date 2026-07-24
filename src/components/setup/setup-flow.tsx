@@ -70,8 +70,8 @@ export function SetupFlow() {
   const [agentState, setAgentState] = useState<AgentState>("idle");
   const calibrationRequest = useRef(0);
   const snapshot = useMemo(
-    () => ({ canvas, agentState }),
-    [agentState, canvas],
+    () => ({ canvas, agentState, navigation }),
+    [agentState, canvas, navigation],
   );
   const { readySignal } = useDisplayPublisher(snapshot);
   const openDisplay = useRoomDisplay(readySignal, dispatch);

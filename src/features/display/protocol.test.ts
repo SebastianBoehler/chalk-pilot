@@ -8,6 +8,12 @@ describe("display protocol", () => {
       type: "snapshot",
       payload: {
         agentState: "speaking",
+        navigation: {
+          requestId: "navigation-1",
+          targetId: "steps:recall",
+          kind: "focus",
+          issuedAt: "2026-07-23T10:00:00.000Z",
+        },
         canvas: {
           version: 1,
           focusId: "steps",
@@ -45,11 +51,39 @@ describe("display protocol", () => {
       type: "snapshot",
       payload: {
         agentState: "speaking",
+        navigation: {
+          requestId: "navigation-1",
+          targetId: "steps:recall",
+          kind: "focus",
+        },
         canvas: {
           sections: {
             steps: { kind: "sequence", data: { reveal: "active" } },
           },
         },
+      },
+    });
+  });
+
+  it("accepts a semantic navigation request without canvas coordinates", () => {
+    const message = parseDisplayMessage({
+      version: 1,
+      type: "navigation",
+      payload: {
+        requestId: "navigation-2",
+        targetId: "steps:recall",
+        kind: "highlight",
+        text: "Retrieve the idea before checking notes.",
+        issuedAt: "2026-07-23T10:02:00.000Z",
+      },
+    });
+
+    expect(message).toMatchObject({
+      type: "navigation",
+      payload: {
+        requestId: "navigation-2",
+        targetId: "steps:recall",
+        kind: "highlight",
       },
     });
   });

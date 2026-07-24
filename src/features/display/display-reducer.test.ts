@@ -12,6 +12,7 @@ describe("display reducer", () => {
       type: "snapshot",
       payload: {
         agentState: "listening",
+        navigation: null,
         canvas: {
           version: 1,
           focusId: "attempt",
@@ -37,6 +38,30 @@ describe("display reducer", () => {
     });
   });
 
+  it("stores navigation without replacing the canvas or agent state", () => {
+    const state = {
+      ...emptyDisplayState,
+      agentState: "speaking" as const,
+      synchronized: true,
+    };
+    const navigation = {
+      requestId: "navigation-1",
+      targetId: "attempt",
+      kind: "focus" as const,
+      issuedAt: "2026-07-23T10:00:00.000Z",
+    };
+
+    const next = reduceDisplayState(state, {
+      version: 1,
+      type: "navigation",
+      payload: navigation,
+    });
+
+    expect(next.navigation).toEqual(navigation);
+    expect(next.canvas).toBe(state.canvas);
+    expect(next.agentState).toBe(state.agentState);
+  });
+
   it("applies incremental state updates without losing the canvas", () => {
     const next = reduceDisplayState(
       { ...emptyDisplayState, synchronized: true },
@@ -53,6 +78,7 @@ describe("display reducer", () => {
       type: "snapshot",
       payload: {
         agentState: "thinking",
+        navigation: null,
         canvas: {
           version: 1,
           focusId: "learning-gain",

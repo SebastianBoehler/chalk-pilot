@@ -21,7 +21,7 @@ export function DisplaySurface() {
           {state.synchronized ? state.agentState : "Waiting for controller"}
         </div>
       </header>
-      <PresentationCanvas canvas={state.canvas} />
+      <PresentationCanvas canvas={state.canvas} navigation={state.navigation} />
     </main>
   );
 }

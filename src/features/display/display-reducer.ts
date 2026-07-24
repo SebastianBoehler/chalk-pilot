@@ -1,4 +1,5 @@
 import type { CanvasState } from "@/features/workspace/schema";
+import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { AgentState, DisplayMessage } from "./protocol";
 
 export type { DisplayMessage } from "./protocol";
@@ -6,6 +7,7 @@ export type { DisplayMessage } from "./protocol";
 export interface DisplayState {
   canvas: CanvasState;
   agentState: AgentState;
+  navigation: CanvasNavigation | null;
   synchronized: boolean;
 }
 
@@ -17,6 +19,7 @@ export const emptyDisplayState: DisplayState = {
     sections: {},
   },
   agentState: "idle",
+  navigation: null,
   synchronized: false,
 };
 
@@ -33,5 +36,7 @@ export function reduceDisplayState(
       return { ...state, canvas: message.payload, synchronized: true };
     case "agent_state":
       return { ...state, agentState: message.payload };
+    case "navigation":
+      return { ...state, navigation: message.payload };
   }
 }

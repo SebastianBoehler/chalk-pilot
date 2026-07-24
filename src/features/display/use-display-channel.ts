@@ -62,5 +62,14 @@ export function useDisplayPublisher(snapshot: DisplaySnapshot) {
     });
   }, [snapshot]);
 
+  useEffect(() => {
+    if (!snapshot.navigation) return;
+    channelRef.current?.postMessage({
+      version: 1,
+      type: "navigation",
+      payload: snapshot.navigation,
+    });
+  }, [snapshot.navigation?.requestId]);
+
   return { connected, readySignal };
 }
