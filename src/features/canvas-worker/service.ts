@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { CanvasState } from "@/features/workspace/schema";
 import type { WorkspaceRepository } from "@/features/workspace/repository";
+import type { StudyPackRepository } from "@/features/study-pack/repository";
+import {
+  studyEvidenceSchema,
+  type StudyEvidence,
+} from "@/features/study-pack/schema";
 import { createCanvasWorkerActions, type CanvasWorkerActions } from "./actions";
 import { runCanvasAgent } from "./agent";
 import {
@@ -18,6 +23,7 @@ import {
 interface CanvasAgentTask {
   request: CanvasJobRequest;
   canvas: CanvasState;
+  evidence: StudyEvidence[];
   actions: CanvasWorkerActions;
 }
 
@@ -25,6 +31,7 @@ type CanvasAgentRunner = (task: CanvasAgentTask) => Promise<string>;
 
 interface CanvasWorkerDependencies {
   repository: WorkspaceRepository;
+  studyPacks?: StudyPackRepository;
   runAgent?: CanvasAgentRunner;
   queue?: KeyedQueue;
   providerIdentity?: { provider: string; model: string };
@@ -54,6 +61,11 @@ export function createCanvasWorkerService(
       const startedMs = Date.now();
       try {
         const canvas = await dependencies.repository.readCanvas(sessionId);
+        const evidence = await resolveStudyEvidence(
+          dependencies,
+          sessionId,
+          request.sourceChunkIds,
+        );
         const actions = createCanvasWorkerActions(
           dependencies.repository,
           sessionId,
@@ -61,6 +73,7 @@ export function createCanvasWorkerService(
         const summary = await executeAgent(runAgent, {
           request,
           canvas,
+          evidence,
           actions,
         });
         const completedAt = new Date();
@@ -153,6 +166,39 @@ export type CanvasWorkerService = ReturnType<typeof createCanvasWorkerService>;
 
 async function runProviderAgent(task: CanvasAgentTask) {
   return runCanvasAgent({ ...task, model: createCanvasModel() });
+}
+
+async function resolveStudyEvidence(
+  dependencies: CanvasWorkerDependencies,
+  sessionId: string,
+  chunkIds: string[] | undefined,
+): Promise<StudyEvidence[]> {
+  if (!chunkIds?.length) return [];
+  if (!dependencies.studyPacks) {
+    throw new CanvasAgentExecutionError("Study material is unavailable.");
+  }
+  const session = await dependencies.repository.readSession(sessionId);
+  if (!session.studyPackId) {
+    throw new CanvasAgentExecutionError(
+      "No study pack is selected for this session.",
+    );
+  }
+  const chunks = await dependencies.studyPacks.readChunks(session.studyPackId);
+  const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+  return chunkIds.map((chunkId) => {
+    const chunk = byId.get(chunkId);
+    if (!chunk) {
+      throw new CanvasAgentExecutionError(
+        "A requested study passage is unavailable.",
+      );
+    }
+    return studyEvidenceSchema.parse({
+      id: chunk.id,
+      sourceTitle: chunk.sourceTitle,
+      locator: chunk.locator,
+      text: chunk.text,
+    });
+  });
 }
 
 async function executeAgent(

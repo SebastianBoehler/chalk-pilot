@@ -27,9 +27,18 @@ const youtubeUrlSchema = httpUrlSchema.refine(
   { message: "YouTube URL must use a supported YouTube host" },
 );
 
+export const sourceCitationSchema = z
+  .object({
+    chunkId: identifierSchema,
+    sourceTitle: z.string().trim().min(1).max(240),
+    locator: z.string().trim().min(1).max(240),
+  })
+  .strict();
+
 const sectionBase = z.object({
   id: identifierSchema,
   title: titleSchema,
+  citations: z.array(sourceCitationSchema).min(1).max(5).optional(),
 });
 
 const markdownSectionInputSchema = sectionBase
@@ -102,6 +111,7 @@ export const canvasSectionMetadataSchema = z
     id: identifierSchema,
     kind: canvasSectionKindSchema,
     title: titleSchema,
+    citations: z.array(sourceCitationSchema).min(1).max(5).optional(),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
   })
@@ -181,6 +191,7 @@ export type CanvasState = z.infer<typeof canvasStateSchema>;
 export type SessionRecord = z.infer<typeof sessionRecordSchema>;
 export type TranscriptTurn = z.infer<typeof transcriptTurnSchema>;
 export type LearningEvent = z.infer<typeof learningEventSchema>;
+export type SourceCitation = z.infer<typeof sourceCitationSchema>;
 export type LearnerMemoryInput = z.infer<typeof learnerMemoryInputSchema>;
 
 export function hasSectionContent(

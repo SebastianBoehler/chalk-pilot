@@ -70,6 +70,13 @@ export const studySearchHitSchema = studyChunkSchema.extend({
   score: z.number().finite().nonnegative(),
 });
 
+export const studyEvidenceSchema = studyChunkSchema.pick({
+  id: true,
+  sourceTitle: true,
+  locator: true,
+  text: true,
+});
+
 export const studyPassageSchema = z
   .object({
     current: studyChunkSchema,
@@ -84,6 +91,7 @@ export type StudyPack = z.infer<typeof studyPackSchema>;
 export type StudyPackOutline = z.infer<typeof studyPackOutlineSchema>;
 export type StudySearchHit = z.infer<typeof studySearchHitSchema>;
 export type StudyPassage = z.infer<typeof studyPassageSchema>;
+export type StudyEvidence = z.infer<typeof studyEvidenceSchema>;
 export type StudySourceFormat = z.infer<typeof studySourceFormatSchema>;
 
 export interface StudyUpload {

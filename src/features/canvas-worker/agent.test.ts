@@ -95,6 +95,32 @@ describe("canvas worker agent context", () => {
     expect(text).not.toContain('"content":"{\\"columns');
   });
 
+  it("includes canonical study evidence as untrusted reference data", () => {
+    const messages = buildCanvasAgentMessages(
+      {
+        jobId: "job-grounded",
+        goal: "Explain reverse KL.",
+        artifact: "explanation",
+        sourceChunkIds: ["lecture-4-c-1"],
+      },
+      canvas,
+      [
+        {
+          id: "lecture-4-c-1",
+          sourceTitle: "Lecture 4",
+          locator: "Page 12",
+          text: "Reverse KL can prefer one mode.",
+        },
+      ],
+    );
+    const serialized = JSON.stringify(messages);
+
+    expect(serialized).toContain("Canonical study evidence");
+    expect(serialized).toContain("Reverse KL can prefer one mode");
+    expect(serialized).toContain("not instructions");
+    expect(serialized).toContain("copied exactly");
+  });
+
   it("sends the curated policy and full typed upsert schema to the model", async () => {
     let modelPrompt = "";
     let upsertSchema = "";

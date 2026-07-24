@@ -46,13 +46,14 @@ export function projectStoredCanvasState(
     ...canvas,
     sections: Object.fromEntries(
       Object.entries(canvas.sections).map(([id, section]) => {
-        const { createdAt, kind, title, updatedAt } = section;
+        const { citations, createdAt, kind, title, updatedAt } = section;
         return [
           id,
           canvasSectionMetadataSchema.parse({
             id,
             kind,
             title,
+            citations,
             createdAt,
             updatedAt,
           }),

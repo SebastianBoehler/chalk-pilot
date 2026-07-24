@@ -1,12 +1,16 @@
 import { createCanvasWorkerApi } from "@/features/canvas-worker/api";
 import { createCanvasWorkerService } from "@/features/canvas-worker/service";
 import { workspaceRepository } from "@/features/workspace/default-repository";
+import { studyPackRepository } from "@/features/study-pack/default-repository";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const api = createCanvasWorkerApi(
-  createCanvasWorkerService({ repository: workspaceRepository }),
+  createCanvasWorkerService({
+    repository: workspaceRepository,
+    studyPacks: studyPackRepository,
+  }),
 );
 
 interface RouteContext {

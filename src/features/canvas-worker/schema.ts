@@ -29,7 +29,13 @@ export const canvasJobRequestSchema = z
     goal: z.string().trim().min(1).max(2_000),
     artifact: canvasArtifactSchema,
     boardImage: boardImageSchema.optional(),
-    sourceChunkIds: z.array(identifierSchema).max(5).optional(),
+    sourceChunkIds: z
+      .array(identifierSchema)
+      .max(5)
+      .refine((ids) => new Set(ids).size === ids.length, {
+        message: "Study chunk identifiers must be unique.",
+      })
+      .optional(),
   })
   .strict();
 

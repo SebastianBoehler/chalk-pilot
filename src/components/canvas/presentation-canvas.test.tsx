@@ -64,6 +64,51 @@ describe("PresentationCanvas", () => {
     );
   });
 
+  it("renders canonical source provenance and keeps uncited sections clean", () => {
+    const canvas: CanvasState = {
+      version: 1,
+      focusId: "grounded",
+      order: ["grounded", "general"],
+      sections: {
+        grounded: {
+          id: "grounded",
+          kind: "markdown",
+          title: "Course definition",
+          content: "Reverse KL can prefer one mode.",
+          citations: [
+            {
+              chunkId: "lecture-4-c-1",
+              sourceTitle: "Lecture 4",
+              locator: "Page 12",
+            },
+          ],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        general: {
+          id: "general",
+          kind: "markdown",
+          title: "Supplemental intuition",
+          content: "Think of a narrow searchlight.",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      },
+    };
+
+    render(<PresentationCanvas canvas={canvas} />);
+
+    expect(screen.getByLabelText("Sources")).toHaveTextContent(
+      "Source: Lecture 4, Page 12",
+    );
+    expect(
+      screen
+        .getByRole("heading", { name: "Supplemental intuition" })
+        .closest("section")
+        ?.querySelector('[aria-label="Sources"]'),
+    ).toBeNull();
+  });
+
   it("renders every trusted structured artifact without executable HTML", () => {
     const canvas: CanvasState = {
       version: 1,

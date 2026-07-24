@@ -9,6 +9,7 @@ import { FlowArtifact } from "./flow-artifact";
 import { MermaidBlock } from "./mermaid-block";
 import { SafeMarkdown } from "./safe-markdown";
 import { SequenceArtifact } from "./sequence-artifact";
+import { SourceCitations } from "./source-citations";
 
 export function CanvasSection({
   section,
@@ -33,6 +34,7 @@ export function CanvasSection({
       <ArtifactErrorBoundary resetKey={`${section.id}:${section.updatedAt}`}>
         <SectionContent section={section} />
       </ArtifactErrorBoundary>
+      <SourceCitations citations={section.citations} />
     </section>
   );
 }

@@ -10,6 +10,12 @@ const section = {
   title: "Token types",
   content: "Subwords balance vocabulary size and flexibility.",
 };
+const evidence = {
+  id: "lecture-4-c-1",
+  sourceTitle: "Lecture 4",
+  locator: "Page 12",
+  text: "Reverse KL can prefer one mode.",
+};
 
 function createActions(overrides: Partial<CanvasWorkerActions> = {}) {
   return {
@@ -87,5 +93,53 @@ describe("canvas job actions", () => {
     expect(() => actions.assertComplete()).toThrow(
       "Canvas job must upsert and focus one section.",
     );
+  });
+
+  it("accepts only exact citations from resolved study evidence", async () => {
+    const actions = createCanvasJobActions(createActions(), [evidence]);
+    await actions.upsertSection({
+      ...section,
+      citations: [
+        {
+          chunkId: evidence.id,
+          sourceTitle: evidence.sourceTitle,
+          locator: evidence.locator,
+        },
+      ],
+    });
+
+    const invented = createCanvasJobActions(createActions(), [evidence]);
+    await expect(
+      invented.upsertSection({
+        ...section,
+        citations: [
+          {
+            chunkId: evidence.id,
+            sourceTitle: evidence.sourceTitle,
+            locator: "Page 99",
+          },
+        ],
+      }),
+    ).rejects.toThrow("does not match resolved study evidence");
+  });
+
+  it("requires citations exactly when a job has resolved evidence", async () => {
+    await expect(
+      createCanvasJobActions(createActions(), [evidence]).upsertSection(
+        section,
+      ),
+    ).rejects.toThrow("requires a source citation");
+    await expect(
+      createCanvasJobActions(createActions()).upsertSection({
+        ...section,
+        citations: [
+          {
+            chunkId: evidence.id,
+            sourceTitle: evidence.sourceTitle,
+            locator: evidence.locator,
+          },
+        ],
+      }),
+    ).rejects.toThrow("require resolved study evidence");
   });
 });
