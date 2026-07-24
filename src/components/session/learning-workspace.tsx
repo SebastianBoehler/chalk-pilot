@@ -11,9 +11,10 @@ import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import { useResolvedCanvasNavigation } from "@/features/canvas-navigation/use-resolved-navigation";
 import type { AgentState } from "@/features/display/protocol";
 import type { SessionRecording } from "@/features/recording/use-session-recording";
-import type { TranscriptLine } from "@/features/session/transcript";
+import type { TranscriptEntry } from "@/features/session/transcript";
 import type { CanvasState } from "@/features/workspace/schema";
 import { RecordingControls } from "./recording-controls";
+import { TranscriptPanel } from "./transcript-panel";
 
 interface LearningWorkspaceProps {
   canvas: CanvasState;
@@ -28,7 +29,7 @@ interface LearningWorkspaceProps {
   displayConnected: boolean;
   boardNotice: string;
   error?: string;
-  transcript: TranscriptLine[];
+  transcript: TranscriptEntry[];
   onInspect: () => void;
   onPause: () => void;
   onOpenDisplay: () => void;
@@ -194,23 +195,7 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
 
         <RecordingControls recording={props.recording} />
 
-        <details className="border-border mt-5 rounded-2xl border p-4" open>
-          <summary className="cursor-pointer font-semibold">
-            Transcript ({props.transcript.length})
-          </summary>
-          <div className="mt-3 max-h-56 space-y-3 overflow-auto">
-            {props.transcript.length === 0 ? (
-              <p className="text-muted text-sm">No completed turns yet.</p>
-            ) : (
-              props.transcript.map((line) => (
-                <p className="text-sm" key={line.sourceId}>
-                  <strong>{line.role === "user" ? "You" : "Pilot"}:</strong>{" "}
-                  {line.text}
-                </p>
-              ))
-            )}
-          </div>
-        </details>
+        <TranscriptPanel transcript={props.transcript} />
 
         <div className="mt-5 grid gap-2">
           <Button

@@ -15,7 +15,7 @@ import {
 } from "@/features/session/session-machine";
 import {
   persistTranscript,
-  type TranscriptLine,
+  type TranscriptEntry,
 } from "@/features/session/transcript";
 import type { CanvasState } from "@/features/workspace/schema";
 import type { CameraUse } from "@/features/setup/camera-use";
@@ -62,7 +62,7 @@ export function SessionController(props: SessionControllerProps) {
   const [boardNotice, setBoardNotice] = useState(
     "Board images are sent only at turn boundaries.",
   );
-  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const realtimeRef = useRef<ChalkPilotRealtime | null>(null);
   const canvasRef = useRef(props.canvas);
   // Realtime tools can run before passive effects after a canvas prop update.
