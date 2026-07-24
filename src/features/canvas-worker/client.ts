@@ -1,6 +1,10 @@
 "use client";
 
 import { z } from "zod";
+import {
+  createCanvasNavigation,
+  type CanvasNavigation,
+} from "@/features/canvas-navigation/schema";
 import type { CanvasState } from "@/features/workspace/schema";
 import {
   canvasJobRequestSchema,
@@ -21,6 +25,7 @@ interface CanvasJobClientOptions {
   fetcher: Fetcher;
   getBoardImage: () => string | null;
   onCanvasChanged: (canvas: CanvasState) => void;
+  onNavigation: (navigation: CanvasNavigation) => void;
   onState?: (state: CanvasJobState) => void;
   onError?: (message: string) => void;
   onCompleted: (jobId: string, summary: string) => void;
@@ -65,7 +70,16 @@ export class CanvasJobClient {
       );
       if (!response.ok) throw new Error(await canvasJobError(response));
       const result = canvasJobResultSchema.parse(await response.json());
+      if (!result.canvas.focusId) {
+        throw new Error("Canvas worker result omitted its focus target.");
+      }
       this.options.onCanvasChanged(result.canvas);
+      this.options.onNavigation(
+        createCanvasNavigation({
+          kind: "focus",
+          targetId: result.canvas.focusId,
+        }),
+      );
       this.options.onCompleted(result.jobId, result.summary);
       this.options.onState?.("complete");
     } catch (error) {

@@ -111,6 +111,8 @@ function controller(microphone = {} as MediaStream) {
       presenter={presenter}
       onAgentState={vi.fn()}
       onCanvasChanged={vi.fn()}
+      navigation={null}
+      onNavigation={vi.fn()}
       onEnd={vi.fn()}
       onOpenDisplay={vi.fn()}
       onRecalibrate={vi.fn()}
@@ -178,6 +180,51 @@ describe("SessionController", () => {
 
     expect(recordingState.noteCueStart).toHaveBeenCalledWith("user", 100);
     expect(recordingState.noteCueEnd).toHaveBeenCalledWith("user", 900);
+  });
+
+  it("forwards realtime navigation to the workspace without deriving it from canvas", async () => {
+    const onNavigation = vi.fn();
+    render(
+      <SessionController
+        board={
+          {
+            getLatestImage: vi.fn(() => null),
+            sample: vi.fn().mockResolvedValue(null),
+          } as unknown as BoardController
+        }
+        cameraUse="room-wide"
+        canvas={emptyCanvas}
+        corners={[...corners]}
+        displayConnected={false}
+        microphone={{} as MediaStream}
+        navigation={null}
+        onAgentState={vi.fn()}
+        onCanvasChanged={vi.fn()}
+        onEnd={vi.fn()}
+        onNavigation={onNavigation}
+        onOpenDisplay={vi.fn()}
+        onRecalibrate={vi.fn()}
+        presenter={presenter}
+        sessionId="session-1"
+        video={
+          {
+            play: vi.fn().mockResolvedValue(undefined),
+          } as unknown as HTMLVideoElement
+        }
+      />,
+    );
+    await waitFor(() => expect(realtimeOptions).toHaveBeenCalled());
+    const options = realtimeOptions.mock.calls.at(-1)?.[0] as {
+      onNavigation: (event: unknown) => void;
+    };
+    const event = { kind: "focus", requestId: "nav-1", targetId: "target" };
+
+    options.onNavigation(event);
+
+    expect(onNavigation).toHaveBeenCalledWith(event);
+    expect(workspaceProps.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ navigation: null }),
+    );
   });
 
   it("ignores the connection result from the disposed Strict Mode generation", async () => {

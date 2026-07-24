@@ -35,6 +35,7 @@ export function createRealtimeHarness(
   const listeners = new Map<string, (value?: unknown) => void>();
   const onError = vi.fn();
   const onCanvasChanged = vi.fn();
+  const onNavigation = vi.fn();
   const onCanvasJobError = vi.fn();
   const onCanvasJobState = vi.fn();
   const onCueStart = vi.fn((speaker: "user" | "assistant", atMs: number) =>
@@ -75,7 +76,9 @@ export function createRealtimeHarness(
     fetcher,
     createSession,
     createJobId: () => "job-1",
+    getCanvas: () => emptyCanvas,
     onCanvasChanged,
+    onNavigation,
     onCanvasJobError,
     onCanvasJobState,
     onError,
@@ -89,6 +92,7 @@ export function createRealtimeHarness(
     listeners,
     microphone,
     onCanvasChanged,
+    onNavigation,
     onCanvasJobError,
     onCanvasJobState,
     onError,

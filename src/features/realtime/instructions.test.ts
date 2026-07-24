@@ -32,4 +32,10 @@ describe("ChalkPilot instructions", () => {
     );
     expect(chalkPilotInstructions).toContain("not by subject");
   });
+
+  it("uses registered targets only for material teaching moves", () => {
+    expect(chalkPilotInstructions).toContain("list_canvas_targets");
+    expect(chalkPilotInstructions).toContain("materially supports");
+    expect(chalkPilotInstructions).toContain("tool result");
+  });
 });

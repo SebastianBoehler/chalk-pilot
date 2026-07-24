@@ -1,8 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { CanvasState } from "@/features/workspace/schema";
 import { LearningWorkspace } from "./learning-workspace";
+
+Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+  configurable: true,
+  value: vi.fn(),
+});
 
 const canvas: CanvasState = {
   version: 1,
@@ -36,6 +42,13 @@ const recording = {
 };
 
 describe("LearningWorkspace", () => {
+  const navigation: CanvasNavigation = {
+    requestId: "nav-1",
+    targetId: "derivative-cue",
+    kind: "focus",
+    issuedAt: "2026-07-24T08:00:00.000Z",
+  };
+
   it("makes the learning canvas primary and collapses session controls", async () => {
     const user = userEvent.setup();
     render(
@@ -49,6 +62,7 @@ describe("LearningWorkspace", () => {
         error={undefined}
         onEnd={vi.fn()}
         onInspect={vi.fn()}
+        navigation={navigation}
         onOpenDisplay={vi.fn()}
         onPause={vi.fn()}
         onRecalibrate={vi.fn()}
@@ -108,6 +122,7 @@ describe("LearningWorkspace", () => {
         error={undefined}
         onEnd={vi.fn()}
         onInspect={vi.fn()}
+        navigation={null}
         onOpenDisplay={vi.fn()}
         onPause={vi.fn()}
         onRecalibrate={vi.fn()}

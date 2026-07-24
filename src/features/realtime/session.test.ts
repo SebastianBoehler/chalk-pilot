@@ -27,7 +27,9 @@ describe("ChalkPilotRealtime", () => {
       board: createHarness().board,
       microphone: createHarness().microphone,
       createSession: () => session,
+      getCanvas: () => emptyCanvas,
       onCanvasChanged: vi.fn(),
+      onNavigation: vi.fn(),
     });
 
     await expect(withoutInjectedFetch.connect()).resolves.toBeUndefined();
@@ -184,8 +186,14 @@ describe("ChalkPilotRealtime", () => {
   });
 
   it("runs canvas work in the background and privately reports completion", async () => {
-    const { fetcher, onCanvasChanged, onCanvasJobState, order, realtime } =
-      createHarness();
+    const {
+      fetcher,
+      onCanvasChanged,
+      onCanvasJobState,
+      onNavigation,
+      order,
+      realtime,
+    } = createHarness();
     let releaseJob: (response: Response) => void = () => {};
     const jobResponse = new Promise<Response>((resolve) => {
       releaseJob = resolve;
@@ -232,6 +240,12 @@ describe("ChalkPilotRealtime", () => {
     await realtime.whenCanvasJobsIdle();
 
     expect(onCanvasChanged).toHaveBeenCalledWith(completedCanvas);
+    expect(onNavigation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "focus",
+        targetId: "attention-flow",
+      }),
+    );
     expect(onCanvasJobState).toHaveBeenLastCalledWith("complete");
     expect(order).toContain("conversation.item.create");
     expect(order).not.toContain("response.create");

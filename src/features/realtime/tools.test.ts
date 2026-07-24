@@ -1,5 +1,49 @@
 import { describe, expect, it, vi } from "vitest";
+import type { CanvasState } from "@/features/workspace/schema";
 import { createChalkPilotActions, createChalkPilotTools } from "./tools";
+
+const canvas: CanvasState = {
+  version: 1,
+  focusId: null,
+  order: ["mechanism"],
+  sections: {
+    mechanism: {
+      id: "mechanism",
+      kind: "flow",
+      title: "Pressure mechanism",
+      data: {
+        orientation: "horizontal",
+        nodes: [
+          {
+            id: "pressure",
+            title: "Pressure",
+            detail: "A pressure difference moves fluid.",
+          },
+          { id: "flow", title: "Flow" },
+        ],
+        edges: [{ from: "pressure", to: "flow" }],
+      },
+      createdAt: "2026-07-24T08:00:00.000Z",
+      updatedAt: "2026-07-24T08:00:00.000Z",
+    },
+  },
+};
+
+function navigationRuntime(overrides: Record<string, unknown> = {}) {
+  const fetcher = vi.fn(async () => Response.json(canvas));
+  const onNavigation = vi.fn();
+  return {
+    sessionId: "session-1",
+    fetcher,
+    onNavigation,
+    delegateCanvas: vi.fn(),
+    inspectBoard: vi.fn(),
+    getCanvas: () => canvas,
+    getEvidenceId: () => "turn-1",
+    onCanvasChanged: vi.fn(),
+    ...overrides,
+  };
+}
 
 describe("ChalkPilot agent actions", () => {
   it("delegates durable canvas work without awaiting its completion", async () => {
@@ -9,8 +53,10 @@ describe("ChalkPilot agent actions", () => {
       fetcher: vi.fn(),
       delegateCanvas,
       inspectBoard: vi.fn(),
+      getCanvas: () => canvas,
       getEvidenceId: () => "turn-1",
       onCanvasChanged: vi.fn(),
+      onNavigation: vi.fn(),
     });
 
     await expect(
@@ -28,21 +74,119 @@ describe("ChalkPilot agent actions", () => {
     });
   });
 
-  it("does not expose direct canvas-writing tools to the voice tutor", () => {
-    const tools = createChalkPilotTools({
-      sessionId: "session-1",
-      delegateCanvas: vi.fn(),
-      inspectBoard: vi.fn(),
-      getEvidenceId: () => "turn-1",
-      onCanvasChanged: vi.fn(),
-    });
+  it("exposes only bounded semantic canvas tools to the voice tutor", () => {
+    const tools = createChalkPilotTools(navigationRuntime());
 
     expect(tools.map((item) => item.name)).toEqual([
       "inspect_board",
-      "set_focus",
+      "list_canvas_targets",
+      "focus_canvas",
+      "highlight_canvas",
       "delegate_canvas_task",
       "remember_learner",
     ]);
+  });
+
+  it("lists ordered, bounded semantic canvas targets without source data", async () => {
+    const actions = createChalkPilotActions(navigationRuntime());
+
+    await expect(actions.listCanvasTargets()).resolves.toEqual([
+      {
+        id: "mechanism",
+        label: "Pressure mechanism",
+        preview:
+          "Pressure mechanism Pressure A pressure difference moves fluid. Flow",
+      },
+      {
+        id: "mechanism:pressure",
+        label: "Pressure",
+        preview: "Pressure A pressure difference moves fluid.",
+      },
+      { id: "mechanism:flow", label: "Flow", preview: "Flow" },
+    ]);
+  });
+
+  it("persists the owning section before emitting a fresh focus navigation", async () => {
+    const runtime = navigationRuntime();
+    const actions = createChalkPilotActions(runtime);
+
+    await actions.focusCanvas({ targetId: "mechanism:pressure" });
+    await actions.focusCanvas({ targetId: "mechanism:pressure" });
+
+    expect(runtime.fetcher).toHaveBeenCalledWith(
+      "/api/sessions/session-1/canvas",
+      expect.objectContaining({
+        body: JSON.stringify({ action: "focus", sectionId: "mechanism" }),
+      }),
+    );
+    expect(runtime.onNavigation).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        kind: "focus",
+        targetId: "mechanism:pressure",
+      }),
+    );
+    expect(runtime.onNavigation.mock.calls[0]?.[0].requestId).not.toBe(
+      runtime.onNavigation.mock.calls[1]?.[0].requestId,
+    );
+  });
+
+  it("rejects an unavailable canvas target before persisting or navigating", async () => {
+    const runtime = navigationRuntime();
+    const actions = createChalkPilotActions(runtime);
+
+    await expect(actions.focusCanvas({ targetId: "missing" })).rejects.toThrow(
+      "Canvas target is unavailable.",
+    );
+    expect(runtime.fetcher).not.toHaveBeenCalled();
+    expect(runtime.onNavigation).not.toHaveBeenCalled();
+  });
+
+  it("focuses but does not highlight text unavailable in the target", async () => {
+    const runtime = navigationRuntime();
+    const actions = createChalkPilotActions(runtime);
+
+    await expect(
+      actions.highlightCanvas({
+        targetId: "mechanism:pressure",
+        text: "unavailable text",
+      }),
+    ).resolves.toEqual({
+      focused: true,
+      highlighted: false,
+      error: "Highlight text is unavailable.",
+    });
+    expect(runtime.fetcher).toHaveBeenCalledWith(
+      "/api/sessions/session-1/canvas",
+      expect.objectContaining({
+        body: JSON.stringify({ action: "focus", sectionId: "mechanism" }),
+      }),
+    );
+    expect(runtime.onNavigation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "focus",
+        targetId: "mechanism:pressure",
+      }),
+    );
+  });
+
+  it("highlights only an exact phrase available in the resolved target", async () => {
+    const runtime = navigationRuntime();
+    const actions = createChalkPilotActions(runtime);
+
+    await expect(
+      actions.highlightCanvas({
+        targetId: "mechanism:pressure",
+        text: "pressure difference",
+      }),
+    ).resolves.toEqual({ focused: true, highlighted: true });
+    expect(runtime.onNavigation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "highlight",
+        targetId: "mechanism:pressure",
+        text: "pressure difference",
+      }),
+    );
   });
 
   it("accepts a trusted flow as a delegated learning-move artifact", async () => {
@@ -52,8 +196,10 @@ describe("ChalkPilot agent actions", () => {
       fetcher: vi.fn(),
       delegateCanvas,
       inspectBoard: vi.fn(),
+      getCanvas: () => canvas,
       getEvidenceId: () => "turn-1",
       onCanvasChanged: vi.fn(),
+      onNavigation: vi.fn(),
     });
 
     await expect(
@@ -73,8 +219,10 @@ describe("ChalkPilot agent actions", () => {
       fetcher,
       delegateCanvas: vi.fn(),
       inspectBoard: vi.fn(),
+      getCanvas: () => canvas,
       getEvidenceId: () => "turn-4",
       onCanvasChanged: vi.fn(),
+      onNavigation: vi.fn(),
     });
 
     await actions.rememberLearner({
@@ -103,8 +251,10 @@ describe("ChalkPilot agent actions", () => {
       fetcher: vi.fn(),
       delegateCanvas: vi.fn(),
       inspectBoard,
+      getCanvas: () => canvas,
       getEvidenceId: () => "turn-1",
       onCanvasChanged: vi.fn(),
+      onNavigation: vi.fn(),
     });
 
     await expect(actions.inspectBoard()).resolves.toEqual({

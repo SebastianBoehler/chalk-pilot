@@ -5,8 +5,16 @@ import {
   type CanvasDelegationInput,
 } from "@/features/canvas-worker/schema";
 import {
+  canvasTargetIdSchema,
+  createCanvasNavigation,
+  type CanvasNavigation,
+} from "@/features/canvas-navigation/schema";
+import {
+  listCanvasTargets,
+  resolveCanvasTarget,
+} from "@/features/canvas-navigation/targets";
+import {
   canvasStateSchema,
-  identifierSchema,
   type CanvasState,
 } from "@/features/workspace/schema";
 
@@ -22,7 +30,9 @@ interface ToolRuntime {
   delegateCanvas: (input: CanvasDelegationInput) => { jobId: string };
   inspectBoard: () => Promise<BoardInspectionStatus>;
   getEvidenceId: () => string;
+  getCanvas: () => CanvasState;
   onCanvasChanged: (canvas: CanvasState) => void;
+  onNavigation: (navigation: CanvasNavigation) => void;
   fetcher?: Fetcher;
 }
 
@@ -35,6 +45,11 @@ const rememberLearnerSchema = z.object({
   claim: z.string().trim().min(1).max(500),
   scope: z.string().trim().min(1).max(120),
   confidence: z.number().min(0).max(1),
+});
+
+const canvasTargetSchema = z.object({ targetId: canvasTargetIdSchema });
+const canvasHighlightSchema = canvasTargetSchema.extend({
+  text: z.string().trim().min(1).max(240),
 });
 
 export function createChalkPilotActions(runtime: ToolRuntime) {
@@ -66,9 +81,46 @@ export function createChalkPilotActions(runtime: ToolRuntime) {
       return { status, message: messages[status] };
     },
 
-    async setFocus(input: { sectionId: string | null }) {
-      await mutateCanvas({ action: "focus", sectionId: input.sectionId });
-      return { focused: input.sectionId };
+    async listCanvasTargets() {
+      return listCanvasTargets(runtime.getCanvas()).map((target) => ({
+        id: target.id,
+        label: target.label,
+        preview: target.text.replace(/\s+/g, " ").trim().slice(0, 240),
+      }));
+    },
+
+    async focusCanvas(raw: z.infer<typeof canvasTargetSchema>) {
+      const input = canvasTargetSchema.parse(raw);
+      const target = resolveCanvasTarget(runtime.getCanvas(), input.targetId);
+      await mutateCanvas({ action: "focus", sectionId: target.sectionId });
+      runtime.onNavigation(
+        createCanvasNavigation({ kind: "focus", targetId: target.id }),
+      );
+      return { focused: true };
+    },
+
+    async highlightCanvas(raw: z.infer<typeof canvasHighlightSchema>) {
+      const input = canvasHighlightSchema.parse(raw);
+      const target = resolveCanvasTarget(runtime.getCanvas(), input.targetId);
+      await mutateCanvas({ action: "focus", sectionId: target.sectionId });
+      if (!target.text.includes(input.text)) {
+        runtime.onNavigation(
+          createCanvasNavigation({ kind: "focus", targetId: target.id }),
+        );
+        return {
+          focused: true,
+          highlighted: false,
+          error: "Highlight text is unavailable.",
+        };
+      }
+      runtime.onNavigation(
+        createCanvasNavigation({
+          kind: "highlight",
+          targetId: target.id,
+          text: input.text,
+        }),
+      );
+      return { focused: true, highlighted: true };
     },
 
     async rememberLearner(input: z.infer<typeof rememberLearnerSchema>) {
@@ -98,11 +150,25 @@ export function createChalkPilotTools(runtime: ToolRuntime) {
       execute: actions.inspectBoard,
     }),
     tool({
-      name: "set_focus",
+      name: "list_canvas_targets",
       description:
-        "Emphasize one existing canvas section, or clear focus with null.",
-      parameters: z.object({ sectionId: identifierSchema.nullable() }),
-      execute: actions.setFocus,
+        "List registered semantic canvas targets when a teaching move needs one.",
+      parameters: z.object({}),
+      execute: actions.listCanvasTargets,
+    }),
+    tool({
+      name: "focus_canvas",
+      description:
+        "Focus one registered canvas target after it materially supports the teaching move.",
+      parameters: canvasTargetSchema,
+      execute: actions.focusCanvas,
+    }),
+    tool({
+      name: "highlight_canvas",
+      description:
+        "Focus a registered target and highlight an exact available semantic phrase.",
+      parameters: canvasHighlightSchema,
+      execute: actions.highlightCanvas,
     }),
     tool({
       name: "delegate_canvas_task",

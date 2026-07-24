@@ -20,6 +20,7 @@ import type { BoardCorners } from "@/features/board/types";
 import type { AgentState } from "@/features/display/protocol";
 import type { PersonBox } from "@/features/recording/presenter-tracker";
 import { useDisplayPublisher } from "@/features/display/use-display-channel";
+import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import {
   initialSetupState,
   setupReady,
@@ -65,6 +66,7 @@ export function SetupFlow() {
   const [sessionId, setSessionId] = useState<string>();
   const [mode, setMode] = useState<"setup" | "session">("setup");
   const [canvas, setCanvas] = useState(EMPTY_CANVAS);
+  const [navigation, setNavigation] = useState<CanvasNavigation | null>(null);
   const [agentState, setAgentState] = useState<AgentState>("idle");
   const calibrationRequest = useRef(0);
   const snapshot = useMemo(
@@ -260,6 +262,8 @@ export function SetupFlow() {
             presenter={presenter}
             onAgentState={setAgentState}
             onCanvasChanged={setCanvas}
+            navigation={navigation}
+            onNavigation={setNavigation}
             onEnd={() => window.location.assign("/setup")}
             onOpenDisplay={openDisplay}
             onRecalibrate={() => {

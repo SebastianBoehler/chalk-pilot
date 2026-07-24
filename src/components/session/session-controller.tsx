@@ -4,6 +4,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import type { BoardController } from "@/features/board/board-controller";
 import type { BoardCorners } from "@/features/board/types";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
+import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { AgentState } from "@/features/display/protocol";
 import type { PersonBox } from "@/features/recording/presenter-tracker";
 import { useSessionRecording } from "@/features/recording/use-session-recording";
@@ -31,6 +32,8 @@ interface SessionControllerProps {
   presenter?: PersonBox;
   displayConnected: boolean;
   onCanvasChanged: (canvas: CanvasState) => void;
+  navigation: CanvasNavigation | null;
+  onNavigation: (navigation: CanvasNavigation) => void;
   onAgentState: (state: AgentState) => void;
   onOpenDisplay: () => void;
   onRecalibrate: () => void;
@@ -40,7 +43,14 @@ interface SessionControllerProps {
 const BOARD_SAMPLE_INTERVAL_MS = 500;
 
 export function SessionController(props: SessionControllerProps) {
-  const { board, microphone, onAgentState, onCanvasChanged, sessionId } = props;
+  const {
+    board,
+    microphone,
+    onAgentState,
+    onCanvasChanged,
+    onNavigation,
+    sessionId,
+  } = props;
   const [state, dispatch] = useReducer(
     sessionReducer,
     createSessionState(sessionId),
@@ -54,6 +64,7 @@ export function SessionController(props: SessionControllerProps) {
   );
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const realtimeRef = useRef<ChalkPilotRealtime | null>(null);
+  const canvasRef = useRef(props.canvas);
   const persisted = useRef(new Set<string>());
   const recording = useSessionRecording({
     video: props.video,
@@ -79,6 +90,10 @@ export function SessionController(props: SessionControllerProps) {
   }, [props.displayConnected]);
 
   useEffect(() => {
+    canvasRef.current = props.canvas;
+  }, [props.canvas]);
+
+  useEffect(() => {
     let active = true;
     dispatch({ type: "camera_ready" });
     const realtime = new ChalkPilotRealtime({
@@ -86,6 +101,8 @@ export function SessionController(props: SessionControllerProps) {
       board,
       microphone,
       onCanvasChanged,
+      getCanvas: () => canvasRef.current,
+      onNavigation,
       onState: (agentState) => {
         if (!active) return;
         dispatch({ type: "agent_state", state: agentState });
@@ -149,6 +166,7 @@ export function SessionController(props: SessionControllerProps) {
     noteCueStart,
     onAgentState,
     onCanvasChanged,
+    onNavigation,
     sessionId,
   ]);
 
@@ -219,6 +237,7 @@ export function SessionController(props: SessionControllerProps) {
       error={error}
       onEnd={props.onEnd}
       onInspect={() => void inspect()}
+      navigation={props.navigation}
       onOpenDisplay={props.onOpenDisplay}
       onPause={togglePause}
       onRecalibrate={props.onRecalibrate}

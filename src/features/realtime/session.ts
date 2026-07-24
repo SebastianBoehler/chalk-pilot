@@ -6,6 +6,7 @@ import {
   CanvasJobClient,
   type CanvasJobState,
 } from "@/features/canvas-worker/client";
+import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { CanvasDelegationInput } from "@/features/canvas-worker/schema";
 import type { AgentState } from "@/features/display/protocol";
 import type { CanvasState } from "@/features/workspace/schema";
@@ -13,6 +14,7 @@ import { RealtimeConnection } from "./connection";
 import { readableRealtimeTokenError, realtimeErrorMessage } from "./errors";
 import { CHALKPILOT_REALTIME_MODEL } from "./model";
 import { createOpenAiSession } from "./openai-session";
+import { sendCanvasCompletion } from "./canvas-completion";
 import { createChalkPilotTools, type BoardInspectionStatus } from "./tools";
 
 type Fetcher = (
@@ -44,11 +46,13 @@ type SessionFactory = (
   microphone: MediaStream,
 ) => RealtimeSessionPort;
 
-interface ChalkPilotRealtimeOptions {
+export interface ChalkPilotRealtimeOptions {
   sessionId: string;
   board: BoardImageSource;
   microphone: MediaStream;
   onCanvasChanged: (canvas: CanvasState) => void;
+  getCanvas: () => CanvasState;
+  onNavigation: (navigation: CanvasNavigation) => void;
   onState?: (state: AgentState) => void;
   onError?: (message: string) => void;
   onTranscript?: (history: RealtimeItem[]) => void;
@@ -89,10 +93,11 @@ export class ChalkPilotRealtime {
       fetcher: this.fetcher,
       getBoardImage: () => options.board.getLatestImage(),
       onCanvasChanged: options.onCanvasChanged,
+      onNavigation: options.onNavigation,
       onState: options.onCanvasJobState,
       onError: options.onCanvasJobError,
       onCompleted: (jobId, summary) =>
-        this.noteCanvasCompletion(jobId, summary),
+        sendCanvasCompletion(this.connection.currentSession, jobId, summary),
       createJobId: options.createJobId,
     });
     this.connection = new RealtimeConnection({
@@ -130,7 +135,9 @@ export class ChalkPilotRealtime {
       fetcher: this.fetcher,
       inspectBoard: () => this.attachBoard(false),
       getEvidenceId: () => `turn-${Math.max(this.turnNumber, 1)}`,
+      getCanvas: this.options.getCanvas,
       onCanvasChanged: this.options.onCanvasChanged,
+      onNavigation: this.options.onNavigation,
     });
     return this.createSession(tools, this.options.microphone);
   }
@@ -258,24 +265,6 @@ export class ChalkPilotRealtime {
       throw new Error("The voice session is not connected.");
     }
     return session;
-  }
-
-  private noteCanvasCompletion(jobId: string, summary: string) {
-    this.connection.currentSession?.transport.sendEvent({
-      type: "conversation.item.create",
-      item: {
-        type: "message",
-        role: "system",
-        content: [
-          {
-            type: "input_text",
-            text:
-              `Canvas job ${jobId} completed: ${summary} ` +
-              "Do not interrupt; acknowledge it only when useful.",
-          },
-        ],
-      },
-    });
   }
 
   private handleError(error: unknown) {

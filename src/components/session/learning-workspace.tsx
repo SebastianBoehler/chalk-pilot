@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorPanel } from "@/components/ui/error-panel";
 import { StatusPill } from "@/components/ui/status-pill";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
+import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { AgentState } from "@/features/display/protocol";
 import type { SessionRecording } from "@/features/recording/use-session-recording";
 import type { TranscriptLine } from "@/features/session/transcript";
@@ -15,6 +16,7 @@ import { RecordingControls } from "./recording-controls";
 
 interface LearningWorkspaceProps {
   canvas: CanvasState;
+  navigation: CanvasNavigation | null;
   canvasJobState: CanvasJobState;
   canvasJobError?: string;
   preview: string | null;
@@ -82,7 +84,10 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
         </header>
 
         <div className="flex-1 overflow-auto px-5 py-7 lg:px-8 lg:py-9">
-          <PresentationCanvas canvas={props.canvas} />
+          <PresentationCanvas
+            canvas={props.canvas}
+            navigation={props.navigation}
+          />
         </div>
       </main>
 
