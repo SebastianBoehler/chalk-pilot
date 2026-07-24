@@ -1,5 +1,6 @@
 import { PresentationCanvas } from "@/components/canvas/presentation-canvas";
 import type { ReplayTimeline } from "@/features/recording/schema";
+import { selectTimelineEvent } from "./replay-timeline-selection";
 
 export function ReplaySemanticCanvas({
   events,
@@ -10,12 +11,11 @@ export function ReplaySemanticCanvas({
   navigationEvents: ReplayTimeline["navigationEvents"];
   currentMs: number;
 }) {
-  const revision = [...events]
-    .sort((left, right) => right.offsetMs - left.offsetMs)
-    .find((event) => event.offsetMs <= currentMs)?.revision;
-  const navigation = [...navigationEvents]
-    .sort((left, right) => right.offsetMs - left.offsetMs)
-    .find((event) => event.offsetMs <= currentMs)?.navigation;
+  const revision = selectTimelineEvent(events, currentMs)?.revision;
+  const navigation = selectTimelineEvent(
+    navigationEvents,
+    currentMs,
+  )?.navigation;
 
   return (
     <section className="mt-8">

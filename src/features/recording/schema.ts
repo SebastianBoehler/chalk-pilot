@@ -125,6 +125,11 @@ export const navigationTimelineEventSchema = z
   })
   .strict();
 
+export const semanticTimelineEventSchema = z.union([
+  canvasTimelineEventSchema,
+  navigationTimelineEventSchema,
+]);
+
 export const recordingTimelineEventSchema = z.union([
   transcriptTimelineEventSchema,
   canvasTimelineEventSchema,

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { createRecordingRepository } from "./repository";
@@ -94,5 +94,25 @@ export function registerTimelineRepositoryTests(getRoot: () => string) {
         },
       ],
     });
+  });
+
+  it("rejects transcript evidence written to canvas-events.json", async () => {
+    const root = getRoot();
+    const repository = createRecordingRepository(root);
+    await repository.create("session-1");
+    await writeFile(
+      join(root, "sessions/session-1/recordings/canvas-events.json"),
+      JSON.stringify([
+        {
+          type: "transcript",
+          speaker: "user",
+          startMs: 0,
+          endMs: 100,
+          text: "This is in the wrong file.",
+        },
+      ]),
+    );
+
+    await expect(repository.readTimeline("session-1")).rejects.toThrow();
   });
 }

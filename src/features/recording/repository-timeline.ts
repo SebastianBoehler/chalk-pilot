@@ -1,7 +1,7 @@
 import { getRecordingPaths } from "../workspace/paths";
 import {
-  recordingTimelineEventSchema,
   replayTimelineSchema,
+  semanticTimelineEventSchema,
   transcriptTimelineEventSchema,
   type ReplayTimeline,
 } from "./schema";
@@ -15,7 +15,7 @@ export async function readStoredTimeline(
   const transcript = transcriptTimelineEventSchema
     .array()
     .parse(await readJson(paths.transcript));
-  const semanticEvents = recordingTimelineEventSchema
+  const semanticEvents = semanticTimelineEventSchema
     .array()
     .parse(await readJson(paths.canvasEvents));
   return replayTimelineSchema.parse({
