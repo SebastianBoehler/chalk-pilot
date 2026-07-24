@@ -1,4 +1,5 @@
 import type { CheckpointArtifactData } from "@/features/workspace/artifact-schemas";
+import { nestedTarget } from "@/features/canvas-navigation/schema";
 
 const statusCopy = {
   unanswered: "Pause and make a prediction",
@@ -14,7 +15,13 @@ const statusClasses = {
   revise: "bg-danger/10 text-danger",
 };
 
-export function CheckpointArtifact({ data }: { data: CheckpointArtifactData }) {
+export function CheckpointArtifact({
+  data,
+  sectionId,
+}: {
+  data: CheckpointArtifactData;
+  sectionId?: string;
+}) {
   return (
     <section
       aria-label={`${data.mode[0].toUpperCase()}${data.mode.slice(1)} checkpoint`}
@@ -28,7 +35,12 @@ export function CheckpointArtifact({ data }: { data: CheckpointArtifactData }) {
           {statusCopy[data.status]}
         </span>
       </div>
-      <h3 className="mt-5 max-w-3xl text-2xl font-semibold tracking-tight">
+      <h3
+        className="mt-5 max-w-3xl text-2xl font-semibold tracking-tight"
+        data-canvas-target={
+          sectionId ? nestedTarget(sectionId, "prompt") : undefined
+        }
+      >
         {data.prompt}
       </h3>
       {data.choices && (

@@ -23,6 +23,7 @@ export function CanvasSection({
       className={`bg-surface rounded-3xl border px-8 py-7 shadow-sm transition ${
         focused ? "border-primary ring-primary/10 ring-4" : "border-border"
       }`}
+      data-canvas-target={section.id}
     >
       <header className="mb-5 flex items-center justify-between gap-4">
         <h2 className="text-3xl font-semibold tracking-tight">
@@ -43,14 +44,21 @@ export function CanvasSection({
 
 function SectionContent({ section }: { section: CanvasSectionModel }) {
   if (section.kind === "chart")
-    return <ChartArtifact data={section.data} title={section.title} />;
+    return (
+      <ChartArtifact
+        data={section.data}
+        sectionId={section.id}
+        title={section.title}
+      />
+    );
   if (section.kind === "comparison")
     return <ComparisonArtifact data={section.data} />;
-  if (section.kind === "flow") return <FlowArtifact data={section.data} />;
+  if (section.kind === "flow")
+    return <FlowArtifact data={section.data} sectionId={section.id} />;
   if (section.kind === "sequence")
-    return <SequenceArtifact data={section.data} />;
+    return <SequenceArtifact data={section.data} sectionId={section.id} />;
   if (section.kind === "checkpoint")
-    return <CheckpointArtifact data={section.data} />;
+    return <CheckpointArtifact data={section.data} sectionId={section.id} />;
   if (!("content" in section)) {
     return <p className="text-muted">This learning artifact is unavailable.</p>;
   }

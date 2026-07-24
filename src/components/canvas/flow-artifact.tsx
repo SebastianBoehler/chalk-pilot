@@ -1,9 +1,16 @@
 import { Fragment } from "react";
 import type { FlowArtifactData } from "@/features/workspace/artifact-schemas";
+import { nestedTarget } from "@/features/canvas-navigation/schema";
 
 type FlowNode = FlowArtifactData["nodes"][number];
 
-export function FlowArtifact({ data }: { data: FlowArtifactData }) {
+export function FlowArtifact({
+  data,
+  sectionId,
+}: {
+  data: FlowArtifactData;
+  sectionId?: string;
+}) {
   const { layerByNode, layers } = createLayers(data);
   const vertical = data.orientation === "vertical";
 
@@ -38,6 +45,7 @@ export function FlowArtifact({ data }: { data: FlowArtifactData }) {
                     active={node.id === data.activeNodeId}
                     key={node.id}
                     node={node}
+                    sectionId={sectionId}
                   />
                 ))}
               </ul>
@@ -56,7 +64,15 @@ export function FlowArtifact({ data }: { data: FlowArtifactData }) {
   );
 }
 
-function FlowNodeCard({ active, node }: { active: boolean; node: FlowNode }) {
+function FlowNodeCard({
+  active,
+  node,
+  sectionId,
+}: {
+  active: boolean;
+  node: FlowNode;
+  sectionId?: string;
+}) {
   return (
     <li className="list-none">
       <article
@@ -67,6 +83,9 @@ function FlowNodeCard({ active, node }: { active: boolean; node: FlowNode }) {
             ? "border-primary bg-primary/10 ring-primary/15 ring-4"
             : "border-border bg-surface"
         }`}
+        data-canvas-target={
+          sectionId ? nestedTarget(sectionId, node.id) : undefined
+        }
       >
         <h3 className="text-lg font-semibold tracking-tight">{node.title}</h3>
         {node.detail && (

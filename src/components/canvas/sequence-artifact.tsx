@@ -1,4 +1,5 @@
 import type { SequenceArtifactData } from "@/features/workspace/artifact-schemas";
+import { nestedTarget } from "@/features/canvas-navigation/schema";
 import { SafeMarkdown } from "./safe-markdown";
 
 function isRevealed(
@@ -13,7 +14,13 @@ function isRevealed(
   );
 }
 
-export function SequenceArtifact({ data }: { data: SequenceArtifactData }) {
+export function SequenceArtifact({
+  data,
+  sectionId,
+}: {
+  data: SequenceArtifactData;
+  sectionId?: string;
+}) {
   const activeIndex = data.steps.findIndex(
     ({ id }) => id === data.activeStepId,
   );
@@ -36,6 +43,9 @@ export function SequenceArtifact({ data }: { data: SequenceArtifactData }) {
                   ? "border-border bg-surface"
                   : "border-border bg-surface-muted text-muted"
             }`}
+            data-canvas-target={
+              sectionId ? nestedTarget(sectionId, step.id) : undefined
+            }
             key={step.id}
           >
             <span className="bg-foreground text-surface mb-4 grid size-8 place-items-center rounded-full text-sm font-bold">

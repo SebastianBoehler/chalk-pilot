@@ -1,5 +1,6 @@
 import { useId } from "react";
 import type { ChartArtifactData } from "@/features/workspace/artifact-schemas";
+import { nestedTarget } from "@/features/canvas-navigation/schema";
 
 const WIDTH = 800;
 const HEIGHT = 440;
@@ -36,9 +37,11 @@ function xValue(point: ChartPoint) {
 
 export function ChartArtifact({
   data,
+  sectionId,
   title,
 }: {
   data: ChartArtifactData;
+  sectionId?: string;
   title: string;
 }) {
   const titleId = useId();
@@ -214,7 +217,14 @@ export function ChartArtifact({
           );
           const annotationY = annotation.y ?? matchingPoint?.y ?? yEnd;
           return (
-            <g key={annotation.label}>
+            <g
+              data-canvas-target={
+                sectionId && annotation.id
+                  ? nestedTarget(sectionId, annotation.id)
+                  : undefined
+              }
+              key={annotation.label}
+            >
               <line
                 stroke="#171916"
                 strokeDasharray="4 4"
