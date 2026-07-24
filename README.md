@@ -233,24 +233,40 @@ The local read routes are `GET /api/recordings`,
 `GET /api/sessions/<id>/recording/tracks/<track>`, and
 `GET /api/sessions/<id>/recording/export`.
 
-## Two-turn room smoke test
+## Guided-then-free field test
 
-Use this before a lecture:
+Run both parts with any concepts you genuinely want to learn. Use a fresh
+recorded session for each part, then stop the recording and inspect that
+session in Replay Studio.
 
-1. Say: “I am trying to explain gradient descent. Ask me to draw my current
-   understanding before you explain it.”
-2. Draw the update direction on the board and say: “Here is my attempt. Inspect
-   it, give me one spoken cue, and put the durable comparison on the display.”
+### 1. Guided scenario
 
-Expected result:
+1. Say: “I want to learn [chosen concept]. Before explaining, ask me to show or
+   state my current understanding.”
+2. Make an attempt on the board, finish your turn, and say: “Inspect my attempt,
+   give me one short spoken cue, and add or update one focal visual that fits
+   what I need to understand.”
+3. Revise your attempt and answer the agent's checkpoint or transfer question.
 
-- the agent answers briefly;
-- the controller visibly reports a board submission;
-- the display gains a useful section;
-- if recording was not started, `.chalkpilot/sessions/<id>/` contains text and
-  canvas files but no recording tracks;
-- if recording was started and stopped, `/replay/<id>` opens all five local
-  tracks.
+### 2. Free-learning scenario
+
+1. Choose an unplanned concept in the moment and start a natural learning
+   conversation without requesting a particular artifact type.
+2. Use the board as part of your attempt. Once it is complete, ask the agent to
+   inspect it and continue helping without naming an artifact type; let the
+   agent choose the short cue and focal visual that best support the learning
+   move.
+3. Continue until you have revised or applied the idea and completed a
+   checkpoint.
+
+After each scenario, confirm:
+
+- voice interaction remains brief and responsive;
+- the controller visibly reports the board submission;
+- the display receives a useful focal artifact and updates it as understanding
+  changes;
+- `/replay/<id>` opens the local tracks, follows transcript seeking, and shows
+  the recorded canvas events.
 
 ## Privacy boundary
 

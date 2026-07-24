@@ -28,11 +28,12 @@ export function ReadyStep({
     <section aria-labelledby="ready-title" className="space-y-7">
       <div>
         <h1 className="text-4xl font-semibold tracking-tight" id="ready-title">
-          Ready for the board
+          Ready to learn
         </h1>
         <p className="text-muted mt-3 max-w-2xl text-lg">
-          Starting connects your microphone to the realtime learning partner.
-          Your camera video still remains local.
+          A ready Voice service status confirms configuration only; it is not
+          connected yet. Starting connects your microphone while camera video
+          remains local.
         </p>
       </div>
 
@@ -44,19 +45,19 @@ export function ReadyStep({
       )}
 
       <div className="flex max-w-2xl flex-wrap gap-3">
+        <StatusPill label="Camera" status={cameraReady ? "ready" : "error"} />
         <StatusPill
-          label="Room camera"
-          status={cameraReady ? "ready" : "error"}
-        />
-        <StatusPill
-          label="Room microphone"
+          label="Microphone"
           status={microphoneReady ? "ready" : "error"}
         />
         <StatusPill
           label="Board frame"
           status={boardReady ? "ready" : "error"}
         />
-        <StatusPill label="OpenAI" status={openAiReady ? "ready" : "error"} />
+        <StatusPill
+          label="Voice service"
+          status={openAiReady ? "ready" : "error"}
+        />
       </div>
 
       <Button disabled={!ready || busy} onClick={onStart} type="button">
