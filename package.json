@@ -39,7 +39,10 @@
     "ai": "^7.0.35",
     "archiver": "^8.0.0",
     "katex": "^0.18.1",
+    "mdast-util-from-markdown": "^2.0.3",
+    "mdast-util-to-string": "^4.0.0",
     "mermaid": "^11.16.0",
+    "minisearch": "^7.2.0",
     "next": "^16.2.11",
     "postcss": "^8.5.22",
     "react": "^19.2.8",
@@ -49,6 +52,7 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "sharp": "^0.35.3",
+    "unpdf": "^1.7.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
