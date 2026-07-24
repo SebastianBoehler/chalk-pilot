@@ -5,6 +5,7 @@ import { ArtifactErrorBoundary } from "./artifact-error-boundary";
 import { ChartArtifact } from "./chart-artifact";
 import { CheckpointArtifact } from "./checkpoint-artifact";
 import { ComparisonArtifact } from "./comparison-artifact";
+import { FlowArtifact } from "./flow-artifact";
 import { MermaidBlock } from "./mermaid-block";
 import { SafeMarkdown } from "./safe-markdown";
 import { SequenceArtifact } from "./sequence-artifact";
@@ -45,6 +46,7 @@ function SectionContent({ section }: { section: CanvasSectionModel }) {
     return <ChartArtifact data={section.data} title={section.title} />;
   if (section.kind === "comparison")
     return <ComparisonArtifact data={section.data} />;
+  if (section.kind === "flow") return <FlowArtifact data={section.data} />;
   if (section.kind === "sequence")
     return <SequenceArtifact data={section.data} />;
   if (section.kind === "checkpoint")

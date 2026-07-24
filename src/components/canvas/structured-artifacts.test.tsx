@@ -4,12 +4,14 @@ import type {
   ChartArtifactData,
   CheckpointArtifactData,
   ComparisonArtifactData,
+  FlowArtifactData,
   SequenceArtifactData,
 } from "@/features/workspace/artifact-schemas";
 import { ArtifactErrorBoundary } from "./artifact-error-boundary";
 import { ChartArtifact } from "./chart-artifact";
 import { CheckpointArtifact } from "./checkpoint-artifact";
 import { ComparisonArtifact } from "./comparison-artifact";
+import { FlowArtifact } from "./flow-artifact";
 import { SequenceArtifact } from "./sequence-artifact";
 
 const chart: ChartArtifactData = {
@@ -54,6 +56,24 @@ const sequence: SequenceArtifactData = {
   ],
   activeStepId: "embed",
   reveal: "through-active",
+};
+
+const flow: FlowArtifactData = {
+  orientation: "horizontal",
+  nodes: [
+    { id: "evidence", title: "Evidence", detail: "Observe what changes." },
+    {
+      id: "mechanism",
+      title: "Mechanism",
+      detail: "<script>never execute</script>",
+    },
+    { id: "outcome", title: "Outcome" },
+  ],
+  edges: [
+    { from: "evidence", to: "mechanism", label: "constrains" },
+    { from: "mechanism", to: "outcome", label: "produces" },
+  ],
+  activeNodeId: "mechanism",
 };
 
 const checkpoint: CheckpointArtifactData = {
@@ -178,6 +198,30 @@ describe("trusted structured learning artifacts", () => {
     expect(
       screen.getByText("Breaks rare words into reusable pieces."),
     ).toBeInTheDocument();
+  });
+
+  it("renders a layered concept flow with visible relationships and active state", () => {
+    const view = render(<FlowArtifact data={flow} />);
+
+    expect(
+      screen.getByRole("region", { name: "Concept flow" }),
+    ).toHaveAttribute("data-orientation", "horizontal");
+    expect(screen.getByRole("article", { name: "Mechanism" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(screen.getByText("constrains")).toBeInTheDocument();
+    expect(screen.getByText("produces")).toBeInTheDocument();
+    expect(
+      screen.getByText("<script>never execute</script>"),
+    ).toBeInTheDocument();
+    expect(document.querySelector("script")).not.toBeInTheDocument();
+
+    view.rerender(<FlowArtifact data={{ ...flow, orientation: "vertical" }} />);
+
+    expect(
+      screen.getByRole("region", { name: "Concept flow" }),
+    ).toHaveAttribute("data-orientation", "vertical");
   });
 
   it("keeps unrevealed sequence content out of the document and renders revealed Markdown safely", () => {
