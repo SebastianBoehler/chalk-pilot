@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CameraUse } from "@/features/setup/camera-use";
+import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { TranscriptLine } from "@/features/session/transcript";
 import type { CanvasState } from "@/features/workspace/schema";
 import {
@@ -39,6 +40,7 @@ export interface SessionRecording {
   noteCueEnd(speaker: "user" | "assistant", atMs: number): void;
   attachTranscript(line: TranscriptLine): void;
   noteCanvas(canvas: CanvasState, atMs: number): void;
+  noteNavigation(navigation: CanvasNavigation, atMs: number): void;
 }
 
 export function useSessionRecording(
@@ -201,6 +203,11 @@ export function useSessionRecording(
       timeline.current?.noteCanvas(canvas, atMs),
     [],
   );
+  const noteNavigation = useCallback(
+    (navigation: CanvasNavigation, atMs: number) =>
+      timeline.current?.noteNavigation(navigation, atMs),
+    [],
+  );
 
   return {
     canStart: canStart(options),
@@ -215,6 +222,7 @@ export function useSessionRecording(
     noteCueEnd,
     attachTranscript,
     noteCanvas,
+    noteNavigation,
   };
 }
 

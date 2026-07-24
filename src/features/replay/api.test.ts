@@ -16,7 +16,7 @@ describe("replay timeline API", () => {
     fixture = undefined;
   });
 
-  it("returns separately validated transcript and canvas arrays", async () => {
+  it("returns separately validated transcript, canvas, and navigation arrays", async () => {
     fixture = await createApiFixture();
     await fixture.repository.create("session-1");
     await fixture.repository.appendTimeline("session-1", {
@@ -36,6 +36,16 @@ describe("replay timeline API", () => {
         sections: {},
       },
     });
+    await fixture.repository.appendTimeline("session-1", {
+      type: "navigation",
+      offsetMs: 200,
+      navigation: {
+        requestId: "navigation-1",
+        targetId: "token",
+        kind: "focus",
+        issuedAt: "2026-07-24T10:00:00.000Z",
+      },
+    });
 
     const response = await fixture.api.readTimeline("session-1");
 
@@ -43,6 +53,7 @@ describe("replay timeline API", () => {
     expect(await response.json()).toMatchObject({
       transcript: [{ type: "transcript" }],
       canvasEvents: [{ type: "canvas" }],
+      navigationEvents: [{ type: "navigation" }],
     });
   });
 

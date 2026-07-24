@@ -4,13 +4,11 @@ import {
   TRACK_KINDS,
   chunkMetadataSchema,
   recordingManifestSchema,
-  replayTimelineSchema,
   recordingTimelineEventSchema,
   trackKindSchema,
   type ChunkMetadata,
   type RecordingManifest,
   type RecordingTimelineEvent,
-  type ReplayTimeline,
   type TrackKind,
 } from "./schema";
 import {
@@ -36,22 +34,13 @@ import {
   finalizeManifest,
   listRecordingSummaries,
 } from "./repository-manifests";
+import { readStoredTimeline } from "./repository-timeline";
+import { createOperationQueue } from "./repository-queue";
 
 class UnknownRecordingError extends Error {}
 
 export function createRecordingRepository(root: string) {
-  const queues = new Map<string, Promise<unknown>>();
-
-  async function queue<T>(key: string, operation: () => Promise<T>) {
-    const previous = queues.get(key) ?? Promise.resolve();
-    const current = previous.then(operation, operation);
-    queues.set(key, current);
-    try {
-      return await current;
-    } finally {
-      if (queues.get(key) === current) queues.delete(key);
-    }
-  }
+  const queue = createOperationQueue();
 
   async function load(sessionId: string): Promise<RecordingManifest> {
     const paths = getRecordingPaths(root, sessionId);
@@ -73,14 +62,10 @@ export function createRecordingRepository(root: string) {
     return queue(sessionId, () => load(sessionId));
   }
 
-  async function readTimeline(sessionId: string): Promise<ReplayTimeline> {
+  async function readTimeline(sessionId: string) {
     return queue(sessionId, async () => {
       await load(sessionId);
-      const paths = getRecordingPaths(root, sessionId);
-      return replayTimelineSchema.parse({
-        transcript: await readJson(paths.transcript),
-        canvasEvents: await readJson(paths.canvasEvents),
-      });
+      return readStoredTimeline(root, sessionId);
     });
   }
 

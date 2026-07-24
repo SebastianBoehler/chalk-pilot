@@ -19,6 +19,7 @@ function recording(
     noteCueEnd: vi.fn(),
     attachTranscript: vi.fn(),
     noteCanvas: vi.fn(),
+    noteNavigation: vi.fn(),
     ...overrides,
   };
 }

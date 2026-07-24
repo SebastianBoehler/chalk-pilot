@@ -36,6 +36,7 @@ const {
     noteCueEnd: vi.fn(),
     attachTranscript: vi.fn(),
     noteCanvas: vi.fn(),
+    noteNavigation: vi.fn(),
   },
   canvasDuringWorkspaceRender: vi.fn(),
   workspaceProps: vi.fn(),
@@ -138,6 +139,7 @@ describe("SessionController", () => {
     recordingState.noteCueEnd.mockClear();
     recordingState.attachTranscript.mockClear();
     recordingState.noteCanvas.mockClear();
+    recordingState.noteNavigation.mockClear();
     canvasDuringWorkspaceRender.mockClear();
     workspaceProps.mockClear();
   });
@@ -189,7 +191,7 @@ describe("SessionController", () => {
     expect(recordingState.noteCueEnd).toHaveBeenCalledWith("user", 900);
   });
 
-  it("forwards realtime navigation to the workspace without deriving it from canvas", async () => {
+  it("records each realtime navigation request before forwarding it to the workspace", async () => {
     const onNavigation = vi.fn();
     render(
       <SessionController
@@ -227,8 +229,14 @@ describe("SessionController", () => {
     const event = { kind: "focus", requestId: "nav-1", targetId: "target" };
 
     options.onNavigation(event);
+    options.onNavigation(event);
 
     expect(onNavigation).toHaveBeenCalledWith(event);
+    expect(recordingState.noteNavigation).toHaveBeenCalledOnce();
+    expect(recordingState.noteNavigation).toHaveBeenCalledWith(
+      event,
+      expect.any(Number),
+    );
     expect(workspaceProps.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ navigation: null }),
     );

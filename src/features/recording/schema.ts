@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canvasNavigationSchema } from "../canvas-navigation/schema";
 import { canvasStateSchema, identifierSchema } from "../workspace/schema";
 
 export const trackKindSchema = z.enum([
@@ -116,9 +117,18 @@ export const canvasTimelineEventSchema = z
   })
   .strict();
 
+export const navigationTimelineEventSchema = z
+  .object({
+    type: z.literal("navigation"),
+    offsetMs: z.number().finite().nonnegative(),
+    navigation: canvasNavigationSchema,
+  })
+  .strict();
+
 export const recordingTimelineEventSchema = z.union([
   transcriptTimelineEventSchema,
   canvasTimelineEventSchema,
+  navigationTimelineEventSchema,
 ]);
 
 export const replayTimelineSchema = z
@@ -127,6 +137,7 @@ export const replayTimelineSchema = z
     canvasEvents: z.array(
       canvasTimelineEventSchema.extend({ revision: canvasStateSchema }),
     ),
+    navigationEvents: z.array(navigationTimelineEventSchema),
   })
   .strict();
 

@@ -1,4 +1,5 @@
 import type { TranscriptLine } from "@/features/session/transcript";
+import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { CanvasState } from "@/features/workspace/schema";
 import type { RecordingTimelineEvent } from "./schema";
 
@@ -92,6 +93,15 @@ export class RecordingTimeline {
       type: "canvas",
       offsetMs: this.offset(atMs),
       revision: canvas,
+    });
+  }
+
+  noteNavigation(navigation: CanvasNavigation, atMs: number) {
+    if (this.epoch === null || this.closing || this.sealed) return;
+    this.enqueue({
+      type: "navigation",
+      offsetMs: this.offset(atMs),
+      navigation,
     });
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { BoardController } from "@/features/board/board-controller";
 import type { BoardCorners } from "@/features/board/types";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
@@ -69,6 +69,7 @@ export function SessionController(props: SessionControllerProps) {
   // eslint-disable-next-line react-hooks/refs
   canvasRef.current = props.canvas;
   const persisted = useRef(new Set<string>());
+  const recordedNavigationIds = useRef(new Set<string>());
   const recording = useSessionRecording({
     video: props.video,
     boardPreview: preview,
@@ -82,7 +83,18 @@ export function SessionController(props: SessionControllerProps) {
     attachTranscript: attachRecordingTranscript,
     noteCueEnd,
     noteCueStart,
+    noteNavigation,
   } = recording;
+  const onRealtimeNavigation = useCallback(
+    (navigation: CanvasNavigation) => {
+      if (!recordedNavigationIds.current.has(navigation.requestId)) {
+        recordedNavigationIds.current.add(navigation.requestId);
+        noteNavigation(navigation, performance.now());
+      }
+      onNavigation(navigation);
+    },
+    [noteNavigation, onNavigation],
+  );
 
   useEffect(() => {
     dispatch(
@@ -101,7 +113,7 @@ export function SessionController(props: SessionControllerProps) {
       microphone,
       onCanvasChanged,
       getCanvas: () => canvasRef.current,
-      onNavigation,
+      onNavigation: onRealtimeNavigation,
       onState: (agentState) => {
         if (!active) return;
         dispatch({ type: "agent_state", state: agentState });
@@ -165,7 +177,7 @@ export function SessionController(props: SessionControllerProps) {
     noteCueStart,
     onAgentState,
     onCanvasChanged,
-    onNavigation,
+    onRealtimeNavigation,
     sessionId,
   ]);
 

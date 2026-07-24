@@ -116,6 +116,7 @@ function FinalizedReplay({
       <ReplaySemanticCanvas
         currentMs={controller.currentMs}
         events={timeline.canvasEvents}
+        navigationEvents={timeline.navigationEvents}
       />
       <ReplayDownloads client={client} manifest={manifest} />
     </main>

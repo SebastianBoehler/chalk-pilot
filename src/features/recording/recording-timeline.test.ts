@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import type { CanvasState } from "@/features/workspace/schema";
 import type { RecordingTimelineEvent } from "./schema";
 import { RecordingTimeline } from "./recording-timeline";
@@ -8,6 +9,13 @@ const canvas: CanvasState = {
   focusId: null,
   order: [],
   sections: {},
+};
+
+const navigation: CanvasNavigation = {
+  requestId: "navigation-1",
+  targetId: "gradient",
+  kind: "focus",
+  issuedAt: "2026-07-24T10:00:00.000Z",
 };
 
 describe("RecordingTimeline", () => {
@@ -80,6 +88,30 @@ describe("RecordingTimeline", () => {
       type: "canvas",
       offsetMs: 700,
       revision: changed,
+    });
+  });
+
+  it("persists each semantic navigation request at its recording-relative offset", async () => {
+    const append = vi.fn(async () => undefined);
+    const timeline = new RecordingTimeline(append);
+    timeline.start(1_000);
+
+    timeline.noteNavigation(navigation, 1_600);
+    timeline.noteNavigation(
+      { ...navigation, requestId: "navigation-2" },
+      1_700,
+    );
+    await timeline.drain();
+
+    expect(append).toHaveBeenNthCalledWith(1, {
+      type: "navigation",
+      offsetMs: 600,
+      navigation,
+    });
+    expect(append).toHaveBeenNthCalledWith(2, {
+      type: "navigation",
+      offsetMs: 700,
+      navigation: { ...navigation, requestId: "navigation-2" },
     });
   });
 
@@ -167,7 +199,7 @@ describe("RecordingTimeline", () => {
     );
     expect(
       persisted.flatMap((event) =>
-        event.type === "canvas" ? [event.offsetMs] : [event.endMs],
+        event.type === "transcript" ? [event.endMs] : [event.offsetMs],
       ),
     ).toEqual([200, 500]);
   });

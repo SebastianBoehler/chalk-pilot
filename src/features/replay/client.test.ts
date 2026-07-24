@@ -70,6 +70,7 @@ describe("ReplayClient", () => {
               },
             },
           ],
+          navigationEvents: [],
         }),
       );
     const client = new ReplayClient(fetcher);
@@ -91,6 +92,7 @@ describe("ReplayClient", () => {
           canvasEvents: [
             { type: "canvas", offsetMs: 0, revision: { version: 99 } },
           ],
+          navigationEvents: [],
         }),
       ),
     );

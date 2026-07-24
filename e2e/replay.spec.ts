@@ -7,6 +7,13 @@ import {
   type Page,
 } from "@playwright/test";
 import { installMediaFixture } from "./support/media-fixture";
+import { addNavigableTimeline, seekReplay } from "./support/replay-navigation";
+
+declare global {
+  interface Window {
+    replayNavigationScrollCalls?: string[];
+  }
+}
 
 const TRACKS = [
   "board",
@@ -125,6 +132,41 @@ test("surfaces interrupted tracks while preserving recovered downloads", async (
   await expect(
     page.getByRole("link", { name: "Download speaker" }),
   ).toHaveCount(0);
+});
+
+test("replays navigation once when seeking past it, not when only canvas changes", async ({
+  page,
+  request,
+}) => {
+  const sessionId = await createRecording(request, TRACKS);
+  await addNavigableTimeline(request, sessionId);
+  await finalizeRecording(request, sessionId);
+
+  await page.goto(`/replay/${sessionId}`);
+  await page.evaluate(() => {
+    const calls: string[] = [];
+    Element.prototype.scrollIntoView = function () {
+      if (this instanceof HTMLElement)
+        calls.push(this.dataset.canvasTarget ?? "");
+    };
+    window.replayNavigationScrollCalls = calls;
+  });
+  const canvas = page.getByTestId("track-canvas");
+
+  await seekReplay(canvas, 1);
+  await expect
+    .poll(() => page.evaluate(() => window.replayNavigationScrollCalls ?? []))
+    .toEqual([]);
+
+  await seekReplay(canvas, 2.5);
+  await expect
+    .poll(() => page.evaluate(() => window.replayNavigationScrollCalls ?? []))
+    .toEqual(["explanation"]);
+
+  await seekReplay(canvas, 3.5);
+  await expect
+    .poll(() => page.evaluate(() => window.replayNavigationScrollCalls ?? []))
+    .toEqual(["explanation"]);
 });
 
 async function createRecording(

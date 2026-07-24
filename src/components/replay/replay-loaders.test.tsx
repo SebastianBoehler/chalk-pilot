@@ -38,6 +38,7 @@ describe("replay loaders", () => {
       timeline: vi.fn(async () => ({
         transcript: [],
         canvasEvents: [],
+        navigationEvents: [],
       })),
     });
 

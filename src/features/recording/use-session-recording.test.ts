@@ -117,6 +117,15 @@ describe("useSessionRecording", () => {
     act(() => {
       result.current.noteCueStart("user", 1_100);
       result.current.noteCueEnd("user", 1_500);
+      result.current.noteNavigation(
+        {
+          requestId: "navigation-1",
+          targetId: "explanation",
+          kind: "focus",
+          issuedAt: "2026-07-24T10:00:00.000Z",
+        },
+        1_300,
+      );
       result.current.attachTranscript({
         sourceId: "user-1",
         role: "user",
@@ -127,6 +136,16 @@ describe("useSessionRecording", () => {
     expect(result.current.status).toBe("complete");
     expect(result.current.replayUrl).toBe("/replay/session-1");
     expect(derived.stop).toHaveBeenCalledOnce();
+    expect(coordinator.appendTimeline).toHaveBeenCalledWith({
+      type: "navigation",
+      offsetMs: 300,
+      navigation: {
+        requestId: "navigation-1",
+        targetId: "explanation",
+        kind: "focus",
+        issuedAt: "2026-07-24T10:00:00.000Z",
+      },
+    });
     expect(coordinator.appendTimeline).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "transcript",

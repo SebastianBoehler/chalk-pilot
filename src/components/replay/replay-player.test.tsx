@@ -12,6 +12,7 @@ import type {
   TrackKind,
 } from "@/features/recording/schema";
 import type { CanvasState } from "@/features/workspace/schema";
+import { mockScrollIntoView } from "@/features/canvas-navigation/test-helpers";
 import { ReplayPlayer } from "./replay-player";
 
 const timestamp = "2026-07-23T10:00:00.000Z";
@@ -91,6 +92,7 @@ const timeline: ReplayTimeline = {
     { type: "canvas", offsetMs: 0, revision: canvas("First concept") },
     { type: "canvas", offsetMs: 2_500, revision: canvas("Second concept") },
   ],
+  navigationEvents: [],
 };
 
 describe("ReplayPlayer", () => {
@@ -270,6 +272,43 @@ describe("ReplayPlayer", () => {
     expect(
       screen.getByRole("heading", { name: "Second concept" }),
     ).toBeVisible();
+  });
+
+  it("replays the latest navigation without retriggering it for a later canvas revision", () => {
+    const scrollIntoView = mockScrollIntoView();
+    render(
+      <ReplayPlayer
+        manifest={manifest()}
+        timeline={{
+          ...timeline,
+          navigationEvents: [
+            {
+              type: "navigation",
+              offsetMs: 1_500,
+              navigation: {
+                requestId: "navigation-1",
+                targetId: "concept",
+                kind: "focus",
+                issuedAt: timestamp,
+              },
+            },
+          ],
+        }}
+      />,
+    );
+    const canvasVideo = screen.getByTestId("track-canvas") as HTMLVideoElement;
+
+    canvasVideo.currentTime = 1;
+    fireEvent.timeUpdate(canvasVideo);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    canvasVideo.currentTime = 2;
+    fireEvent.timeUpdate(canvasVideo);
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+
+    canvasVideo.currentTime = 3;
+    fireEvent.timeUpdate(canvasVideo);
+    expect(scrollIntoView).toHaveBeenCalledOnce();
   });
 
   it("offers individual and portable downloads", () => {
