@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 interface LiveRealtimeWindow extends Window {
   __chalkPilotRealtime?: {
@@ -70,6 +70,8 @@ test("uses live semantic navigation to return the clean display to an earlier co
   );
   await expect(sections).toHaveCount(2, { timeout: 75_000 });
   await expect(display.locator("main section")).toHaveCount(2);
+  const cleanTarget = display.locator(`[data-canvas-target="${firstTarget}"]`);
+  await expect(cleanTarget).toBeVisible();
 
   await sections.first().evaluate((section) => {
     const viewport = section.parentElement?.parentElement;
@@ -84,6 +86,14 @@ test("uses live semantic navigation to return the clean display to an earlier co
       }),
     )
     .toBeGreaterThan(0);
+  await display
+    .locator("main section")
+    .last()
+    .evaluate((section) => {
+      section.scrollIntoView({ block: "end" });
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
+  await expect.poll(() => intersectsViewport(cleanTarget)).toBe(false);
 
   const toolResultsBeforeNavigation = await navigationToolResultCount(page);
   const firstTargetRequestsBeforeNavigation = await navigationRequestIds(
@@ -100,8 +110,7 @@ test("uses live semantic navigation to return the clean display to an earlier co
   await expect
     .poll(() => navigationRequestIds(page, firstTarget))
     .toHaveLength(firstTargetRequestsBeforeNavigation.length + 1);
-  const cleanTarget = display.locator(`[data-canvas-target="${firstTarget}"]`);
-  await expect(cleanTarget).toBeVisible();
+  await expect.poll(() => intersectsViewport(cleanTarget)).toBe(true);
   await expect(cleanTarget).toHaveAttribute(
     "data-canvas-attention",
     /focus|highlight/,
@@ -227,6 +236,13 @@ async function navigationToolResultCount(
         },
       ).length,
   );
+}
+
+async function intersectsViewport(locator: Locator) {
+  return locator.evaluate((element) => {
+    const { bottom, top } = element.getBoundingClientRect();
+    return bottom > 0 && top < window.innerHeight;
+  });
 }
 
 async function navigationRequestIds(
