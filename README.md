@@ -12,6 +12,7 @@
   </p>
   <p>
     <a href="#quick-start">Quick start</a> ·
+    <a href="#study-packs">Study packs</a> ·
     <a href="#camera-setup">Camera setup</a> ·
     <a href="#learning-canvas">Learning canvas</a> ·
     <a href="#replay-studio">Replay Studio</a> ·
@@ -34,7 +35,10 @@ presentation canvas.
 - rectifies an angled camera view into a front-facing board image with
   OpenCV.js;
 - detects material board changes locally;
+- creates reusable local study packs from PDF, Markdown, and plain text;
 - connects an OpenAI Realtime voice agent through WebRTC;
+- grounds course-specific tutoring in retrieved source passages and labels
+  outside knowledge as supplemental context;
 - delegates durable visual work to a separate background canvas specialist so
   voice remains responsive;
 - sends no board image until a completed turn or explicit inspection;
@@ -118,6 +122,45 @@ npm run room
 The API key stays on the Next.js server. The browser receives only a short-lived
 Realtime client secret.
 
+## Study packs
+
+The first setup stage lets you select a saved study pack, create one, or
+continue without course material. A pack can contain up to 20 files:
+
+- PDF, up to 500 pages;
+- Markdown (`.md` or `.markdown`); and
+- plain text (`.txt`).
+
+Each file may be up to 20 MiB. ChalkPilot extracts text locally and preserves
+PDF pages, Markdown heading paths, or text paragraph numbers as source
+locators. PDFs that contain only scanned images are rejected with a visible
+message; this MVP does not run OCR.
+
+The voice tutor receives only the selected pack outline initially. It searches
+for relevant passages when a course-specific definition, claim, exercise, or
+board solution needs grounding, then cites the retrieved page or heading.
+Useful knowledge outside those passages is still allowed, but the tutor is
+instructed to call it **Supplemental context**. A grounded Canvas artifact
+shows a compact source footer and may cite only passages resolved from the
+selected pack.
+
+Study material is reusable across sessions and remains local:
+
+```text
+.chalkpilot/
+  study-packs/<pack-id>/
+    pack.json
+    sources/<source-id>/
+      source.json
+      original.<ext>
+      chunks.jsonl
+  sessions/<session-id>/session.json
+```
+
+This field-test build is intentionally single-user: authentication, tenants,
+shared workspaces, cloud uploads, semantic embeddings, and professor
+administration are not implemented.
+
 ## Camera setup
 
 ChalkPilot uses standard browser media APIs. Select the camera Chrome exposes:
@@ -125,19 +168,20 @@ that can be an auditorium capture device, a USB camera, or an iPhone presented
 by macOS Continuity Camera. An iPhone on a mount aimed at a whiteboard or flip
 chart needs no special mode.
 
-1. Open `/setup`, allow camera access, and select the desired system camera.
-2. Leave **Track a presenter** off for a deliberately framed camera such as a
+1. Open `/setup` and choose a study pack or continue without material.
+2. Allow camera access and select the desired system camera.
+3. Leave **Track a presenter** off for a deliberately framed camera such as a
    phone on a mount. Turn it on only when a wide view needs a separate,
    locally-derived presenter crop; ChalkPilot then asks you to confirm the
    correct person before tracking begins.
-3. Select and confirm the microphone that both the Realtime partner and the
+4. Select and confirm the microphone that both the Realtime partner and the
    recording should use.
-4. Confirm the board corners. The handle surface follows the selected stream's
+5. Confirm the board corners. The handle surface follows the selected stream's
    real dimensions; adjust the four handles if the board is angled or the
    automatic outline is imperfect.
-5. Check the camera and corrected-board previews. When presenter tracking is
+6. Check the camera and corrected-board previews. When presenter tracking is
    enabled, confirm the detected outline and verify the crop follows you.
-6. Start the session. Keep the canvas on the laptop, move it to an external
+7. Start the session. Keep the canvas on the laptop, move it to an external
    monitor, or open the clean display while controls stay on the laptop.
 
 There is no special iPhone or lecture-room category: the chosen browser camera
@@ -304,6 +348,7 @@ Live provider inputs and explicit local recording are separate:
 | Canvas video                         | Selected through Chrome display capture and not sent to the voice or canvas provider as a recording stream.                                                                                                       | Stored as the canvas track only after explicit recording start.                                                                                               |
 | Desktop or tab audio                 | Captured from the user-selected Chrome surface and not sent to OpenAI Realtime.                                                                                                                                   | Stored as a separate desktop-audio track only after explicit recording start.                                                                                 |
 | Text transcript and canvas artifacts | Conversation text and canvas-job prompts/results are processed by their configured providers as part of those features.                                                                                           | Stored below `.chalkpilot/`.                                                                                                                                  |
+| Uploaded study material              | Relevant retrieved passages are sent to the voice or canvas provider only when the tutor uses them for the current learning move. The complete source library is not injected into every turn.                    | Originals, normalized chunks, source locators, and pack manifests remain below `.chalkpilot/study-packs/`.                                                    |
 | Recording package                    | Not sent to a provider or cloud service by ChalkPilot.                                                                                                                                                            | Stored below `.chalkpilot/sessions/<id>/recordings/`.                                                                                                         |
 
 The UI indicates when a corrected board image is submitted. Local change
@@ -327,6 +372,8 @@ ChalkPilot is one Next.js App Router application:
   completion handling;
 - `src/features/canvas-navigation` owns the validated semantic target registry
   and data-only focus/highlight requests;
+- `src/features/study-pack` owns local ingestion, provenance-aware chunks,
+  lexical retrieval, and session-scoped study tools;
 - `src/features/workspace` owns validated, queued, atomic local persistence;
 - `src/features/display` owns the versioned `BroadcastChannel` protocol and
   independent clean-display navigation resolution;

@@ -8,6 +8,7 @@ import {
 } from "./support/media-fixture";
 
 const createdSessions = new Set<string>();
+const createdStudyPacks = new Set<string>();
 const TRACKS = [
   "board",
   "speaker",
@@ -26,6 +27,15 @@ test.afterEach(async () => {
     ),
   );
   createdSessions.clear();
+  await Promise.all(
+    [...createdStudyPacks].map((packId) =>
+      rm(join(process.cwd(), ".chalkpilot", "study-packs", packId), {
+        force: true,
+        recursive: true,
+      }),
+    ),
+  );
+  createdStudyPacks.clear();
 });
 
 test("uses the live camera aspect and skips presenter tracking at home", async ({
@@ -188,9 +198,68 @@ test("explains denied camera permission", async ({ page }) => {
     };
   });
   await page.goto("/setup");
+  await page.getByRole("button", { name: "Continue without material" }).click();
   await page.getByRole("button", { name: "Allow camera" }).click();
   await expect(page.getByText("Camera unavailable")).toBeVisible();
   await expect(page.getByText(/permission was denied/i)).toBeVisible();
+});
+
+test("uploads a reusable study pack and grounds the created session", async ({
+  page,
+}) => {
+  await installMediaFixture(page, { height: 180, width: 320 });
+  await stubRealtime(page);
+  await page.goto("/setup");
+  const packResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/study-packs") &&
+      response.request().method() === "POST",
+  );
+  await page.getByLabel("New study pack").fill("Information geometry");
+  await page.getByRole("button", { name: "Create study pack" }).click();
+  const pack = (await (await packResponse).json()) as { id: string };
+  createdStudyPacks.add(pack.id);
+
+  await page.getByLabel("Add files").setInputFiles({
+    name: "distinctive-notes.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      "Start with a smooth statistical manifold.\n\n" +
+        "The heliotrope manifold criterion is the distinctive course phrase.",
+    ),
+  });
+  await expect(page.getByText("distinctive-notes.txt")).toBeVisible();
+  await page.getByRole("button", { name: "Continue with study pack" }).click();
+  await allowCamera(page);
+  await confirmMicrophone(page);
+  await confirmBoard(page);
+  await page.getByRole("button", { name: "Outputs look right" }).click();
+
+  const sessionResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/sessions") &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Start learning session" }).click();
+  const session = (await (await sessionResponse).json()) as {
+    id: string;
+    studyPackId: string;
+  };
+  createdSessions.add(session.id);
+  expect(session.studyPackId).toBe(pack.id);
+
+  const search = await page.request.post(
+    `/api/sessions/${session.id}/study-pack/search`,
+    { data: { query: "heliotrope manifold" } },
+  );
+  expect(search.ok()).toBe(true);
+  const searchResult = (await search.json()) as {
+    results: Array<{ sourceTitle: string; locator: string }>;
+  };
+  expect(searchResult.results[0]).toMatchObject({
+    sourceTitle: "distinctive-notes",
+    locator: "Paragraph 2",
+  });
 });
 
 async function openCamera(
@@ -198,6 +267,14 @@ async function openCamera(
   options: { trackPresenter?: boolean } = {},
 ) {
   await page.goto("/setup");
+  await page.getByRole("button", { name: "Continue without material" }).click();
+  await allowCamera(page, options);
+}
+
+async function allowCamera(
+  page: Page,
+  options: { trackPresenter?: boolean } = {},
+) {
   if (options.trackPresenter) {
     await page.getByRole("checkbox", { name: /track a presenter/i }).check();
   }

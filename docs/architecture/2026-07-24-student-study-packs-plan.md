@@ -32,6 +32,7 @@ Playwright.
 ### Task 1: Study-pack domain, parsing, persistence, and search
 
 **Files:**
+
 - Create: `src/features/study-pack/schema.ts`
 - Create: `src/features/study-pack/chunking.ts`
 - Create: `src/features/study-pack/parsers.ts`
@@ -43,6 +44,7 @@ Playwright.
 - Modify: `package-lock.json`
 
 **Interfaces:**
+
 - Produces:
   `createStudyPackRepository(root): StudyPackRepository`,
   `parseStudySource(input): Promise<ParsedStudySource>`, and
@@ -87,6 +89,7 @@ git commit -m "feat(context): add local study pack repository"
 ### Task 2: Study-pack and session APIs
 
 **Files:**
+
 - Create: `src/features/study-pack/api.ts`
 - Create: `src/features/study-pack/default-repository.ts`
 - Create: `src/features/study-pack/api.test.ts`
@@ -104,6 +107,7 @@ git commit -m "feat(context): add local study pack repository"
 - Modify: corresponding workspace tests
 
 **Interfaces:**
+
 - Consumes: `StudyPackRepository`.
 - Produces: session records with `studyPackId: string | null` and the HTTP
   contracts described in the design.
@@ -137,6 +141,7 @@ git commit -m "feat(context): expose study pack session APIs"
 ### Task 3: Reusable study-pack setup stage
 
 **Files:**
+
 - Create: `src/features/study-pack/client.ts`
 - Create: `src/components/setup/study-pack-step.tsx`
 - Create: `src/components/setup/study-pack-step.test.tsx`
@@ -147,6 +152,7 @@ git commit -m "feat(context): expose study pack session APIs"
   first stage
 
 **Interfaces:**
+
 - Produces:
   `StudyPackClient.list/create/upload/read` and
   `StudyPackStep({ selectedId, onSelect, onContinue })`.
@@ -183,6 +189,7 @@ git commit -m "feat(setup): add reusable study pack stage"
 ### Task 4: Course-first Realtime retrieval tools
 
 **Files:**
+
 - Create: `src/features/study-pack/realtime-tools.ts`
 - Create: `src/features/study-pack/realtime-tools.test.ts`
 - Modify: `src/features/realtime/tools.ts`
@@ -193,6 +200,7 @@ git commit -m "feat(setup): add reusable study pack stage"
 - Modify: related Realtime tests
 
 **Interfaces:**
+
 - Produces `createStudyPackTools({ sessionId, fetcher })`.
 - Extends `CanvasDelegationInput` with `sourceChunkIds?: string[]`.
 - Passes `{ title, sources }` into the Realtime instruction builder.
@@ -228,6 +236,7 @@ git commit -m "feat(tutor): ground sessions in selected study packs"
 ### Task 5: Grounded Canvas citations
 
 **Files:**
+
 - Modify: `src/features/workspace/schema.ts`
 - Modify: `src/components/canvas/canvas-section.tsx`
 - Create: `src/components/canvas/source-citations.tsx`
@@ -240,12 +249,13 @@ git commit -m "feat(tutor): ground sessions in selected study packs"
 - Modify: `src/app/api/sessions/[sessionId]/canvas-jobs/route.ts`
 
 **Interfaces:**
+
 - Adds optional `citations: SourceCitation[]` to every typed canvas section.
 - Resolves `sourceChunkIds` into canonical `StudyEvidence[]` before model work.
 - Rejects any model citation outside that evidence set.
 
 - [ ] Write failing schema/rendering tests for a compact `Source: title,
-      locator` footer and backward-compatible uncited sections.
+locator` footer and backward-compatible uncited sections.
 - [ ] Add the bounded citation schema and renderer.
 - [ ] Write failing Canvas action tests proving canonical citations succeed and
       invented chunk/source combinations fail.
@@ -272,11 +282,13 @@ git commit -m "feat(canvas): cite grounded study material"
 ### Task 6: End-to-end verification and documentation
 
 **Files:**
+
 - Modify: `e2e/setup.spec.ts`
 - Modify: `README.md`
 - Modify: `.env.example` only if a new environment variable was introduced
 
 **Interfaces:**
+
 - Verifies all prior task contracts together without adding a production-only
   test endpoint.
 
