@@ -24,6 +24,7 @@
 ### Task 1: Semantic navigation and target registry
 
 **Files:**
+
 - Create: `src/features/canvas-navigation/schema.ts`
 - Create: `src/features/canvas-navigation/targets.ts`
 - Create: `src/features/canvas-navigation/targets.test.ts`
@@ -33,6 +34,7 @@
 - Modify: `src/features/canvas-worker/canvas-snapshot.test.ts`
 
 **Interfaces:**
+
 - Produces: `CanvasNavigation`, `canvasNavigationSchema`, `CanvasTarget`, `createCanvasNavigation(input, dependencies)`, `listCanvasTargets(canvas)`, and `resolveCanvasTarget(canvas, targetId)`.
 - `CanvasTarget` is `{id, sectionId, label, text}`; tool responses expose only a 240-character preview of `text`.
 - Target IDs are a section ID or `<sectionId>:<nestedId>`. Nested IDs include flow nodes, sequence steps, checkpoint `prompt`, and chart annotations with explicit IDs.
@@ -53,12 +55,14 @@ expect(listCanvasTargets(canvas).map(({ id }) => id)).toEqual([
 expect(() => resolveCanvasTarget(canvas, "missing")).toThrow(
   "Canvas target is unavailable.",
 );
-expect(canvasNavigationSchema.parse({
-  requestId: "nav-1",
-  targetId: "mechanism:pressure",
-  kind: "focus",
-  issuedAt: "2026-07-24T08:00:00.000Z",
-})).toMatchObject({ targetId: "mechanism:pressure" });
+expect(
+  canvasNavigationSchema.parse({
+    requestId: "nav-1",
+    targetId: "mechanism:pressure",
+    kind: "focus",
+    issuedAt: "2026-07-24T08:00:00.000Z",
+  }),
+).toMatchObject({ targetId: "mechanism:pressure" });
 ```
 
 - [ ] **Step 2: Run tests and confirm missing-module/schema failures**
@@ -69,15 +73,21 @@ Expected: FAIL because the navigation modules and chart annotation IDs do not ex
 - [ ] **Step 3: Implement bounded contracts and pure discovery**
 
 ```ts
-export const canvasTargetIdSchema = z.string().trim().min(1).max(180)
+export const canvasTargetIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(180)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)?$/);
-export const canvasNavigationSchema = z.object({
-  requestId: identifierSchema,
-  targetId: canvasTargetIdSchema,
-  kind: z.enum(["focus", "highlight"]),
-  text: z.string().trim().min(1).max(240).optional(),
-  issuedAt: z.iso.datetime(),
-}).strict();
+export const canvasNavigationSchema = z
+  .object({
+    requestId: identifierSchema,
+    targetId: canvasTargetIdSchema,
+    kind: z.enum(["focus", "highlight"]),
+    text: z.string().trim().min(1).max(240).optional(),
+    issuedAt: z.iso.datetime(),
+  })
+  .strict();
 export function nestedTarget(sectionId: string, nestedId: string) {
   return `${sectionId}:${nestedId}`;
 }
@@ -103,6 +113,7 @@ git commit -m "feat(canvas): define semantic navigation targets"
 ### Task 2: Stable anchors, scrolling, and temporary highlighting
 
 **Files:**
+
 - Create: `src/features/canvas-navigation/text-range.ts`
 - Create: `src/features/canvas-navigation/use-canvas-navigation.ts`
 - Create: `src/features/canvas-navigation/use-canvas-navigation.test.tsx`
@@ -113,6 +124,7 @@ git commit -m "feat(canvas): define semantic navigation targets"
 - Modify: `src/app/globals.css`
 
 **Interfaces:**
+
 - Consumes: `CanvasNavigation` and `nestedTarget`.
 - Produces: `<PresentationCanvas canvas navigation />` and `useCanvasNavigation(containerRef, navigation, onFailure?)`.
 
@@ -121,11 +133,26 @@ git commit -m "feat(canvas): define semantic navigation targets"
 ```tsx
 const scrollIntoView = vi.fn();
 Element.prototype.scrollIntoView = scrollIntoView;
-const view = render(<PresentationCanvas canvas={canvas} navigation={nav("nav-1", "idea")} />);
-expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
-view.rerender(<PresentationCanvas canvas={updatedCanvas} navigation={nav("nav-1", "idea")} />);
+const view = render(
+  <PresentationCanvas canvas={canvas} navigation={nav("nav-1", "idea")} />,
+);
+expect(scrollIntoView).toHaveBeenCalledWith({
+  behavior: "smooth",
+  block: "center",
+});
+view.rerender(
+  <PresentationCanvas
+    canvas={updatedCanvas}
+    navigation={nav("nav-1", "idea")}
+  />,
+);
 expect(scrollIntoView).toHaveBeenCalledTimes(1);
-view.rerender(<PresentationCanvas canvas={updatedCanvas} navigation={nav("nav-2", "idea")} />);
+view.rerender(
+  <PresentationCanvas
+    canvas={updatedCanvas}
+    navigation={nav("nav-2", "idea")}
+  />,
+);
 expect(scrollIntoView).toHaveBeenCalledTimes(2);
 ```
 
@@ -143,11 +170,14 @@ Expected: FAIL because `PresentationCanvas` has no navigation contract.
 ```ts
 useEffect(() => {
   if (!navigation) return;
-  const target = [...container.current!.querySelectorAll<HTMLElement>("[data-canvas-target]")]
-    .find((element) => element.dataset.canvasTarget === navigation.targetId);
+  const target = [
+    ...container.current!.querySelectorAll<HTMLElement>("[data-canvas-target]"),
+  ].find((element) => element.dataset.canvasTarget === navigation.targetId);
   if (!target) return onFailure?.("Canvas target is unavailable.");
   target.scrollIntoView({
-    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth",
     block: "center",
   });
   target.dataset.canvasAttention = navigation.kind;
@@ -174,6 +204,7 @@ git commit -m "feat(canvas): follow deliberate semantic focus"
 ### Task 3: Realtime focus and highlight tools
 
 **Files:**
+
 - Modify: `src/features/realtime/tools.ts`
 - Modify: `src/features/realtime/tools.test.ts`
 - Modify: `src/features/realtime/session.ts`
@@ -188,6 +219,7 @@ git commit -m "feat(canvas): follow deliberate semantic focus"
 - Modify: `src/components/session/learning-workspace.tsx`
 
 **Interfaces:**
+
 - Consumes: `resolveCanvasTarget`, `CanvasNavigation`.
 - Produces: tools `list_canvas_targets()`, `focus_canvas({targetId})`, and `highlight_canvas({targetId,text})`; `ChalkPilotRealtimeOptions.onNavigation`.
 
@@ -195,15 +227,26 @@ git commit -m "feat(canvas): follow deliberate semantic focus"
 
 ```ts
 expect(tools.map(({ name }) => name)).toEqual([
-  "inspect_board", "list_canvas_targets", "focus_canvas", "highlight_canvas",
-  "delegate_canvas_task", "remember_learner",
+  "inspect_board",
+  "list_canvas_targets",
+  "focus_canvas",
+  "highlight_canvas",
+  "delegate_canvas_task",
+  "remember_learner",
 ]);
 await actions.focusCanvas({ targetId: "mechanism:pressure" });
-expect(fetcher).toHaveBeenCalledWith("/api/sessions/session-1/canvas",
-  expect.objectContaining({ body: JSON.stringify({ action: "focus", sectionId: "mechanism" }) }));
-expect(onNavigation).toHaveBeenCalledWith(expect.objectContaining({
-  targetId: "mechanism:pressure", kind: "focus",
-}));
+expect(fetcher).toHaveBeenCalledWith(
+  "/api/sessions/session-1/canvas",
+  expect.objectContaining({
+    body: JSON.stringify({ action: "focus", sectionId: "mechanism" }),
+  }),
+);
+expect(onNavigation).toHaveBeenCalledWith(
+  expect.objectContaining({
+    targetId: "mechanism:pressure",
+    kind: "focus",
+  }),
+);
 ```
 
 Assert unknown targets reject before persistence and repeated calls receive
@@ -241,6 +284,7 @@ git commit -m "feat(agent): navigate the learning canvas"
 ### Task 4: Synchronize semantic navigation across displays
 
 **Files:**
+
 - Modify: `src/features/display/protocol.ts`
 - Modify: `src/features/display/protocol.test.ts`
 - Modify: `src/features/display/display-reducer.ts`
@@ -250,6 +294,7 @@ git commit -m "feat(agent): navigate the learning canvas"
 - Modify: `e2e/display.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `CanvasNavigation`.
 - Produces: display message `{version: 1, type: "navigation", payload}` and snapshot field `navigation: CanvasNavigation | null`.
 

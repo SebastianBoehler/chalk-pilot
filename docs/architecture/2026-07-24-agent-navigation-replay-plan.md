@@ -21,6 +21,7 @@
 ### Task 1: Record and replay navigation events
 
 **Files:**
+
 - Modify: `src/features/recording/schema.ts`
 - Modify: `src/features/recording/recording-timeline.ts`
 - Modify: `src/features/recording/recording-timeline.test.ts`
@@ -34,6 +35,7 @@
 - Modify: `e2e/replay.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `CanvasNavigation` and navigation-aware `PresentationCanvas`.
 - Produces: `{type:"navigation", offsetMs, navigation}` and `ReplayTimeline.navigationEvents`.
 
@@ -42,7 +44,9 @@
 ```ts
 timeline.noteNavigation(navigation, 1_600);
 expect(append).toHaveBeenCalledWith({
-  type: "navigation", offsetMs: 600, navigation,
+  type: "navigation",
+  offsetMs: 600,
+  navigation,
 });
 ```
 
@@ -78,6 +82,7 @@ git commit -m "feat(replay): preserve canvas navigation"
 ### Task 2: Documentation and field verification
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `e2e/live-realtime.spec.ts`
 

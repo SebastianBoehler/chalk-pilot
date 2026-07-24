@@ -213,6 +213,28 @@ visual merely to restate prose. Raw AI-generated HTML, JavaScript, CSS, React,
 and SVG are not executed or rendered. A sandboxed programmable-artifact path
 is deferred rather than enabled implicitly.
 
+### Agent-guided navigation
+
+The learning canvas is one growing, ordered document of durable sections. You
+can scroll it freely at any time; a canvas update never takes over your
+viewport. When a teaching move genuinely calls for earlier context, the agent
+first lists the available semantic targets, then deliberately calls
+`focus_canvas` or `highlight_canvas` for one registered target.
+
+Targets include each durable section and, where an artifact exposes them,
+meaningful nested elements such as flow nodes, sequence steps, chart
+annotations, and checkpoint prompts. The agent receives IDs and bounded
+semantic previews rather than DOM paths, text offsets, or scroll coordinates.
+Unknown targets fail visibly instead of guessing.
+
+Each deliberate focus or highlight has a unique request ID, so asking for the
+same target again is a new navigation request even when it was already in
+view. The workspace and clean display resolve that shared semantic request in
+their own independently scrollable documents; neither surface shares or
+overwrites the other's scroll coordinates. Focus centers the target and
+highlights add a temporary attention treatment while preserving the section's
+semantic focus.
+
 ## Replay Studio
 
 Open [http://localhost:3000/replay](http://localhost:3000/replay) to see local
@@ -303,9 +325,18 @@ ChalkPilot is one Next.js App Router application:
 - `src/features/canvas-worker` owns provider selection, the bounded Vercel AI
   SDK tool loop, per-session job serialization, and asynchronous browser
   completion handling;
+- `src/features/canvas-navigation` owns the validated semantic target registry
+  and data-only focus/highlight requests;
 - `src/features/workspace` owns validated, queued, atomic local persistence;
-- `src/features/display` owns the versioned `BroadcastChannel` protocol;
+- `src/features/display` owns the versioned `BroadcastChannel` protocol and
+  independent clean-display navigation resolution;
 - `src/components/setup` and `src/components/session` compose the room flow.
+
+Navigation requests are recorded beside canvas revisions with their session
+timestamps, not as layout state. Replay Studio restores the latest semantic
+target at the selected time, so seeking can reconstruct when the agent
+referenced or highlighted a concept while still leaving the replay canvas free
+to scroll manually.
 
 The app uses the official OpenAI Agents SDK directly. See the
 [OpenAI Realtime WebRTC guide](https://developers.openai.com/api/docs/guides/realtime-webrtc)
@@ -331,7 +362,10 @@ Run the opt-in real-provider smoke test with a disposable test environment:
 RUN_LIVE_OPENAI=1 npm run test:e2e -- e2e/live-realtime.spec.ts
 ```
 
-This call uses the configured API key and incurs normal OpenAI usage.
+This provider-only scenario creates durable, topic-agnostic learning sections
+and verifies an explicit semantic navigation request on the clean display. It
+is skipped unless the flag is present, uses the configured API key, and incurs
+normal OpenAI usage.
 
 ## Troubleshooting
 
