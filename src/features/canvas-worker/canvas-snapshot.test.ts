@@ -71,6 +71,7 @@ const canvas: CanvasState = {
           },
         ],
         annotations: Array.from({ length: 8 }, (_, index) => ({
+          id: `annotation-${index}`,
           x: index,
           y: index,
           label: long,
@@ -202,5 +203,26 @@ describe("canvas snapshot projection", () => {
       data: { status: "unanswered", showAnswer: false },
     });
     expect(checkpoint?.data.prompt.length).toBeLessThan(long.length);
+    expect(snapshot.targets).toEqual(
+      expect.arrayContaining([
+        {
+          id: "chart:annotation-0",
+          sectionId: "chart",
+          label: long.slice(0, 120),
+        },
+        { id: "flow:cause", sectionId: "flow", label: long.slice(0, 120) },
+        {
+          id: "sequence:step-0",
+          sectionId: "sequence",
+          label: long.slice(0, 120),
+        },
+        { id: "checkpoint:prompt", sectionId: "checkpoint", label: "Prompt" },
+      ]),
+    );
+    expect(snapshot.targets[0]).toEqual({
+      id: "one",
+      sectionId: "one",
+      label: long.slice(0, 120),
+    });
   });
 });

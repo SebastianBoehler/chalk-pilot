@@ -3,6 +3,10 @@ import {
   type CanvasSection,
   type CanvasState,
 } from "@/features/workspace/schema";
+import {
+  listCanvasTargets,
+  type CanvasTarget,
+} from "@/features/canvas-navigation/targets";
 
 const maxSections = 12;
 const maxTitle = 120;
@@ -22,14 +26,22 @@ type WithoutTimestamps<T> = T extends CanvasSection
 export interface CanvasSnapshot {
   focusId: string | null;
   sections: WithoutTimestamps<CanvasSection>[];
+  targets: Array<Pick<CanvasTarget, "id" | "sectionId" | "label">>;
 }
 
 export function projectCanvasSnapshot(canvas: CanvasState): CanvasSnapshot {
+  const sectionIds = canvas.order.slice(-maxSections);
   return {
     focusId: canvas.focusId,
-    sections: canvas.order
-      .slice(-maxSections)
-      .map((id) => projectSection(canvas.sections[id])),
+    sections: sectionIds.map((id) => projectSection(canvas.sections[id])),
+    targets: listCanvasTargets({
+      ...canvas,
+      order: sectionIds,
+    }).map(({ id, sectionId, label }) => ({
+      id,
+      sectionId,
+      label: clip(label, maxTitle),
+    })),
   };
 }
 
@@ -74,6 +86,7 @@ function projectSection(
           annotations: section.data.annotations
             ?.slice(0, maxAnnotations)
             .map((annotation) => ({
+              id: annotation.id,
               x:
                 typeof annotation.x === "string"
                   ? clip(annotation.x, maxTitle)

@@ -23,10 +23,41 @@ describe("structured learning artifact schemas", () => {
           ],
         },
       ],
-      annotations: [{ x: 2, y: 0.8, label: "A useful contrast" }],
+      annotations: [
+        { id: "contrast", x: 2, y: 0.8, label: "A useful contrast" },
+      ],
     });
 
     expect(result.series[0]?.points).toHaveLength(2);
+    expect(result.annotations?.[0]?.id).toBe("contrast");
+  });
+
+  it("accepts only validated optional chart annotation IDs", () => {
+    const chart = {
+      variant: "line",
+      series: [
+        {
+          name: "Loss",
+          points: [
+            { x: 1, y: 0.4 },
+            { x: 2, y: 0.2 },
+          ],
+        },
+      ],
+    } as const;
+
+    expect(
+      chartArtifactDataSchema.parse({
+        ...chart,
+        annotations: [{ id: "minimum", x: 2, label: "Minimum loss" }],
+      }).annotations?.[0]?.id,
+    ).toBe("minimum");
+    expect(() =>
+      chartArtifactDataSchema.parse({
+        ...chart,
+        annotations: [{ id: "minimum:loss", x: 2, label: "Minimum loss" }],
+      }),
+    ).toThrow(/identifier/i);
   });
 
   it("rejects invalid chart ranges, non-finite points, and executable fields", () => {

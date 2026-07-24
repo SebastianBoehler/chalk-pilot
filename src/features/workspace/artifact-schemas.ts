@@ -18,6 +18,7 @@ const chartPointSchema = z
 
 const chartAnnotationSchema = z
   .object({
+    id: identifierSchema.optional(),
     x: axisValueSchema,
     y: z.number().finite().optional(),
     label: compactTextSchema,
