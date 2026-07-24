@@ -1,108 +1,16 @@
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CanvasNavigation } from "./schema";
-import type { CanvasState } from "@/features/workspace/schema";
 import { PresentationCanvas } from "@/components/canvas/presentation-canvas";
-
-const timestamp = "2026-07-24T10:00:00.000Z";
-
-const canvas: CanvasState = {
-  version: 1,
-  focusId: null,
-  order: ["idea", "steps", "check", "trend"],
-  sections: {
-    idea: {
-      id: "idea",
-      kind: "flow",
-      title: "Pressure mechanism",
-      data: {
-        orientation: "horizontal",
-        nodes: [
-          {
-            id: "pressure",
-            title: "Pressure",
-            detail: "A pressure difference moves fluid.",
-          },
-        ],
-        edges: [],
-      },
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    steps: {
-      id: "steps",
-      kind: "sequence",
-      title: "Procedure",
-      data: {
-        steps: [
-          { id: "measure", title: "Measure", content: "Read **the** scale." },
-        ],
-        activeStepId: "measure",
-        reveal: "all",
-      },
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    check: {
-      id: "check",
-      kind: "checkpoint",
-      title: "Prediction",
-      data: {
-        mode: "prediction",
-        prompt: "What happens next?",
-        status: "unanswered",
-        showHint: false,
-        showAnswer: false,
-        showFeedback: false,
-      },
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    trend: {
-      id: "trend",
-      kind: "chart",
-      title: "Pressure trend",
-      data: {
-        variant: "line",
-        series: [{ name: "Pressure", points: [{ x: 1, y: 2 }] }],
-        annotations: [{ id: "threshold", x: 1, y: 2, label: "Threshold" }],
-      },
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-  },
-};
-
-function nav(
-  requestId: string,
-  targetId: string,
-  options: Partial<CanvasNavigation> = {},
-): CanvasNavigation {
-  return {
-    requestId,
-    targetId,
-    kind: "focus",
-    issuedAt: timestamp,
-    ...options,
-  };
-}
+import {
+  canvas,
+  mockScrollIntoView,
+  nav,
+  resetCanvasNavigationDom,
+} from "./test-helpers";
 
 afterEach(() => {
-  vi.useRealTimers();
-  vi.restoreAllMocks();
-  delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
-  delete (globalThis as { CSS?: unknown }).CSS;
-  delete (globalThis as { Highlight?: unknown }).Highlight;
+  resetCanvasNavigationDom();
 });
-
-function mockScrollIntoView() {
-  const scrollIntoView = vi.fn();
-  Object.defineProperty(Element.prototype, "scrollIntoView", {
-    configurable: true,
-    value: scrollIntoView,
-  });
-  return scrollIntoView;
-}
 
 describe("canvas navigation", () => {
   it("scrolls an explicit request once and replays only a new request id", () => {
