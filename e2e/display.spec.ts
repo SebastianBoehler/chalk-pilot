@@ -5,7 +5,7 @@ import { artifactSections } from "./display-artifacts";
 
 declare global {
   interface Window {
-    navigationScrollCalls?: Array<{ block?: string }>;
+    navigationScrollCalls?: Array<{ target?: string; block?: string }>;
   }
 }
 
@@ -138,15 +138,15 @@ test("centers and pulses each semantic navigation request on the clean display",
   ).json();
   await page.goto("/display");
   await page.evaluate(() => {
-    const calls: Array<{ block?: string }> = [];
+    const calls: Array<{ target?: string; block?: string }> = [];
     Element.prototype.scrollIntoView = function (
       options?: ScrollIntoViewOptions,
     ) {
-      if (
-        this instanceof HTMLElement &&
-        this.dataset.canvasTarget === "learning-mechanism"
-      ) {
-        calls.push({ block: options?.block });
+      if (this instanceof HTMLElement) {
+        calls.push({
+          target: this.dataset.canvasTarget,
+          block: options?.block,
+        });
       }
     };
     window.navigationScrollCalls = calls;
@@ -170,34 +170,52 @@ test("centers and pulses each semantic navigation request on the clean display",
   await expect(target).toHaveAttribute("data-canvas-attention", "focus");
   await expect
     .poll(() => page.evaluate(() => window.navigationScrollCalls ?? []))
-    .toEqual([{ block: "center" }]);
+    .toEqual([{ target: "learning-mechanism", block: "center" }]);
 
   await publishNavigation(page, "navigation-2");
   await expect
     .poll(() => page.evaluate(() => window.navigationScrollCalls?.length ?? 0))
     .toBe(2);
+
+  await publishNavigation(page, "navigation-3", "unknown-target");
+  const error = page.locator("[data-display-navigation-error]");
+  await expect(error).toHaveAttribute("role", "alert");
+  await expect(error).toHaveText("Canvas target is unavailable.");
+  await expect
+    .poll(() => page.evaluate(() => window.navigationScrollCalls?.length ?? 0))
+    .toBe(2);
+
+  await publishNavigation(page, "navigation-4");
+  await expect(error).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => window.navigationScrollCalls?.length ?? 0))
+    .toBe(3);
   await expect(page.locator("main").getByRole("button")).toHaveCount(0);
 });
 
 async function publishNavigation(
   page: import("@playwright/test").Page,
   requestId: string,
+  targetId = "learning-mechanism",
 ) {
-  await page.evaluate(async (id) => {
-    const channel = new BroadcastChannel("chalkpilot-display-v1");
-    channel.postMessage({
-      version: 1,
-      type: "navigation",
-      payload: {
-        requestId: id,
-        targetId: "learning-mechanism",
-        kind: "focus",
-        issuedAt: "2026-07-24T10:00:00.000Z",
-      },
-    });
-    await new Promise((resolve) => window.setTimeout(resolve, 50));
-    channel.close();
-  }, requestId);
+  await page.evaluate(
+    async ({ id, target }) => {
+      const channel = new BroadcastChannel("chalkpilot-display-v1");
+      channel.postMessage({
+        version: 1,
+        type: "navigation",
+        payload: {
+          requestId: id,
+          targetId: target,
+          kind: "focus",
+          issuedAt: "2026-07-24T10:00:00.000Z",
+        },
+      });
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      channel.close();
+    },
+    { id: requestId, target: targetId },
+  );
 }
 
 function navigation(requestId: string) {
