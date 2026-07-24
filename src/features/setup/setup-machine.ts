@@ -1,10 +1,11 @@
 import type { CameraUse } from "./camera-use";
 
 export type SetupStep =
-  "camera" | "microphone" | "calibration" | "preview" | "ready";
+  "context" | "camera" | "microphone" | "calibration" | "preview" | "ready";
 
 export interface SetupState {
   step: SetupStep;
+  context: "pending" | "selected" | "skipped";
   camera: "pending" | "ready" | "error";
   cameraUse: CameraUse;
   microphone: "pending" | "confirmed" | "error";
@@ -14,6 +15,8 @@ export interface SetupState {
 }
 
 export type SetupAction =
+  | { type: "context_selected" }
+  | { type: "context_skipped" }
   | { type: "camera_ready" }
   | { type: "camera_error" }
   | { type: "camera_use_selected"; cameraUse: CameraUse }
@@ -29,7 +32,8 @@ export type SetupAction =
   | { type: "back" };
 
 export const initialSetupState: SetupState = {
-  step: "camera",
+  step: "context",
+  context: "pending",
   camera: "pending",
   cameraUse: "board-focused",
   microphone: "pending",
@@ -43,6 +47,10 @@ export function setupReducer(
   action: SetupAction,
 ): SetupState {
   switch (action.type) {
+    case "context_selected":
+      return { ...state, context: "selected" };
+    case "context_skipped":
+      return { ...state, context: "skipped" };
     case "camera_ready":
       return { ...state, camera: "ready" };
     case "camera_error":
@@ -72,7 +80,8 @@ export function setupReducer(
         ...state,
         step: (
           {
-            camera: "camera",
+            context: "context",
+            camera: "context",
             microphone: "camera",
             calibration: "microphone",
             preview: "calibration",
@@ -93,6 +102,12 @@ export function setupReady(state: SetupState) {
 }
 
 function advance(state: SetupState): SetupState {
+  if (
+    state.step === "context" &&
+    (state.context === "selected" || state.context === "skipped")
+  ) {
+    return { ...state, step: "camera" };
+  }
   if (state.step === "camera" && state.camera === "ready") {
     return { ...state, step: "microphone" };
   }

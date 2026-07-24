@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import { SessionController } from "@/components/session/session-controller";
-import { Button } from "@/components/ui/button";
 import {
   BoardController,
   type BoardCalibration,
@@ -21,6 +20,7 @@ import type { AgentState } from "@/features/display/protocol";
 import type { PersonBox } from "@/features/recording/presenter-tracker";
 import { useDisplayPublisher } from "@/features/display/use-display-channel";
 import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
+import type { StudyPack } from "@/features/study-pack/schema";
 import {
   initialSetupState,
   setupReady,
@@ -32,9 +32,10 @@ import {
   sessionRecordSchema,
   type CanvasState,
 } from "@/features/workspace/schema";
-import { CameraStep } from "./camera-step";
+import { CameraSetupStage, cameraUseForTracking } from "./camera-setup-stage";
 import { SetupShell } from "./setup-shell";
 import { SetupStage } from "./setup-stage";
+import { StudyPackStep } from "./study-pack-step";
 import { useRoomDisplay } from "./use-room-display";
 
 const EMPTY_CANVAS: CanvasState = {
@@ -63,6 +64,7 @@ export function SetupFlow() {
   >("detecting");
   const [error, setError] = useState<string>();
   const [starting, setStarting] = useState(false);
+  const [selectedStudyPack, setSelectedStudyPack] = useState<StudyPack>();
   const [sessionId, setSessionId] = useState<string>();
   const [mode, setMode] = useState<"setup" | "session">("setup");
   const [canvas, setCanvas] = useState(EMPTY_CANVAS);
@@ -152,7 +154,13 @@ export function SetupFlow() {
     setStarting(true);
     setError(undefined);
     try {
-      const response = await fetch("/api/sessions", { method: "POST" });
+      const response = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          studyPackId: selectedStudyPack?.id ?? null,
+        }),
+      });
       if (!response.ok) throw new Error("Local session creation failed.");
       const session = sessionRecordSchema.parse(await response.json());
       const canvasResponse = await fetch(`/api/sessions/${session.id}/canvas`);
@@ -173,77 +181,78 @@ export function SetupFlow() {
 
   return (
     <>
-      <div
-        aria-hidden={!showCamera}
-        className={
-          showCamera
-            ? ""
-            : "pointer-events-none fixed inset-0 -z-10 size-px overflow-hidden opacity-0"
-        }
-      >
+      {mode === "setup" && setup.step === "context" && (
         <SetupShell>
-          <CameraStep
-            onPresenterTrackingChange={(enabled) => {
-              setPresenter(undefined);
+          <StudyPackStep
+            onContinue={(selected) => {
               dispatch({
-                type: "camera_use_selected",
-                cameraUse: enabled ? "room-wide" : "board-focused",
+                type: selected ? "context_selected" : "context_skipped",
               });
-            }}
-            onReady={(readyVideo, readyStream) => {
-              setVideo(readyVideo);
-              setCameraStream(readyStream);
-              dispatch({ type: "camera_ready" });
-            }}
-            presenterTracking={setup.cameraUse === "room-wide"}
-          />
-          {setup.camera === "ready" && (
-            <Button
-              className="mt-6"
-              onClick={() => dispatch({ type: "advance" })}
-              type="button"
-            >
-              Continue
-            </Button>
-          )}
-        </SetupShell>
-      </div>
-
-      {mode === "setup" && setup.step !== "camera" && (
-        <SetupStage
-          board={board}
-          calibration={calibration}
-          calibrationStatus={calibrationStatus}
-          cameraStream={cameraStream}
-          error={error}
-          onCalibrationConfirm={confirmCalibration}
-          onCornersChange={adjustCorners}
-          onDetectBoard={() => void detectBoard()}
-          onMicrophoneConfirm={(stream) => {
-            setMicrophoneStream(stream);
-            dispatch({ type: "microphone_confirmed" });
-            dispatch({ type: "advance" });
-            void detectBoard();
-          }}
-          onPreviewBack={() => {
-            setPresenter(undefined);
-            dispatch({ type: "back" });
-          }}
-          onPreviewContinue={(confirmedPresenter) => {
-            setPresenter(confirmedPresenter);
-            if (sessionId) {
-              setMode("session");
-              window.history.replaceState({}, "", "/session");
-            } else {
               dispatch({ type: "advance" });
-            }
-          }}
-          onStart={() => void startSession()}
-          setup={setup}
-          starting={starting}
-          video={video}
-        />
+            }}
+            onSelect={setSelectedStudyPack}
+            selectedId={selectedStudyPack?.id}
+          />
+        </SetupShell>
       )}
+
+      <CameraSetupStage
+        cameraReady={setup.camera === "ready"}
+        enabled={setup.step !== "context"}
+        onContinue={() => dispatch({ type: "advance" })}
+        onPresenterTrackingChange={(enabled) => {
+          setPresenter(undefined);
+          dispatch({
+            type: "camera_use_selected",
+            cameraUse: cameraUseForTracking(enabled),
+          });
+        }}
+        onReady={(readyVideo, readyStream) => {
+          setVideo(readyVideo);
+          setCameraStream(readyStream);
+          dispatch({ type: "camera_ready" });
+        }}
+        presenterTracking={setup.cameraUse === "room-wide"}
+        visible={showCamera}
+      />
+
+      {mode === "setup" &&
+        setup.step !== "context" &&
+        setup.step !== "camera" && (
+          <SetupStage
+            board={board}
+            calibration={calibration}
+            calibrationStatus={calibrationStatus}
+            cameraStream={cameraStream}
+            error={error}
+            onCalibrationConfirm={confirmCalibration}
+            onCornersChange={adjustCorners}
+            onDetectBoard={() => void detectBoard()}
+            onMicrophoneConfirm={(stream) => {
+              setMicrophoneStream(stream);
+              dispatch({ type: "microphone_confirmed" });
+              dispatch({ type: "advance" });
+              void detectBoard();
+            }}
+            onPreviewBack={() => {
+              setPresenter(undefined);
+              dispatch({ type: "back" });
+            }}
+            onPreviewContinue={(confirmedPresenter) => {
+              setPresenter(confirmedPresenter);
+              if (sessionId) {
+                setMode("session");
+                window.history.replaceState({}, "", "/session");
+              } else {
+                dispatch({ type: "advance" });
+              }
+            }}
+            onStart={() => void startSession()}
+            setup={setup}
+            starting={starting}
+            video={video}
+          />
+        )}
 
       {mode === "session" &&
         sessionId &&
