@@ -200,7 +200,7 @@ Focused tests must prove:
 - unknown targets return a structured error and do not move the viewport;
 - main and clean displays receive the same semantic navigation request;
 - different viewport sizes resolve the same target without shared coordinates;
-- nested notebook-cell navigation invokes both outer and inner scrolling;
+- nested artifact navigation works inside an independently scrolling surface;
 - reduced-motion mode disables smooth animation;
 - highlights expire without changing persisted content; and
 - replay restores navigation events at the correct session time.
@@ -208,6 +208,9 @@ Focused tests must prove:
 The production browser check must cover manual scrolling, agent focus after
 manual scrolling, repeated focus, clean-display synchronization, and absence of
 console errors.
+
+When notebook support is implemented, its own plan must add the corresponding
+outer-document and inner-cell navigation regression.
 
 ## Deferred work
 
