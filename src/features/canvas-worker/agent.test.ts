@@ -135,7 +135,7 @@ describe("canvas worker agent context", () => {
         canvas,
         request: {
           jobId: "job-policy",
-          goal: "Show token choices.",
+          goal: "Show two meaningful choices.",
           artifact: "comparison",
         },
         actions: {
@@ -149,9 +149,10 @@ describe("canvas worker agent context", () => {
     expect(modelPrompt).toContain("exactly one focal artifact");
     expect(modelPrompt).toContain("update that stable ID before appending");
     expect(modelPrompt).toContain("No renamed prose cards");
-    expect(modelPrompt).toContain("tokenization-pipeline");
+    expect(modelPrompt).toContain("rainfall-runoff-mechanism");
     expect(upsertSchema).toContain('"chart"');
     expect(upsertSchema).toContain('"comparison"');
+    expect(upsertSchema).toContain('"flow"');
     expect(upsertSchema).toContain('"sequence"');
     expect(upsertSchema).toContain('"checkpoint"');
   });
