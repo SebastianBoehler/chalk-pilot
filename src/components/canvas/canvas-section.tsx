@@ -25,15 +25,10 @@ export function CanvasSection({
       }`}
       data-canvas-target={section.id}
     >
-      <header className="mb-5 flex items-center justify-between gap-4">
+      <header className="mb-5">
         <h2 className="text-3xl font-semibold tracking-tight">
           {section.title}
         </h2>
-        {focused && (
-          <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-sm font-semibold">
-            Current focus
-          </span>
-        )}
       </header>
       <ArtifactErrorBoundary resetKey={`${section.id}:${section.updatedAt}`}>
         <SectionContent section={section} />

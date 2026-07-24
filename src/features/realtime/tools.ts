@@ -85,6 +85,7 @@ export function createChalkPilotActions(runtime: ToolRuntime) {
     async listCanvasTargets() {
       return listCanvasTargets(runtime.getCanvas()).map((target) => ({
         id: target.id,
+        artifactType: target.artifactType,
         label: target.label,
         preview: target.text.replace(/\s+/g, " ").trim().slice(0, 240),
       }));
@@ -162,7 +163,7 @@ export function createChalkPilotTools(runtime: ToolRuntime) {
     tool({
       name: "list_canvas_targets",
       description:
-        "List registered semantic canvas targets when a teaching move needs one.",
+        "List registered canvas targets with their artifactType, including when choosing a new or unused artifact kind.",
       parameters: z.object({}),
       execute: actions.listCanvasTargets,
     }),

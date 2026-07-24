@@ -1,4 +1,5 @@
 import type { ComparisonArtifactData } from "@/features/workspace/artifact-schemas";
+import { SafeMarkdown } from "./safe-markdown";
 
 const emphasisClasses = {
   neutral: "bg-surface",
@@ -39,7 +40,9 @@ export function ComparisonArtifact({ data }: { data: ComparisonArtifactData }) {
                 className="border-border border-b p-4 align-top leading-relaxed"
                 key={column.heading}
               >
-                {column.summary}
+                <div className="artifact-markdown">
+                  <SafeMarkdown>{column.summary}</SafeMarkdown>
+                </div>
               </td>
             ))}
           </tr>
@@ -54,7 +57,9 @@ export function ComparisonArtifact({ data }: { data: ComparisonArtifactData }) {
               <td className="p-4 align-top" key={column.heading}>
                 <ul className="list-disc space-y-2 pl-5">
                   {column.points.map((point) => (
-                    <li key={point}>{point}</li>
+                    <li className="artifact-markdown" key={point}>
+                      <SafeMarkdown>{point}</SafeMarkdown>
+                    </li>
                   ))}
                 </ul>
               </td>

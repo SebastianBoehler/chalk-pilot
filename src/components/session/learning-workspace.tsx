@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PresentationCanvas } from "@/components/canvas/presentation-canvas";
 import { Button } from "@/components/ui/button";
 import { ErrorPanel } from "@/components/ui/error-panel";
 import { StatusPill } from "@/components/ui/status-pill";
+import { playCompletionChime } from "@/features/audio/completion-chime";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
 import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
 import { useResolvedCanvasNavigation } from "@/features/canvas-navigation/use-resolved-navigation";
@@ -39,6 +40,7 @@ interface LearningWorkspaceProps {
 
 export function LearningWorkspace(props: LearningWorkspaceProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const previousCanvasJobState = useRef(props.canvasJobState);
   const resolvedNavigation = useResolvedCanvasNavigation(
     props.canvas,
     props.navigation,
@@ -48,8 +50,18 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
     props.recording.status === "starting" ||
     props.recording.status === "stopping";
 
+  useEffect(() => {
+    if (
+      previousCanvasJobState.current === "building" &&
+      props.canvasJobState === "complete"
+    ) {
+      playCompletionChime();
+    }
+    previousCanvasJobState.current = props.canvasJobState;
+  }, [props.canvasJobState]);
+
   return (
-    <div className="bg-background flex min-h-screen">
+    <div className="bg-background flex min-h-[calc(100svh-4rem)]">
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="border-border bg-background/95 flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4 lg:px-8">
           <div>

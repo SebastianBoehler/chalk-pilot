@@ -2,7 +2,12 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { LanguageModel } from "ai";
 
-type CanvasProvider = "openai" | "openrouter";
+export type CanvasProvider = "openai" | "openrouter";
+
+export interface CanvasProviderIdentity {
+  provider: CanvasProvider;
+  model: string;
+}
 
 export interface CanvasProviderConfig {
   provider: CanvasProvider;
@@ -22,20 +27,33 @@ export class CanvasProviderConfigurationError extends Error {}
 export function resolveCanvasProvider(
   env: CanvasProviderEnvironment,
 ): CanvasProviderConfig {
-  const provider = (env.CANVAS_AGENT_PROVIDER?.trim() ||
-    "openai") as CanvasProvider;
+  const identity = resolveCanvasProviderIdentity(env);
+  if (identity.provider === "openai") {
+    return {
+      ...identity,
+      apiKey: required(env.OPENAI_API_KEY, "OPENAI_API_KEY"),
+    };
+  }
+  return {
+    ...identity,
+    apiKey: required(env.OPENROUTER_API_KEY, "OPENROUTER_API_KEY"),
+  };
+}
+
+export function resolveCanvasProviderIdentity(
+  env: CanvasProviderEnvironment = process.env as CanvasProviderEnvironment,
+): CanvasProviderIdentity {
+  const provider = env.CANVAS_AGENT_PROVIDER?.trim() || "openai";
   if (provider === "openai") {
     return {
       provider,
       model: env.CANVAS_AGENT_MODEL?.trim() || "gpt-5-mini",
-      apiKey: required(env.OPENAI_API_KEY, "OPENAI_API_KEY"),
     };
   }
   if (provider === "openrouter") {
     return {
       provider,
       model: required(env.CANVAS_AGENT_MODEL, "CANVAS_AGENT_MODEL"),
-      apiKey: required(env.OPENROUTER_API_KEY, "OPENROUTER_API_KEY"),
     };
   }
   throw new CanvasProviderConfigurationError(

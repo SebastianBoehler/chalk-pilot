@@ -4,6 +4,7 @@ import { nestedTarget, type CanvasNavigation } from "./schema";
 export interface CanvasTarget {
   id: string;
   sectionId: string;
+  artifactType: CanvasSection["kind"];
   label: string;
   text: string;
   highlightText: string;
@@ -52,6 +53,7 @@ function targetsForSection(section: CanvasSection): CanvasTarget[] {
   ): CanvasTarget => ({
     id,
     sectionId: section.id,
+    artifactType: section.kind,
     label,
     text,
     highlightText,

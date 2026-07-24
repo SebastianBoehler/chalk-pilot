@@ -1,20 +1,6 @@
 import type { CheckpointArtifactData } from "@/features/workspace/artifact-schemas";
 import { nestedTarget } from "@/features/canvas-navigation/schema";
 
-const statusCopy = {
-  unanswered: "Pause and make a prediction",
-  attempted: "Attempt in progress",
-  correct: "Correct",
-  revise: "Try a different route",
-};
-
-const statusClasses = {
-  unanswered: "bg-primary/10 text-primary",
-  attempted: "bg-surface-muted text-foreground",
-  correct: "bg-success/10 text-success",
-  revise: "bg-danger/10 text-danger",
-};
-
 export function CheckpointArtifact({
   data,
   sectionId,
@@ -27,14 +13,7 @@ export function CheckpointArtifact({
       aria-label={`${data.mode[0].toUpperCase()}${data.mode.slice(1)} checkpoint`}
       className="border-primary/30 bg-primary/5 rounded-2xl border p-6"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-lg font-semibold">Checkpoint</p>
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-semibold ${statusClasses[data.status]}`}
-        >
-          {statusCopy[data.status]}
-        </span>
-      </div>
+      <p className="text-lg font-semibold">Checkpoint</p>
       <h3
         className="mt-5 max-w-3xl text-2xl font-semibold tracking-tight"
         data-canvas-target={

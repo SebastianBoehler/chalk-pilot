@@ -29,7 +29,10 @@ describe("PresentationCanvas", () => {
     expect(
       screen.getByRole("heading", { name: "Key idea" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Current focus")).toBeInTheDocument();
+    expect(screen.queryByText("Current focus")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Key idea" }).closest("section"),
+    ).toHaveAttribute("aria-current", "true");
     expect(container.querySelector("script")).not.toBeInTheDocument();
     expect(
       container.querySelector('a[href^="javascript:"]'),

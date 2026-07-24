@@ -44,7 +44,7 @@ export function RecordingControls({ recording }: RecordingControlsProps) {
         </Button>
       ) : recording.replayUrl ? (
         <a
-          className="bg-primary text-primary-foreground mt-3 block rounded-xl px-5 py-3 text-center font-semibold"
+          className="bg-primary hover:bg-primary-hover mt-3 block rounded-xl px-5 py-3 text-center font-semibold text-white"
           href={recording.replayUrl}
         >
           Open replay

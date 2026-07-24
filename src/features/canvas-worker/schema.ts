@@ -37,6 +37,18 @@ export const canvasJobResultSchema = z
     jobId: identifierSchema,
     summary: z.string().trim().min(1).max(500),
     canvas: canvasStateSchema,
+    metrics: z
+      .object({
+        provider: z.string().trim().min(1).max(80),
+        model: z.string().trim().min(1).max(160),
+        queuedAt: z.iso.datetime(),
+        startedAt: z.iso.datetime(),
+        completedAt: z.iso.datetime(),
+        queueMs: z.number().finite().nonnegative(),
+        executionMs: z.number().finite().nonnegative(),
+        totalMs: z.number().finite().nonnegative(),
+      })
+      .strict(),
   })
   .strict();
 

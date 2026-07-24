@@ -183,7 +183,22 @@ describe("trusted structured learning artifacts", () => {
   });
 
   it("renders comparisons as one semantic matrix rather than prose cards", () => {
-    render(<ComparisonArtifact data={comparison} />);
+    const view = render(
+      <ComparisonArtifact
+        data={{
+          ...comparison,
+          columns: [
+            {
+              ...comparison.columns[0],
+              summary:
+                "Always works for $ax^2+bx+c=0$. $$x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}$$",
+              points: ["Compute $D=b^2-4ac$ first."],
+            },
+            comparison.columns[1]!,
+          ],
+        }}
+      />,
+    );
 
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(
@@ -198,6 +213,7 @@ describe("trusted structured learning artifacts", () => {
     expect(
       screen.getByText("Breaks rare words into reusable pieces."),
     ).toBeInTheDocument();
+    expect(view.container.querySelectorAll(".katex").length).toBeGreaterThan(1);
   });
 
   it("renders a layered concept flow with visible relationships and active state", () => {
@@ -206,6 +222,8 @@ describe("trusted structured learning artifacts", () => {
     expect(
       screen.getByRole("region", { name: "Concept flow" }),
     ).toHaveAttribute("data-orientation", "horizontal");
+    expect(screen.getByTestId("flow-layout")).toHaveClass("flex-col");
+    expect(screen.getByTestId("flow-layout")).toHaveClass("2xl:flex-row");
     expect(screen.getByRole("article", { name: "Mechanism" })).toHaveAttribute(
       "aria-current",
       "true",
@@ -266,7 +284,10 @@ describe("trusted structured learning artifacts", () => {
       screen.getByText("Reuse smaller familiar units."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Subword tokenization.")).not.toBeInTheDocument();
-    expect(screen.getByText("Attempt in progress")).toBeInTheDocument();
+    expect(screen.queryByText("Attempt in progress")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Pause and make a prediction"),
+    ).not.toBeInTheDocument();
   });
 
   it("isolates a failing artifact and recovers when its section changes", () => {

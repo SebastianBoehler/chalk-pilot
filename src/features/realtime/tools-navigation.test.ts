@@ -63,7 +63,14 @@ describe("semantic canvas tools", () => {
     const context = runtime();
     const actions = createChalkPilotActions(context);
 
-    await expect(actions.listCanvasTargets()).resolves.toHaveLength(3);
+    await expect(actions.listCanvasTargets()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "mechanism",
+          artifactType: "flow",
+        }),
+      ]),
+    );
     await actions.focusCanvas({ targetId: "mechanism:pressure" });
     await actions.focusCanvas({ targetId: "mechanism:pressure" });
 

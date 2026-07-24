@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -27,6 +27,7 @@ describe("canvas worker API", () => {
     const session = await repository.createSession();
     const service = createCanvasWorkerService({
       repository,
+      providerIdentity: { provider: "test", model: "mock-fast-model" },
       runAgent: async ({ actions }) => {
         await actions.upsertSection({
           id: "attention-flow",
@@ -53,11 +54,36 @@ describe("canvas worker API", () => {
     expect(await response.json()).toMatchObject({
       jobId: "job-1",
       summary: "Added the attention flow.",
+      metrics: {
+        provider: "test",
+        model: "mock-fast-model",
+        queueMs: expect.any(Number),
+        executionMs: expect.any(Number),
+        totalMs: expect.any(Number),
+      },
       canvas: {
         focusId: "attention-flow",
         order: ["attention-flow"],
       },
     });
+    const events = (
+      await readFile(join(root, "sessions", session.id, "events.jsonl"), "utf8")
+    )
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as unknown);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "canvas_job",
+        metadata: expect.objectContaining({
+          jobId: "job-1",
+          status: "complete",
+          provider: "test",
+          model: "mock-fast-model",
+          totalMs: expect.any(Number),
+        }),
+      }),
+    );
   });
 
   it("returns bounded errors for invalid input and missing sessions", async () => {

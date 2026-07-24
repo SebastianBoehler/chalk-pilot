@@ -9,7 +9,14 @@ export function SafeMarkdown({ children }: { children: string }) {
       rehypePlugins={[rehypeKatex]}
       remarkPlugins={[remarkGfm, remarkMath]}
     >
-      {children}
+      {normalizeDisplayMath(children)}
     </ReactMarkdown>
+  );
+}
+
+function normalizeDisplayMath(source: string) {
+  return source.replace(
+    /\$\$([\s\S]*?)\$\$/g,
+    (_match, expression: string) => `\n\n$$\n${expression.trim()}\n$$\n\n`,
   );
 }

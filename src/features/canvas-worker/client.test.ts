@@ -17,6 +17,16 @@ const canvas: CanvasState = {
     },
   },
 };
+const metrics = {
+  provider: "test",
+  model: "mock-fast-model",
+  queuedAt: "2026-07-24T08:00:00.000Z",
+  startedAt: "2026-07-24T08:00:00.010Z",
+  completedAt: "2026-07-24T08:00:00.100Z",
+  queueMs: 10,
+  executionMs: 90,
+  totalMs: 100,
+};
 
 describe("CanvasJobClient", () => {
   it("emits a fresh focus navigation after a successful worker result", async () => {
@@ -24,7 +34,12 @@ describe("CanvasJobClient", () => {
     const client = new CanvasJobClient({
       sessionId: "session-1",
       fetcher: vi.fn(async () =>
-        Response.json({ jobId: "job-1", summary: "Added mechanism.", canvas }),
+        Response.json({
+          jobId: "job-1",
+          summary: "Added mechanism.",
+          canvas,
+          metrics,
+        }),
       ),
       getBoardImage: () => null,
       onCanvasChanged: vi.fn(),
@@ -89,6 +104,7 @@ describe("CanvasJobClient", () => {
         Response.json({
           jobId: "job-1",
           summary: "Added mechanism.",
+          metrics,
           canvas: { ...canvas, focusId: "missing-target" },
         }),
       ),

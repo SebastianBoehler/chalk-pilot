@@ -235,6 +235,16 @@ describe("ChalkPilotRealtime", () => {
         jobId: "job-1",
         summary: "Added the attention flow.",
         canvas: completedCanvas,
+        metrics: {
+          provider: "test",
+          model: "mock-fast-model",
+          queuedAt: "2026-07-23T08:00:00.000Z",
+          startedAt: "2026-07-23T08:00:00.010Z",
+          completedAt: "2026-07-23T08:00:00.100Z",
+          queueMs: 10,
+          executionMs: 90,
+          totalMs: 100,
+        },
       }),
     );
     await realtime.whenCanvasJobsIdle();

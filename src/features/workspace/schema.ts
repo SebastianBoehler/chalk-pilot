@@ -149,6 +149,7 @@ export const learningEventSchema = z
     id: identifierSchema,
     type: z.enum([
       "board_inspection",
+      "canvas_job",
       "canvas_mutation",
       "hint",
       "independent_attempt",

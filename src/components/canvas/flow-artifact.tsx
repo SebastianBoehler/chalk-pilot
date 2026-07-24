@@ -17,13 +17,16 @@ export function FlowArtifact({
   return (
     <div
       aria-label="Concept flow"
-      className="bg-surface-muted border-border overflow-x-auto rounded-2xl border p-5"
+      className="bg-surface-muted border-border overflow-hidden rounded-2xl border p-5"
       data-orientation={data.orientation}
       role="region"
     >
       <div
+        data-testid="flow-layout"
         className={
-          vertical ? "flex flex-col" : "flex min-w-max items-stretch gap-4"
+          vertical
+            ? "flex flex-col"
+            : "flex min-w-0 flex-col gap-4 2xl:flex-row 2xl:items-stretch"
         }
       >
         {layers.map((nodes, index) => {
@@ -37,7 +40,7 @@ export function FlowArtifact({
                 className={
                   vertical
                     ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                    : "flex w-64 flex-col justify-center gap-3"
+                    : "grid min-w-0 gap-3 sm:grid-cols-2 2xl:flex 2xl:w-64 2xl:shrink-0 2xl:flex-col 2xl:justify-center"
                 }
               >
                 {nodes.map((node) => (
@@ -114,7 +117,7 @@ function FlowConnections({
       className={
         vertical
           ? "flex flex-wrap items-center justify-center gap-2 py-3"
-          : "flex w-28 flex-col items-center justify-center gap-2"
+          : "flex min-w-0 flex-wrap items-center justify-center gap-2 py-1 2xl:w-28 2xl:shrink-0 2xl:flex-col 2xl:py-0"
       }
     >
       {connections.map((edge) => (
@@ -127,18 +130,39 @@ function FlowConnections({
         >
           <span className="flex items-center gap-2 font-semibold">
             <span data-flow-endpoint>{titleById.get(edge.from)}</span>
-            <span
-              aria-hidden="true"
-              className="text-primary text-xl leading-none"
-            >
-              {vertical ? "↓" : "→"}
-            </span>
+            <FlowArrow vertical={vertical} />
             <span data-flow-endpoint>{titleById.get(edge.to)}</span>
           </span>
           {edge.label && <span>{edge.label}</span>}
         </li>
       ))}
     </ul>
+  );
+}
+
+function FlowArrow({ vertical }: { vertical: boolean }) {
+  if (vertical) {
+    return (
+      <span aria-hidden="true" className="text-primary text-xl leading-none">
+        ↓
+      </span>
+    );
+  }
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className="text-primary text-xl leading-none 2xl:hidden"
+      >
+        ↓
+      </span>
+      <span
+        aria-hidden="true"
+        className="text-primary hidden text-xl leading-none 2xl:inline"
+      >
+        →
+      </span>
+    </>
   );
 }
 

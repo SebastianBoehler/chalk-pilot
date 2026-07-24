@@ -109,6 +109,7 @@ describe("semantic canvas targets", () => {
     expect(resolveCanvasTarget(canvas, "mechanism:pressure")).toEqual({
       id: "mechanism:pressure",
       sectionId: "mechanism",
+      artifactType: "flow",
       label: "Pressure",
       text: "Pressure\nA pressure difference moves fluid.",
       highlightText: "Pressure\nA pressure difference moves fluid.",

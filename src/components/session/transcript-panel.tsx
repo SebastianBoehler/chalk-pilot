@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { playCompletionChime } from "@/features/audio/completion-chime";
 import type { TranscriptEntry } from "@/features/session/transcript";
 
 export function TranscriptPanel({
@@ -5,6 +9,28 @@ export function TranscriptPanel({
 }: {
   transcript: TranscriptEntry[];
 }) {
+  const completedTools = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    const completed = transcript.filter(
+      (entry) =>
+        entry.role === "tool" &&
+        entry.status === "completed" &&
+        entry.toolName !== "delegate_canvas_task",
+    );
+    if (!completedTools.current) {
+      completedTools.current = new Set(
+        completed.map(({ sourceId }) => sourceId),
+      );
+      return;
+    }
+    for (const entry of completed) {
+      if (completedTools.current.has(entry.sourceId)) continue;
+      completedTools.current.add(entry.sourceId);
+      playCompletionChime();
+    }
+  }, [transcript]);
+
   return (
     <details className="border-border mt-5 rounded-2xl border p-4" open>
       <summary className="cursor-pointer font-semibold">

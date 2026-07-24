@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { chalkPilotInstructions } from "./instructions";
 
 describe("ChalkPilot instructions", () => {
+  it("inventories artifact types before choosing a genuinely different one", () => {
+    expect(chalkPilotInstructions).toContain(
+      "asks for a new, different, or unused artifact type",
+    );
+    expect(chalkPilotInstructions).toContain("artifactType");
+    expect(chalkPilotInstructions).toContain(
+      "flow, chart, comparison, sequence, and checkpoint",
+    );
+  });
+
   it("keeps voice brief and protects the learner's attempt", () => {
     expect(chalkPilotInstructions).toContain("one or two sentences");
     expect(chalkPilotInstructions).toContain("attempt");

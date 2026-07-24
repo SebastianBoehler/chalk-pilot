@@ -112,7 +112,7 @@ test("renders persisted typed artifacts on the synchronized display", async ({
     await new Promise((resolve) => window.setTimeout(resolve, 50));
     channel.close();
   }, updatedCanvas);
-  await expect(page.getByLabel("Prediction checkpoint")).toContainText(
+  await expect(page.getByLabel("Prediction checkpoint")).not.toContainText(
     "Correct",
   );
   await expect(page.getByText("Retrieve from memory.")).toBeVisible();
