@@ -119,6 +119,76 @@ export const comparisonArtifactDataSchema = z
   })
   .strict();
 
+const flowNodeSchema = z
+  .object({
+    id: identifierSchema,
+    title: compactTextSchema,
+    detail: shortTextSchema.optional(),
+  })
+  .strict();
+
+const flowEdgeSchema = z
+  .object({
+    from: identifierSchema,
+    to: identifierSchema,
+    label: compactTextSchema.optional(),
+  })
+  .strict();
+
+export const flowArtifactDataSchema = z
+  .object({
+    orientation: z.enum(["horizontal", "vertical"]),
+    nodes: z.array(flowNodeSchema).min(2).max(8),
+    edges: z.array(flowEdgeSchema).min(1).max(12),
+    activeNodeId: identifierSchema.optional(),
+  })
+  .strict()
+  .superRefine(({ activeNodeId, edges, nodes }, context) => {
+    const nodeIds = nodes.map(({ id }) => id);
+    const knownNodes = new Set(nodeIds);
+    if (knownNodes.size !== nodeIds.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Flow node IDs must be unique",
+        path: ["nodes"],
+      });
+    }
+    if (activeNodeId && !knownNodes.has(activeNodeId)) {
+      context.addIssue({
+        code: "custom",
+        message: "Flow active node must reference an existing node",
+        path: ["activeNodeId"],
+      });
+    }
+
+    let referencesAreValid = knownNodes.size === nodeIds.length;
+    for (const [index, edge] of edges.entries()) {
+      if (!knownNodes.has(edge.from) || !knownNodes.has(edge.to)) {
+        referencesAreValid = false;
+        context.addIssue({
+          code: "custom",
+          message: "Flow edges must reference an existing node",
+          path: ["edges", index],
+        });
+      } else if (edge.from === edge.to) {
+        referencesAreValid = false;
+        context.addIssue({
+          code: "custom",
+          message: "A flow node cannot connect to itself",
+          path: ["edges", index],
+        });
+      }
+    }
+
+    if (referencesAreValid && containsCycle(nodeIds, edges)) {
+      context.addIssue({
+        code: "custom",
+        message: "Flow edges must form an acyclic graph",
+        path: ["edges"],
+      });
+    }
+  });
+
 export const sequenceArtifactDataSchema = z
   .object({
     steps: z
@@ -182,7 +252,33 @@ export type ChartArtifactData = z.infer<typeof chartArtifactDataSchema>;
 export type ComparisonArtifactData = z.infer<
   typeof comparisonArtifactDataSchema
 >;
+export type FlowArtifactData = z.infer<typeof flowArtifactDataSchema>;
 export type SequenceArtifactData = z.infer<typeof sequenceArtifactDataSchema>;
 export type CheckpointArtifactData = z.infer<
   typeof checkpointArtifactDataSchema
 >;
+
+function containsCycle(
+  nodeIds: string[],
+  edges: Array<{ from: string; to: string }>,
+) {
+  const incoming = new Map(nodeIds.map((id) => [id, 0]));
+  const outgoing = new Map(nodeIds.map((id) => [id, [] as string[]]));
+  for (const edge of edges) {
+    incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1);
+    outgoing.get(edge.from)?.push(edge.to);
+  }
+  const ready = nodeIds.filter((id) => incoming.get(id) === 0);
+  let visited = 0;
+  while (ready.length > 0) {
+    const current = ready.shift();
+    if (!current) break;
+    visited += 1;
+    for (const target of outgoing.get(current) ?? []) {
+      const next = (incoming.get(target) ?? 0) - 1;
+      incoming.set(target, next);
+      if (next === 0) ready.push(target);
+    }
+  }
+  return visited !== nodeIds.length;
+}

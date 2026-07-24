@@ -30,9 +30,9 @@ const canvas: CanvasState = {
     "five",
     "six",
     "seven",
-    "eight",
     "chart",
     "comparison",
+    "flow",
     "sequence",
     "checkpoint",
   ],
@@ -52,7 +52,6 @@ const canvas: CanvasState = {
     five: section("five"),
     six: section("six"),
     seven: section("seven"),
-    eight: section("eight"),
     chart: {
       id: "chart",
       kind: "chart",
@@ -90,6 +89,26 @@ const canvas: CanvasState = {
           summary: long,
           points: Array.from({ length: 5 }, () => long),
         })),
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    flow: {
+      id: "flow",
+      kind: "flow",
+      title: long,
+      data: {
+        orientation: "horizontal",
+        nodes: [
+          { id: "cause", title: long, detail: long },
+          { id: "mechanism", title: long, detail: long },
+          { id: "effect", title: long, detail: long },
+        ],
+        edges: [
+          { from: "cause", to: "mechanism", label: long },
+          { from: "mechanism", to: "effect", label: long },
+        ],
+        activeNodeId: "mechanism",
       },
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -139,6 +158,7 @@ describe("canvas snapshot projection", () => {
     const comparison = snapshot.sections.find(
       (item) => item.kind === "comparison",
     );
+    const flow = snapshot.sections.find((item) => item.kind === "flow");
     const sequence = snapshot.sections.find((item) => item.kind === "sequence");
     const checkpoint = snapshot.sections.find(
       (item) => item.kind === "checkpoint",
@@ -160,6 +180,18 @@ describe("canvas snapshot projection", () => {
     expect(chart?.data.series[0]?.points.length).toBeLessThan(100);
     expect(chart?.data.annotations?.length).toBeLessThan(8);
     expect(comparison?.data.columns[0]?.points.length).toBeLessThan(5);
+    expect(flow).toMatchObject({
+      kind: "flow",
+      data: {
+        orientation: "horizontal",
+        activeNodeId: "mechanism",
+        edges: expect.arrayContaining([
+          expect.objectContaining({ from: "cause", to: "mechanism" }),
+        ]),
+      },
+    });
+    expect(flow?.data.nodes[0]?.detail?.length).toBeLessThan(long.length);
+    expect(flow?.data.edges[0]?.label?.length).toBeLessThan(long.length);
     expect(sequence).toMatchObject({
       kind: "sequence",
       data: { activeStepId: "step-7", reveal: "all" },

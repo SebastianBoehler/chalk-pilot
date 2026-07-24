@@ -51,6 +51,30 @@ describe("section storage boundary", () => {
       variant: "scatter",
       series: [{ name: "Tokens", points: [{ x: 0, y: 0 }] }],
     });
+
+    const flow = canvasSectionInputSchema.parse({
+      id: "learning-flow",
+      kind: "flow",
+      title: "Learning flow",
+      data: {
+        orientation: "horizontal",
+        nodes: [
+          { id: "attempt", title: "Attempt" },
+          { id: "feedback", title: "Feedback" },
+        ],
+        edges: [{ from: "attempt", to: "feedback" }],
+      },
+    });
+
+    expect(payloadFileName(flow)).toBe("learning-flow.json");
+    expect(JSON.parse(serializeSectionPayload(flow))).toEqual({
+      orientation: "horizontal",
+      nodes: [
+        { id: "attempt", title: "Attempt" },
+        { id: "feedback", title: "Feedback" },
+      ],
+      edges: [{ from: "attempt", to: "feedback" }],
+    });
   });
 
   it("keeps markdown content in Markdown payloads", () => {

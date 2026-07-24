@@ -3,6 +3,7 @@ import {
   chartArtifactDataSchema,
   checkpointArtifactDataSchema,
   comparisonArtifactDataSchema,
+  flowArtifactDataSchema,
   sequenceArtifactDataSchema,
 } from "./artifact-schemas";
 import { canvasSectionInputSchema } from "./schema";
@@ -156,6 +157,58 @@ describe("structured learning artifact schemas", () => {
     ).toThrow();
   });
 
+  it("accepts a bounded directed flow and rejects invalid graph structure", () => {
+    const flow = {
+      orientation: "horizontal",
+      nodes: [
+        { id: "input", title: "Input", detail: "Start with evidence." },
+        { id: "transform", title: "Transform" },
+        { id: "result", title: "Result" },
+      ],
+      edges: [
+        { from: "input", to: "transform", label: "changes through" },
+        { from: "transform", to: "result" },
+      ],
+      activeNodeId: "transform",
+    } as const;
+
+    expect(flowArtifactDataSchema.parse(flow)).toEqual(flow);
+    expect(() =>
+      flowArtifactDataSchema.parse({
+        ...flow,
+        nodes: [...flow.nodes, { id: "input", title: "Duplicate" }],
+      }),
+    ).toThrow(/unique/i);
+    expect(() =>
+      flowArtifactDataSchema.parse({
+        ...flow,
+        edges: [{ from: "input", to: "missing" }],
+      }),
+    ).toThrow(/existing node/i);
+    expect(() =>
+      flowArtifactDataSchema.parse({
+        ...flow,
+        edges: [{ from: "input", to: "input" }],
+      }),
+    ).toThrow(/itself/i);
+    expect(() =>
+      flowArtifactDataSchema.parse({
+        ...flow,
+        edges: [
+          { from: "input", to: "transform" },
+          { from: "transform", to: "result" },
+          { from: "result", to: "input" },
+        ],
+      }),
+    ).toThrow(/acyclic/i);
+    expect(() =>
+      flowArtifactDataSchema.parse({ ...flow, activeNodeId: "missing" }),
+    ).toThrow(/active node/i);
+    expect(() =>
+      flowArtifactDataSchema.parse({ ...flow, html: "<button>Run</button>" }),
+    ).toThrow();
+  });
+
   it("accepts a stateful checkpoint and rejects one choice or arbitrary callbacks", () => {
     const checkpoint = checkpointArtifactDataSchema.parse({
       mode: "prediction",
@@ -214,5 +267,21 @@ describe("structured learning artifact schemas", () => {
         },
       }),
     ).toThrow();
+
+    expect(
+      canvasSectionInputSchema.parse({
+        id: "mechanism",
+        kind: "flow",
+        title: "How the mechanism works",
+        data: {
+          orientation: "vertical",
+          nodes: [
+            { id: "cause", title: "Cause" },
+            { id: "effect", title: "Effect" },
+          ],
+          edges: [{ from: "cause", to: "effect", label: "produces" }],
+        },
+      }),
+    ).toMatchObject({ kind: "flow" });
   });
 });

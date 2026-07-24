@@ -67,5 +67,7 @@ function payloadExtension(kind: CanvasSection["kind"]): "md" | "json" {
 }
 
 function hasContentKind(kind: CanvasSection["kind"]): boolean {
-  return !["chart", "comparison", "sequence", "checkpoint"].includes(kind);
+  return !["chart", "comparison", "flow", "sequence", "checkpoint"].includes(
+    kind,
+  );
 }

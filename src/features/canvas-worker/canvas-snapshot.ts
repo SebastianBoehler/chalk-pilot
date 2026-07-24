@@ -11,6 +11,7 @@ const maxUrl = 2_000;
 const maxChartPoints = 16;
 const maxAnnotations = 4;
 const maxComparisonPoints = 3;
+const maxFlowDetail = 240;
 const maxSequenceContent = 400;
 const maxCheckpointText = 500;
 
@@ -95,6 +96,25 @@ function projectSection(
               .map((point) => clip(point, maxText)),
             emphasis: column.emphasis,
           })),
+        },
+      };
+    case "flow":
+      return {
+        ...base,
+        kind: "flow",
+        data: {
+          orientation: section.data.orientation,
+          nodes: section.data.nodes.map((node) => ({
+            id: node.id,
+            title: clip(node.title, maxTitle),
+            detail: optionalClip(node.detail, maxFlowDetail),
+          })),
+          edges: section.data.edges.map((edge) => ({
+            from: edge.from,
+            to: edge.to,
+            label: optionalClip(edge.label, maxTitle),
+          })),
+          activeNodeId: section.data.activeNodeId,
         },
       };
     case "sequence":

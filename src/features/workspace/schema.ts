@@ -3,6 +3,7 @@ import {
   chartArtifactDataSchema,
   checkpointArtifactDataSchema,
   comparisonArtifactDataSchema,
+  flowArtifactDataSchema,
   sequenceArtifactDataSchema,
 } from "./artifact-schemas";
 import { identifierSchema } from "./primitives";
@@ -49,6 +50,9 @@ const chartSectionInputSchema = sectionBase
 const comparisonSectionInputSchema = sectionBase
   .extend({ kind: z.literal("comparison"), data: comparisonArtifactDataSchema })
   .strict();
+const flowSectionInputSchema = sectionBase
+  .extend({ kind: z.literal("flow"), data: flowArtifactDataSchema })
+  .strict();
 const sequenceSectionInputSchema = sectionBase
   .extend({ kind: z.literal("sequence"), data: sequenceArtifactDataSchema })
   .strict();
@@ -62,6 +66,7 @@ export const canvasSectionInputSchema = z.discriminatedUnion("kind", [
   youtubeSectionInputSchema,
   chartSectionInputSchema,
   comparisonSectionInputSchema,
+  flowSectionInputSchema,
   sequenceSectionInputSchema,
   checkpointSectionInputSchema,
 ]);
@@ -74,6 +79,7 @@ export const canvasSectionSchema = z.discriminatedUnion("kind", [
   youtubeSectionInputSchema.extend(timestamps).strict(),
   chartSectionInputSchema.extend(timestamps).strict(),
   comparisonSectionInputSchema.extend(timestamps).strict(),
+  flowSectionInputSchema.extend(timestamps).strict(),
   sequenceSectionInputSchema.extend(timestamps).strict(),
   checkpointSectionInputSchema.extend(timestamps).strict(),
 ]);
@@ -86,6 +92,7 @@ export const canvasSectionKindSchema = z.enum([
   "youtube",
   "chart",
   "comparison",
+  "flow",
   "sequence",
   "checkpoint",
 ]);
