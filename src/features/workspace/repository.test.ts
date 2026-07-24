@@ -17,6 +17,30 @@ describe("WorkspaceRepository", () => {
     await rm(root, { recursive: true });
   });
 
+  it("persists selected study packs and defaults old sessions to none", async () => {
+    const repository = createWorkspaceRepository(root);
+    const selected = await repository.createSession({
+      studyPackId: "course-pack",
+    });
+    expect(await repository.readSession(selected.id)).toMatchObject({
+      studyPackId: "course-pack",
+    });
+
+    await mkdir(join(root, "sessions", "old-session"), { recursive: true });
+    await writeFile(
+      join(root, "sessions", "old-session", "session.json"),
+      JSON.stringify({
+        id: "old-session",
+        status: "active",
+        createdAt: "2026-07-23T08:00:00.000Z",
+        completedAt: null,
+      }),
+    );
+    expect(await repository.readSession("old-session")).toMatchObject({
+      studyPackId: null,
+    });
+  });
+
   it("creates a session and persists an ordered canvas section", async () => {
     const repository = createWorkspaceRepository(root);
     const session = await repository.createSession();

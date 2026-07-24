@@ -102,12 +102,15 @@ export function createWorkspaceRepository(rootDirectory: string) {
     );
   }
 
-  async function createSession(): Promise<SessionRecord> {
+  async function createSession(
+    input: { studyPackId?: string | null } = {},
+  ): Promise<SessionRecord> {
     const id = randomUUID();
     const paths = getSessionPaths(root, id);
     const record: SessionRecord = {
       id,
       status: "active",
+      studyPackId: input.studyPackId ?? null,
       createdAt: new Date().toISOString(),
       completedAt: null,
     };
@@ -228,6 +231,7 @@ export function createWorkspaceRepository(rootDirectory: string) {
 
   return {
     createSession,
+    readSession,
     readCanvas,
     appendSection,
     updateSection,

@@ -18,6 +18,25 @@ describe("workspace API", () => {
     await rm(root, { recursive: true });
   });
 
+  it("validates a selected study pack without breaking empty requests", async () => {
+    const repository = createWorkspaceRepository(root);
+    const api = createWorkspaceApi(repository, {
+      studyPackExists: async (packId) => packId === "available-pack",
+    });
+
+    expect((await api.createSession()).status).toBe(201);
+    const missing = await api.createSession(
+      jsonRequest({ studyPackId: "missing-pack" }),
+    );
+    expect(missing.status).toBe(404);
+    const created = await api.createSession(
+      jsonRequest({ studyPackId: "available-pack" }),
+    );
+    expect(await created.json()).toMatchObject({
+      studyPackId: "available-pack",
+    });
+  });
+
   it("creates sessions and mutates their canvas", async () => {
     const api = createWorkspaceApi(createWorkspaceRepository(root));
     const created = await api.createSession();

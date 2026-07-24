@@ -164,7 +164,8 @@ export function createStudyPackRepository(rootDirectory: string) {
   }
 
   async function outline(packId: string) {
-    return studyPackOutlineSchema.parse(await readPack(packId));
+    const { id, title, sources } = await readPack(packId);
+    return studyPackOutlineSchema.parse({ id, title, sources });
   }
 
   async function search(packId: string, query: string, limit = 5) {

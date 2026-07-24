@@ -124,6 +124,7 @@ export const canvasStateSchema = z.object({
 export const sessionRecordSchema = z.object({
   id: identifierSchema,
   status: z.enum(["active", "complete"]),
+  studyPackId: identifierSchema.nullable().default(null),
   createdAt: z.iso.datetime(),
   completedAt: z.iso.datetime().nullable(),
 });

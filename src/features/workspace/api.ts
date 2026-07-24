@@ -22,9 +22,33 @@ const canvasMutationSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-export function createWorkspaceApi(repository: WorkspaceRepository) {
-  async function createSession() {
-    return Response.json(await repository.createSession(), { status: 201 });
+const sessionCreationSchema = z
+  .object({ studyPackId: identifierSchema.nullable().default(null) })
+  .strict();
+
+export function createWorkspaceApi(
+  repository: WorkspaceRepository,
+  options: { studyPackExists?: (packId: string) => Promise<boolean> } = {},
+) {
+  async function createSession(request?: Request) {
+    return safely(async () => {
+      const input = request
+        ? sessionCreationSchema.parse(await optionalJson(request))
+        : sessionCreationSchema.parse({});
+      if (
+        input.studyPackId &&
+        options.studyPackExists &&
+        !(await options.studyPackExists(input.studyPackId))
+      ) {
+        return Response.json(
+          { error: "Study pack not found." },
+          { status: 404 },
+        );
+      }
+      return Response.json(await repository.createSession(input), {
+        status: 201,
+      });
+    });
   }
 
   async function getCanvas(sessionId: string) {
@@ -76,6 +100,11 @@ export function createWorkspaceApi(repository: WorkspaceRepository) {
     remember,
     appendTranscript,
   };
+}
+
+async function optionalJson(request: Request) {
+  const body = await request.text();
+  return body.trim() ? JSON.parse(body) : {};
 }
 
 async function safely(operation: () => Promise<Response>): Promise<Response> {
