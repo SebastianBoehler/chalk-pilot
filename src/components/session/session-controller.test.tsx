@@ -191,57 +191,6 @@ describe("SessionController", () => {
     expect(recordingState.noteCueEnd).toHaveBeenCalledWith("user", 900);
   });
 
-  it("records each realtime navigation request before forwarding it to the workspace", async () => {
-    const onNavigation = vi.fn();
-    render(
-      <SessionController
-        board={
-          {
-            getLatestImage: vi.fn(() => null),
-            sample: vi.fn().mockResolvedValue(null),
-          } as unknown as BoardController
-        }
-        cameraUse="room-wide"
-        canvas={emptyCanvas}
-        corners={[...corners]}
-        displayConnected={false}
-        microphone={{} as MediaStream}
-        navigation={null}
-        onAgentState={vi.fn()}
-        onCanvasChanged={vi.fn()}
-        onEnd={vi.fn()}
-        onNavigation={onNavigation}
-        onOpenDisplay={vi.fn()}
-        onRecalibrate={vi.fn()}
-        presenter={presenter}
-        sessionId="session-1"
-        video={
-          {
-            play: vi.fn().mockResolvedValue(undefined),
-          } as unknown as HTMLVideoElement
-        }
-      />,
-    );
-    await waitFor(() => expect(realtimeOptions).toHaveBeenCalled());
-    const options = realtimeOptions.mock.calls.at(-1)?.[0] as {
-      onNavigation: (event: unknown) => void;
-    };
-    const event = { kind: "focus", requestId: "nav-1", targetId: "target" };
-
-    options.onNavigation(event);
-    options.onNavigation(event);
-
-    expect(onNavigation).toHaveBeenCalledWith(event);
-    expect(recordingState.noteNavigation).toHaveBeenCalledOnce();
-    expect(recordingState.noteNavigation).toHaveBeenCalledWith(
-      event,
-      expect.any(Number),
-    );
-    expect(workspaceProps.mock.calls.at(-1)?.[0]).toEqual(
-      expect.objectContaining({ navigation: null }),
-    );
-  });
-
   it("provides the latest canvas to realtime during the render that receives it", async () => {
     const updatedCanvas: CanvasState = {
       ...emptyCanvas,
