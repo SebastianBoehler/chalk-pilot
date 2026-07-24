@@ -100,4 +100,5 @@ export function resetCanvasNavigationDom() {
   delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   delete (globalThis as { CSS?: unknown }).CSS;
   delete (globalThis as { Highlight?: unknown }).Highlight;
+  document.querySelector("#chalkpilot-canvas-highlight-style")?.remove();
 }

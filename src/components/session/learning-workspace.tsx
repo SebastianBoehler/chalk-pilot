@@ -8,6 +8,7 @@ import { ErrorPanel } from "@/components/ui/error-panel";
 import { StatusPill } from "@/components/ui/status-pill";
 import type { CanvasJobState } from "@/features/canvas-worker/client";
 import type { CanvasNavigation } from "@/features/canvas-navigation/schema";
+import { useResolvedCanvasNavigation } from "@/features/canvas-navigation/use-resolved-navigation";
 import type { AgentState } from "@/features/display/protocol";
 import type { SessionRecording } from "@/features/recording/use-session-recording";
 import type { TranscriptLine } from "@/features/session/transcript";
@@ -37,6 +38,10 @@ interface LearningWorkspaceProps {
 
 export function LearningWorkspace(props: LearningWorkspaceProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const resolvedNavigation = useResolvedCanvasNavigation(
+    props.canvas,
+    props.navigation,
+  );
   const recordingBusy =
     props.recording.canStop ||
     props.recording.status === "starting" ||
@@ -84,9 +89,18 @@ export function LearningWorkspace(props: LearningWorkspaceProps) {
         </header>
 
         <div className="flex-1 overflow-auto px-5 py-7 lg:px-8 lg:py-9">
+          {resolvedNavigation.navigationError ? (
+            <p
+              className="text-danger mx-auto mb-6 max-w-6xl text-sm"
+              role="alert"
+            >
+              {resolvedNavigation.navigationError}
+            </p>
+          ) : null}
           <PresentationCanvas
             canvas={props.canvas}
-            navigation={props.navigation}
+            navigation={resolvedNavigation.navigation}
+            onNavigationFailure={resolvedNavigation.onNavigationFailure}
           />
         </div>
       </main>

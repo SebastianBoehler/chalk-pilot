@@ -132,6 +132,7 @@ test("centers and pulses each semantic navigation request on the clean display",
   page,
   request,
 }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   const sessionId = await createArtifactSession(request);
   const canvas = await (
     await request.get(`/api/sessions/${sessionId}/canvas`)
@@ -168,6 +169,14 @@ test("centers and pulses each semantic navigation request on the clean display",
   const target = page.locator('[data-canvas-target="learning-mechanism"]');
   await expect(target).toBeVisible();
   await expect(target).toHaveAttribute("data-canvas-attention", "focus");
+  await expect
+    .poll(() =>
+      target.evaluate((element) => {
+        const style = window.getComputedStyle(element);
+        return `${style.outlineStyle}:${style.outlineWidth}`;
+      }),
+    )
+    .not.toBe("none:0px");
   await expect
     .poll(() => page.evaluate(() => window.navigationScrollCalls ?? []))
     .toEqual([{ target: "learning-mechanism", block: "center" }]);

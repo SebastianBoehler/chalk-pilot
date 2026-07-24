@@ -64,8 +64,10 @@ describe("SessionController navigation", () => {
   afterEach(() => {
     cleanup();
     realtimeOptions.mockClear();
+    recordingState.noteCanvas.mockClear();
     recordingState.noteNavigation.mockClear();
     workspaceProps.mockClear();
+    vi.restoreAllMocks();
   });
 
   it("records each realtime navigation request before forwarding it to the workspace", async () => {
@@ -101,18 +103,36 @@ describe("SessionController navigation", () => {
     );
     await waitFor(() => expect(realtimeOptions).toHaveBeenCalled());
     const options = realtimeOptions.mock.calls.at(-1)?.[0] as {
-      onNavigation: (event: unknown) => void;
+      onNavigation: (event: unknown, sourceCanvas: CanvasState) => void;
     };
     const event = { kind: "focus", requestId: "nav-1", targetId: "target" };
+    const sourceCanvas: CanvasState = {
+      ...canvas,
+      focusId: "target",
+      order: ["target"],
+      sections: {
+        target: {
+          id: "target",
+          kind: "markdown",
+          title: "New target",
+          content: "Created by the worker.",
+          createdAt: "2026-07-24T08:00:00.000Z",
+          updatedAt: "2026-07-24T08:00:00.000Z",
+        },
+      },
+    };
+    vi.spyOn(performance, "now").mockReturnValue(1_234);
 
-    options.onNavigation(event);
-    options.onNavigation(event);
+    options.onNavigation(event, sourceCanvas);
+    options.onNavigation(event, sourceCanvas);
 
     expect(onNavigation).toHaveBeenCalledWith(event);
+    expect(recordingState.noteCanvas).toHaveBeenCalledOnce();
+    expect(recordingState.noteCanvas).toHaveBeenCalledWith(sourceCanvas, 1_234);
     expect(recordingState.noteNavigation).toHaveBeenCalledOnce();
-    expect(recordingState.noteNavigation).toHaveBeenCalledWith(
-      event,
-      expect.any(Number),
+    expect(recordingState.noteNavigation).toHaveBeenCalledWith(event, 1_234);
+    expect(recordingState.noteCanvas.mock.invocationCallOrder[0]).toBeLessThan(
+      recordingState.noteNavigation.mock.invocationCallOrder[0]!,
     );
     expect(workspaceProps.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ navigation: null }),

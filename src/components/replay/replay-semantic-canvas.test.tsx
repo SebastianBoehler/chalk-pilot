@@ -195,4 +195,101 @@ describe("ReplaySemanticCanvas", () => {
     const target = scrollIntoView.mock.instances[0] as HTMLElement | undefined;
     expect(target?.dataset.canvasTarget).toBe("second");
   });
+
+  it("surfaces unavailable replay targets and highlight text", () => {
+    const { rerender } = render(
+      <ReplaySemanticCanvas
+        currentMs={1_000}
+        events={[{ type: "canvas", offsetMs: 0, revision: canvas("Concept") }]}
+        navigationEvents={[
+          {
+            type: "navigation",
+            offsetMs: 500,
+            navigation: {
+              requestId: "missing",
+              targetId: "missing",
+              kind: "focus",
+              issuedAt: timestamp,
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Canvas target is unavailable.",
+    );
+
+    rerender(
+      <ReplaySemanticCanvas
+        currentMs={1_000}
+        events={[{ type: "canvas", offsetMs: 0, revision: canvas("Concept") }]}
+        navigationEvents={[
+          {
+            type: "navigation",
+            offsetMs: 500,
+            navigation: {
+              requestId: "bad-highlight",
+              targetId: "concept",
+              kind: "highlight",
+              text: "**source-only**",
+              issuedAt: timestamp,
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Highlight text is unavailable.",
+    );
+  });
+
+  it("retries a timed navigation when a later revision introduces its target", () => {
+    const scrollIntoView = mockScrollIntoView();
+    const newConcept = canvas("New concept");
+    const events = [
+      {
+        type: "canvas" as const,
+        offsetMs: 0,
+        revision: { ...newConcept, focusId: null, order: [], sections: {} },
+      },
+      { type: "canvas" as const, offsetMs: 1_500, revision: newConcept },
+    ];
+    const navigationEvents = [
+      {
+        type: "navigation" as const,
+        offsetMs: 1_000,
+        navigation: {
+          requestId: "new-concept",
+          targetId: "concept",
+          kind: "focus" as const,
+          issuedAt: timestamp,
+        },
+      },
+    ];
+    const { rerender } = render(
+      <ReplaySemanticCanvas
+        currentMs={1_000}
+        events={events}
+        navigationEvents={navigationEvents}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Canvas target is unavailable.",
+    );
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    rerender(
+      <ReplaySemanticCanvas
+        currentMs={1_500}
+        events={events}
+        navigationEvents={navigationEvents}
+      />,
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+  });
 });

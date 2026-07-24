@@ -245,6 +245,7 @@ describe("ChalkPilotRealtime", () => {
         kind: "focus",
         targetId: "attention-flow",
       }),
+      completedCanvas,
     );
     expect(onCanvasJobState).toHaveBeenLastCalledWith("complete");
     expect(order).toContain("conversation.item.create");

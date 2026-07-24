@@ -5,6 +5,7 @@ import { findExactRenderedTextRange } from "./text-range";
 
 const ATTENTION_DURATION_MS = 5_000;
 const HIGHLIGHT_NAME = "canvas-navigation";
+const HIGHLIGHT_STYLE_ID = "chalkpilot-canvas-highlight-style";
 
 type HighlightRegistry = {
   delete: (name: string) => boolean;
@@ -22,10 +23,23 @@ function registerHighlight(range: Range) {
   const Highlight = globalThis.Highlight as HighlightConstructor | undefined;
   if (!css?.highlights || !Highlight) return () => {};
 
+  const document = range.startContainer.ownerDocument;
+  if (document) installHighlightStyle(document);
   css.highlights.set(HIGHLIGHT_NAME, new Highlight(range));
   return () => {
     css.highlights?.delete(HIGHLIGHT_NAME);
   };
+}
+
+function installHighlightStyle(document: Document) {
+  if (document.getElementById(HIGHLIGHT_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = HIGHLIGHT_STYLE_ID;
+  style.textContent = `::highlight(${HIGHLIGHT_NAME}) {
+    background: color-mix(in srgb, var(--focus) 45%, transparent);
+    color: var(--foreground);
+  }`;
+  document.head.append(style);
 }
 
 function prefersReducedMotion() {

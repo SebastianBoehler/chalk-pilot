@@ -41,6 +41,7 @@ describe("CanvasJobClient", () => {
 
     expect(onNavigation).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "focus", targetId: "mechanism" }),
+      canvas,
     );
   });
 

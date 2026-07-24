@@ -113,12 +113,9 @@ select {
 }
 
 [data-canvas-attention] {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
   animation: canvas-target-attention 650ms ease-out 2;
-}
-
-::highlight(canvas-navigation) {
-  background: color-mix(in srgb, var(--focus) 45%, transparent);
-  color: var(--foreground);
 }
 
 @keyframes canvas-target-attention {

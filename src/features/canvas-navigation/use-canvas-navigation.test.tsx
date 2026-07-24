@@ -127,6 +127,12 @@ describe("canvas navigation", () => {
 
     expect(set).toHaveBeenCalledOnce();
     expect(set.mock.calls[0]?.[1]).toBeInstanceOf(Highlight);
+    expect(
+      document.querySelectorAll("#chalkpilot-canvas-highlight-style"),
+    ).toHaveLength(1);
+    expect(
+      document.querySelector("#chalkpilot-canvas-highlight-style"),
+    ).toHaveTextContent("::highlight(canvas-navigation)");
     expect(onNavigationFailure).not.toHaveBeenCalled();
   });
 
@@ -212,6 +218,9 @@ describe("canvas navigation", () => {
         })}
       />,
     );
+    expect(
+      document.querySelectorAll("#chalkpilot-canvas-highlight-style"),
+    ).toHaveLength(1);
     expect(remove).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(5_000);

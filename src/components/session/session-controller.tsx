@@ -83,17 +83,27 @@ export function SessionController(props: SessionControllerProps) {
     attachTranscript: attachRecordingTranscript,
     noteCueEnd,
     noteCueStart,
+    noteCanvas,
     noteNavigation,
   } = recording;
+  const onRealtimeCanvasChanged = useCallback(
+    (canvas: CanvasState) => {
+      canvasRef.current = canvas;
+      onCanvasChanged(canvas);
+    },
+    [onCanvasChanged],
+  );
   const onRealtimeNavigation = useCallback(
-    (navigation: CanvasNavigation) => {
+    (navigation: CanvasNavigation, canvas: CanvasState) => {
       if (!recordedNavigationIds.current.has(navigation.requestId)) {
         recordedNavigationIds.current.add(navigation.requestId);
-        noteNavigation(navigation, performance.now());
+        const atMs = performance.now();
+        noteCanvas(canvas, atMs);
+        noteNavigation(navigation, atMs);
       }
       onNavigation(navigation);
     },
-    [noteNavigation, onNavigation],
+    [noteCanvas, noteNavigation, onNavigation],
   );
 
   useEffect(() => {
@@ -111,7 +121,7 @@ export function SessionController(props: SessionControllerProps) {
       sessionId,
       board,
       microphone,
-      onCanvasChanged,
+      onCanvasChanged: onRealtimeCanvasChanged,
       getCanvas: () => canvasRef.current,
       onNavigation: onRealtimeNavigation,
       onState: (agentState) => {
@@ -176,7 +186,7 @@ export function SessionController(props: SessionControllerProps) {
     noteCueEnd,
     noteCueStart,
     onAgentState,
-    onCanvasChanged,
+    onRealtimeCanvasChanged,
     onRealtimeNavigation,
     sessionId,
   ]);

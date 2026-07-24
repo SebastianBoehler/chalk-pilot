@@ -10,6 +10,7 @@ import {
   type CanvasNavigation,
 } from "@/features/canvas-navigation/schema";
 import {
+  canvasNavigationFailure,
   listCanvasTargets,
   resolveCanvasTarget,
 } from "@/features/canvas-navigation/targets";
@@ -32,7 +33,7 @@ interface ToolRuntime {
   getEvidenceId: () => string;
   getCanvas: () => CanvasState;
   onCanvasChanged: (canvas: CanvasState) => void;
-  onNavigation: (navigation: CanvasNavigation) => void;
+  onNavigation: (navigation: CanvasNavigation, canvas: CanvasState) => void;
   fetcher?: Fetcher;
 }
 
@@ -92,9 +93,14 @@ export function createChalkPilotActions(runtime: ToolRuntime) {
     async focusCanvas(raw: z.infer<typeof canvasTargetSchema>) {
       const input = canvasTargetSchema.parse(raw);
       const target = resolveCanvasTarget(runtime.getCanvas(), input.targetId);
-      await mutateCanvas({ action: "focus", sectionId: target.sectionId });
+      const canvas = await mutateCanvas({
+        action: "focus",
+        sectionId: target.sectionId,
+      });
+      const freshTarget = resolveCanvasTarget(canvas, input.targetId);
       runtime.onNavigation(
-        createCanvasNavigation({ kind: "focus", targetId: target.id }),
+        createCanvasNavigation({ kind: "focus", targetId: freshTarget.id }),
+        canvas,
       );
       return { focused: true };
     },
@@ -102,10 +108,20 @@ export function createChalkPilotActions(runtime: ToolRuntime) {
     async highlightCanvas(raw: z.infer<typeof canvasHighlightSchema>) {
       const input = canvasHighlightSchema.parse(raw);
       const target = resolveCanvasTarget(runtime.getCanvas(), input.targetId);
-      await mutateCanvas({ action: "focus", sectionId: target.sectionId });
-      if (!target.text.includes(input.text)) {
+      const canvas = await mutateCanvas({
+        action: "focus",
+        sectionId: target.sectionId,
+      });
+      const freshTarget = resolveCanvasTarget(canvas, input.targetId);
+      const highlight = createCanvasNavigation({
+        kind: "highlight",
+        targetId: freshTarget.id,
+        text: input.text,
+      });
+      if (canvasNavigationFailure(canvas, highlight)) {
         runtime.onNavigation(
-          createCanvasNavigation({ kind: "focus", targetId: target.id }),
+          createCanvasNavigation({ kind: "focus", targetId: freshTarget.id }),
+          canvas,
         );
         return {
           focused: true,
@@ -113,13 +129,7 @@ export function createChalkPilotActions(runtime: ToolRuntime) {
           error: "Highlight text is unavailable.",
         };
       }
-      runtime.onNavigation(
-        createCanvasNavigation({
-          kind: "highlight",
-          targetId: target.id,
-          text: input.text,
-        }),
-      );
+      runtime.onNavigation(highlight, canvas);
       return { focused: true, highlighted: true };
     },
 

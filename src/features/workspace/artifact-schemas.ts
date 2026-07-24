@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { containsCycle } from "./artifact-schema-graph";
 import { identifierSchema } from "./primitives";
 
 const shortTextSchema = z.string().trim().min(1).max(240);
@@ -65,8 +66,19 @@ export const chartArtifactDataSchema = z
   .strict()
   .superRefine(({ annotations = [], series, variant }, context) => {
     const points = series.flatMap(({ points }) => points);
+    const annotationIds = new Set<string>();
 
     for (const [index, annotation] of annotations.entries()) {
+      if (annotation.id) {
+        if (annotationIds.has(annotation.id)) {
+          context.addIssue({
+            code: "custom",
+            message: "Chart annotation IDs must be unique",
+            path: ["annotations", index, "id"],
+          });
+        }
+        annotationIds.add(annotation.id);
+      }
       if (!points.some((point) => Object.is(point.x, annotation.x))) {
         context.addIssue({
           code: "custom",
@@ -266,28 +278,3 @@ export type SequenceArtifactData = z.infer<typeof sequenceArtifactDataSchema>;
 export type CheckpointArtifactData = z.infer<
   typeof checkpointArtifactDataSchema
 >;
-
-function containsCycle(
-  nodeIds: string[],
-  edges: Array<{ from: string; to: string }>,
-) {
-  const incoming = new Map(nodeIds.map((id) => [id, 0]));
-  const outgoing = new Map(nodeIds.map((id) => [id, [] as string[]]));
-  for (const edge of edges) {
-    incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1);
-    outgoing.get(edge.from)?.push(edge.to);
-  }
-  const ready = nodeIds.filter((id) => incoming.get(id) === 0);
-  let visited = 0;
-  while (ready.length > 0) {
-    const current = ready.shift();
-    if (!current) break;
-    visited += 1;
-    for (const target of outgoing.get(current) ?? []) {
-      const next = (incoming.get(target) ?? 0) - 1;
-      incoming.set(target, next);
-      if (next === 0) ready.push(target);
-    }
-  }
-  return visited !== nodeIds.length;
-}

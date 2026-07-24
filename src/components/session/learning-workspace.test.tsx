@@ -145,4 +145,33 @@ describe("LearningWorkspace", () => {
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "End session" })).toBeDisabled();
   });
+
+  it("surfaces a navigation target that is unavailable in the workspace", () => {
+    render(
+      <LearningWorkspace
+        agentState="listening"
+        boardNotice="Board ready."
+        canvas={canvas}
+        canvasJobError={undefined}
+        canvasJobState="idle"
+        displayConnected
+        error={undefined}
+        onEnd={vi.fn()}
+        onInspect={vi.fn()}
+        navigation={{ ...navigation, targetId: "missing-target" }}
+        onOpenDisplay={vi.fn()}
+        onPause={vi.fn()}
+        onRecalibrate={vi.fn()}
+        paused={false}
+        preview={null}
+        realtimeConnected
+        recording={recording}
+        transcript={[]}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Canvas target is unavailable.",
+    );
+  });
 });

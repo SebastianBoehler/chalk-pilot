@@ -111,9 +111,11 @@ describe("semantic canvas targets", () => {
       sectionId: "mechanism",
       label: "Pressure",
       text: "Pressure\nA pressure difference moves fluid.",
+      highlightText: "Pressure\nA pressure difference moves fluid.",
     });
     expect(resolveCanvasTarget(canvas, "procedure:measure")).toMatchObject({
       text: "Measure\nRecord the starting pressure.",
+      highlightText: "Measure",
     });
     expect(resolveCanvasTarget(canvas, "prediction:prompt")).toMatchObject({
       text: "What happens when pressure increases?",
@@ -190,6 +192,28 @@ describe("semantic canvas targets", () => {
     expect(resolveCanvasTarget(categoricalCanvas, "categories").text).toContain(
       "Low\nHigh",
     );
+  });
+
+  it("keeps Markdown source semantic but approves only rendered-safe highlight text", () => {
+    const markdownCanvas: CanvasState = {
+      version: 1,
+      focusId: null,
+      order: ["explanation"],
+      sections: {
+        explanation: {
+          id: "explanation",
+          kind: "markdown",
+          title: "Pressure explanation",
+          content: "Use **pressure** and `flow` to explain the mechanism.",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      },
+    };
+
+    const target = resolveCanvasTarget(markdownCanvas, "explanation");
+    expect(target.text).toContain("**pressure**");
+    expect(target.highlightText).toBe("Pressure explanation");
   });
 
   it("rejects unavailable targets", () => {

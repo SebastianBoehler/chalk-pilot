@@ -211,7 +211,7 @@ export function ChartArtifact({
               />
             )),
           )}
-        {data.annotations?.map((annotation) => {
+        {data.annotations?.map((annotation, annotationIndex) => {
           const matchingPoint = points.find((point) =>
             Object.is(xValue(point), annotation.x),
           );
@@ -223,7 +223,7 @@ export function ChartArtifact({
                   ? nestedTarget(sectionId, annotation.id)
                   : undefined
               }
-              key={annotation.label}
+              key={annotation.id ?? `${annotation.label}-${annotationIndex}`}
             >
               <line
                 stroke="#171916"

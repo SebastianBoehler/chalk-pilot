@@ -1,11 +1,12 @@
 import type { CanvasSection, CanvasState } from "@/features/workspace/schema";
-import { nestedTarget } from "./schema";
+import { nestedTarget, type CanvasNavigation } from "./schema";
 
 export interface CanvasTarget {
   id: string;
   sectionId: string;
   label: string;
   text: string;
+  highlightText: string;
 }
 
 export function listCanvasTargets(canvas: CanvasState): CanvasTarget[] {
@@ -24,14 +25,43 @@ export function resolveCanvasTarget(
   return target;
 }
 
+export function canvasNavigationFailure(
+  canvas: CanvasState,
+  navigation: CanvasNavigation,
+) {
+  let target: CanvasTarget;
+  try {
+    target = resolveCanvasTarget(canvas, navigation.targetId);
+  } catch {
+    return "Canvas target is unavailable.";
+  }
+  if (
+    navigation.kind === "highlight" &&
+    (!navigation.text || !target.highlightText.includes(navigation.text))
+  ) {
+    return "Highlight text is unavailable.";
+  }
+}
+
 function targetsForSection(section: CanvasSection): CanvasTarget[] {
-  const target = (id: string, label: string, text: string): CanvasTarget => ({
+  const target = (
+    id: string,
+    label: string,
+    text: string,
+    highlightText = text,
+  ): CanvasTarget => ({
     id,
     sectionId: section.id,
     label,
     text,
+    highlightText,
   });
-  const sectionTarget = target(section.id, section.title, sectionText(section));
+  const sectionTarget = target(
+    section.id,
+    section.title,
+    sectionText(section),
+    sectionHighlightText(section),
+  );
 
   switch (section.kind) {
     case "flow":
@@ -53,6 +83,7 @@ function targetsForSection(section: CanvasSection): CanvasTarget[] {
             nestedTarget(section.id, step.id),
             step.title,
             sequenceStepText(section, index),
+            step.title,
           ),
         ),
       ];
@@ -146,6 +177,25 @@ function sectionText(section: CanvasSection) {
           : []),
       );
   }
+}
+
+function sectionHighlightText(section: CanvasSection) {
+  if (
+    section.kind === "markdown" ||
+    section.kind === "math" ||
+    section.kind === "mermaid" ||
+    section.kind === "image" ||
+    section.kind === "youtube"
+  ) {
+    return section.title;
+  }
+  if (section.kind === "sequence") {
+    return joinText(
+      section.title,
+      ...section.data.steps.map(({ title }) => title),
+    );
+  }
+  return sectionText(section);
 }
 
 function sequenceStepText(

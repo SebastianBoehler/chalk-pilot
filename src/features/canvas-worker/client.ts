@@ -26,7 +26,7 @@ interface CanvasJobClientOptions {
   fetcher: Fetcher;
   getBoardImage: () => string | null;
   onCanvasChanged: (canvas: CanvasState) => void;
-  onNavigation: (navigation: CanvasNavigation) => void;
+  onNavigation: (navigation: CanvasNavigation, canvas: CanvasState) => void;
   onState?: (state: CanvasJobState) => void;
   onError?: (message: string) => void;
   onCompleted: (jobId: string, summary: string) => void;
@@ -81,6 +81,7 @@ export class CanvasJobClient {
           kind: "focus",
           targetId: result.canvas.focusId,
         }),
+        result.canvas,
       );
       this.options.onCompleted(result.jobId, result.summary);
       this.options.onState?.("complete");

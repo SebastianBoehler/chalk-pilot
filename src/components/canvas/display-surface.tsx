@@ -1,26 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
 import { PresentationCanvas } from "./presentation-canvas";
+import { useResolvedCanvasNavigation } from "@/features/canvas-navigation/use-resolved-navigation";
 import { useDisplayReceiver } from "@/features/display/use-display-channel";
 
 export function DisplaySurface() {
   const state = useDisplayReceiver();
-  const [navigationError, setNavigationError] = useState<{
-    requestId: string;
-    message: string;
-  } | null>(null);
-  const requestId = state.navigation?.requestId;
-  const onNavigationFailure = useCallback(
-    (message: string) => {
-      if (requestId) setNavigationError({ requestId, message });
-    },
-    [requestId],
+  const resolvedNavigation = useResolvedCanvasNavigation(
+    state.canvas,
+    state.navigation,
   );
-  const visibleError =
-    navigationError && navigationError.requestId === requestId
-      ? navigationError.message
-      : null;
 
   return (
     <main className="bg-background min-h-screen px-8 py-7 lg:px-12">
@@ -38,19 +27,19 @@ export function DisplaySurface() {
           {state.synchronized ? state.agentState : "Waiting for controller"}
         </div>
       </header>
-      {visibleError ? (
+      {resolvedNavigation.navigationError ? (
         <p
           className="text-error mx-auto mb-6 max-w-6xl text-sm"
           data-display-navigation-error
           role="alert"
         >
-          {visibleError}
+          {resolvedNavigation.navigationError}
         </p>
       ) : null}
       <PresentationCanvas
         canvas={state.canvas}
-        navigation={state.navigation}
-        onNavigationFailure={onNavigationFailure}
+        navigation={resolvedNavigation.navigation}
+        onNavigationFailure={resolvedNavigation.onNavigationFailure}
       />
     </main>
   );

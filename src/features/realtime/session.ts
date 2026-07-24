@@ -52,7 +52,7 @@ export interface ChalkPilotRealtimeOptions {
   microphone: MediaStream;
   onCanvasChanged: (canvas: CanvasState) => void;
   getCanvas: () => CanvasState;
-  onNavigation: (navigation: CanvasNavigation) => void;
+  onNavigation: (navigation: CanvasNavigation, canvas: CanvasState) => void;
   onState?: (state: AgentState) => void;
   onError?: (message: string) => void;
   onTranscript?: (history: RealtimeItem[]) => void;
