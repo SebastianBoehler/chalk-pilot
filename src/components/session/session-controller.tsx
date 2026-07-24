@@ -65,6 +65,9 @@ export function SessionController(props: SessionControllerProps) {
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const realtimeRef = useRef<ChalkPilotRealtime | null>(null);
   const canvasRef = useRef(props.canvas);
+  // Realtime tools can run before passive effects after a canvas prop update.
+  // eslint-disable-next-line react-hooks/refs
+  canvasRef.current = props.canvas;
   const persisted = useRef(new Set<string>());
   const recording = useSessionRecording({
     video: props.video,
@@ -88,10 +91,6 @@ export function SessionController(props: SessionControllerProps) {
         : { type: "display_lost" },
     );
   }, [props.displayConnected]);
-
-  useEffect(() => {
-    canvasRef.current = props.canvas;
-  }, [props.canvas]);
 
   useEffect(() => {
     let active = true;

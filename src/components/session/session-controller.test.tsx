@@ -2,6 +2,7 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BoardController } from "@/features/board/board-controller";
+import { resolveCanvasTarget } from "@/features/canvas-navigation/targets";
 import type { CanvasState } from "@/features/workspace/schema";
 import { SessionController } from "./session-controller";
 
@@ -16,6 +17,7 @@ const {
   realtimeOptions,
   recordingOptions,
   recordingState,
+  canvasDuringWorkspaceRender,
   workspaceProps,
 } = vi.hoisted(() => ({
   realtimeInstances: [] as RealtimeInstance[],
@@ -35,9 +37,9 @@ const {
     attachTranscript: vi.fn(),
     noteCanvas: vi.fn(),
   },
+  canvasDuringWorkspaceRender: vi.fn(),
   workspaceProps: vi.fn(),
 }));
-
 vi.mock("@/features/realtime/session", () => ({
   ChalkPilotRealtime: class {
     connect: ReturnType<typeof vi.fn>;
@@ -62,9 +64,11 @@ vi.mock("@/features/realtime/session", () => ({
     }
   },
 }));
-
 vi.mock("./learning-workspace", () => ({
   LearningWorkspace: (props: unknown) => {
+    const options = realtimeOptions.mock.calls.at(-1)?.[0] as
+      { getCanvas?: () => CanvasState } | undefined;
+    if (options?.getCanvas) canvasDuringWorkspaceRender(options.getCanvas());
     workspaceProps(props);
     return null;
   },
@@ -76,7 +80,6 @@ vi.mock("@/features/recording/use-session-recording", () => ({
     return recordingState;
   },
 }));
-
 const corners = [
   { x: 0, y: 0 },
   { x: 1, y: 0 },
@@ -92,7 +95,10 @@ const emptyCanvas: CanvasState = {
 };
 const presenter = { id: "presenter", x: 0.1, y: 0.1, width: 0.2, height: 0.7 };
 
-function controller(microphone = {} as MediaStream) {
+function controller(
+  microphone = {} as MediaStream,
+  currentCanvas: CanvasState = emptyCanvas,
+) {
   const board = {
     getLatestImage: vi.fn(() => null),
     sample: vi.fn().mockResolvedValue(null),
@@ -104,7 +110,7 @@ function controller(microphone = {} as MediaStream) {
     <SessionController
       board={board}
       cameraUse="room-wide"
-      canvas={emptyCanvas}
+      canvas={currentCanvas}
       corners={[...corners]}
       displayConnected={false}
       microphone={microphone}
@@ -132,6 +138,7 @@ describe("SessionController", () => {
     recordingState.noteCueEnd.mockClear();
     recordingState.attachTranscript.mockClear();
     recordingState.noteCanvas.mockClear();
+    canvasDuringWorkspaceRender.mockClear();
     workspaceProps.mockClear();
   });
 
@@ -225,6 +232,36 @@ describe("SessionController", () => {
     expect(workspaceProps.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({ navigation: null }),
     );
+  });
+
+  it("provides the latest canvas to realtime during the render that receives it", async () => {
+    const updatedCanvas: CanvasState = {
+      ...emptyCanvas,
+      focusId: "new-target",
+      order: ["new-target"],
+      sections: {
+        "new-target": {
+          id: "new-target",
+          kind: "markdown",
+          title: "New target",
+          content: "Latest canvas target.",
+          createdAt: "2026-07-24T08:00:00.000Z",
+          updatedAt: "2026-07-24T08:00:00.000Z",
+        },
+      },
+    };
+    const rendered = render(controller());
+    await waitFor(() => expect(realtimeOptions).toHaveBeenCalled());
+    canvasDuringWorkspaceRender.mockClear();
+
+    rendered.rerender(controller({} as MediaStream, updatedCanvas));
+
+    expect(
+      resolveCanvasTarget(
+        canvasDuringWorkspaceRender.mock.calls[0]?.[0] as CanvasState,
+        "new-target",
+      ).sectionId,
+    ).toBe("new-target");
   });
 
   it("ignores the connection result from the disposed Strict Mode generation", async () => {

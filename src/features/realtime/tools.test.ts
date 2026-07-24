@@ -142,6 +142,20 @@ describe("ChalkPilot agent actions", () => {
     expect(runtime.onNavigation).not.toHaveBeenCalled();
   });
 
+  it("does not navigate when focus persistence fails", async () => {
+    const runtime = navigationRuntime({
+      fetcher: vi.fn(async () =>
+        Response.json({ error: "Focus could not persist." }, { status: 500 }),
+      ),
+    });
+    const actions = createChalkPilotActions(runtime);
+
+    await expect(
+      actions.focusCanvas({ targetId: "mechanism:pressure" }),
+    ).rejects.toThrow("ChalkPilot could not save that learning artifact.");
+    expect(runtime.onNavigation).not.toHaveBeenCalled();
+  });
+
   it("focuses but does not highlight text unavailable in the target", async () => {
     const runtime = navigationRuntime();
     const actions = createChalkPilotActions(runtime);

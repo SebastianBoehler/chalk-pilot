@@ -43,4 +43,71 @@ describe("CanvasJobClient", () => {
       expect.objectContaining({ kind: "focus", targetId: "mechanism" }),
     );
   });
+
+  it("does not navigate after a failed worker request", async () => {
+    const onCanvasChanged = vi.fn();
+    const onCompleted = vi.fn();
+    const onNavigation = vi.fn();
+    const onError = vi.fn();
+    const client = new CanvasJobClient({
+      sessionId: "session-1",
+      fetcher: vi.fn(async () =>
+        Response.json(
+          { error: "Canvas provider unavailable." },
+          { status: 503 },
+        ),
+      ),
+      getBoardImage: () => null,
+      onCanvasChanged,
+      onCompleted,
+      onNavigation,
+      onError,
+      createJobId: () => "job-1",
+    });
+
+    client.delegate({
+      artifact: "explanation",
+      goal: "Explain the mechanism.",
+    });
+    await client.whenIdle();
+
+    expect(onCanvasChanged).not.toHaveBeenCalled();
+    expect(onNavigation).not.toHaveBeenCalled();
+    expect(onCompleted).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith("Canvas provider unavailable.");
+  });
+
+  it("rejects a worker focus target not registered in its returned canvas", async () => {
+    const onCanvasChanged = vi.fn();
+    const onCompleted = vi.fn();
+    const onNavigation = vi.fn();
+    const onError = vi.fn();
+    const client = new CanvasJobClient({
+      sessionId: "session-1",
+      fetcher: vi.fn(async () =>
+        Response.json({
+          jobId: "job-1",
+          summary: "Added mechanism.",
+          canvas: { ...canvas, focusId: "missing-target" },
+        }),
+      ),
+      getBoardImage: () => null,
+      onCanvasChanged,
+      onCompleted,
+      onNavigation,
+      onError,
+      createJobId: () => "job-1",
+    });
+
+    client.delegate({
+      artifact: "explanation",
+      goal: "Explain the mechanism.",
+    });
+    await client.whenIdle();
+
+    expect(onCanvasChanged).not.toHaveBeenCalled();
+    expect(onNavigation).not.toHaveBeenCalled();
+    expect(onCompleted).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith("Canvas target is unavailable.");
+  });
 });

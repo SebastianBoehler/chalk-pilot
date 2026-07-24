@@ -5,6 +5,7 @@ import {
   createCanvasNavigation,
   type CanvasNavigation,
 } from "@/features/canvas-navigation/schema";
+import { resolveCanvasTarget } from "@/features/canvas-navigation/targets";
 import type { CanvasState } from "@/features/workspace/schema";
 import {
   canvasJobRequestSchema,
@@ -73,6 +74,7 @@ export class CanvasJobClient {
       if (!result.canvas.focusId) {
         throw new Error("Canvas worker result omitted its focus target.");
       }
+      resolveCanvasTarget(result.canvas, result.canvas.focusId);
       this.options.onCanvasChanged(result.canvas);
       this.options.onNavigation(
         createCanvasNavigation({
