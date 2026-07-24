@@ -108,7 +108,7 @@ export const curatedArtifactExamples = [
           ],
         },
       ],
-      annotations: [{ x: 80, y: 60, label: "Four times the 20 km/h distance" }],
+      annotations: [{ x: 80, y: 60, label: "Ten times the 20 km/h distance" }],
     },
   },
   {

@@ -44,7 +44,7 @@ describe("canvas artifact playbook", () => {
           {
             x: 80,
             y: 60,
-            label: "Four times the 20 km/h distance",
+            label: "Ten times the 20 km/h distance",
           },
         ]),
       },

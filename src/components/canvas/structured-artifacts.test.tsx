@@ -212,6 +212,14 @@ describe("trusted structured learning artifacts", () => {
     );
     expect(screen.getByText("constrains")).toBeInTheDocument();
     expect(screen.getByText("produces")).toBeInTheDocument();
+    const firstRelationship = document.querySelector(
+      '[data-flow-from="evidence"][data-flow-to="mechanism"]',
+    );
+    expect(firstRelationship).toHaveTextContent("Evidence");
+    expect(firstRelationship).toHaveTextContent("Mechanism");
+    expect(
+      firstRelationship?.querySelectorAll("[data-flow-endpoint]"),
+    ).toHaveLength(2);
     expect(
       screen.getByText("<script>never execute</script>"),
     ).toBeInTheDocument();

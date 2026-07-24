@@ -100,19 +100,23 @@ function FlowConnections({
     >
       {connections.map((edge) => (
         <li
-          className="border-border bg-surface flex max-w-44 items-center gap-2 rounded-full border px-3 py-2 text-center text-xs font-semibold"
-          key={`${edge.from}-${edge.to}`}
+          aria-label={`${titleById.get(edge.from)} to ${titleById.get(edge.to)}`}
+          className="border-border bg-surface flex max-w-48 flex-col items-center gap-1 rounded-2xl border px-3 py-2 text-center text-xs"
+          data-flow-from={edge.from}
+          data-flow-to={edge.to}
+          key={JSON.stringify([edge.from, edge.to])}
         >
-          <span className="sr-only">
-            {titleById.get(edge.from)} to {titleById.get(edge.to)}:
+          <span className="flex items-center gap-2 font-semibold">
+            <span data-flow-endpoint>{titleById.get(edge.from)}</span>
+            <span
+              aria-hidden="true"
+              className="text-primary text-xl leading-none"
+            >
+              {vertical ? "↓" : "→"}
+            </span>
+            <span data-flow-endpoint>{titleById.get(edge.to)}</span>
           </span>
           {edge.label && <span>{edge.label}</span>}
-          <span
-            aria-hidden="true"
-            className="text-primary text-xl leading-none"
-          >
-            {vertical ? "↓" : "→"}
-          </span>
         </li>
       ))}
     </ul>
