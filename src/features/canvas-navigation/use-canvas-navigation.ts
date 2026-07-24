@@ -68,7 +68,7 @@ export function useCanvasNavigation(
     target.dataset.canvasAttention = currentNavigation.kind;
 
     const clearHighlight =
-      currentNavigation.kind === "highlight" && currentNavigation.text
+      currentNavigation.kind === "highlight"
         ? highlightTargetText(
             target,
             currentNavigation.text,
@@ -90,9 +90,13 @@ export function useCanvasNavigation(
 
 function highlightTargetText(
   target: HTMLElement,
-  text: string,
+  text: string | undefined,
   onFailure?: (message: string) => void,
 ) {
+  if (!text) {
+    onFailure?.("Highlight text is unavailable.");
+    return () => {};
+  }
   const range = findExactRenderedTextRange(target, text);
   if (!range) {
     onFailure?.("Highlight text is unavailable.");

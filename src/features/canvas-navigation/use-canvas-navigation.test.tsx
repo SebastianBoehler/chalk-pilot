@@ -246,6 +246,28 @@ describe("canvas navigation", () => {
     );
   });
 
+  it("reports missing highlight text after scrolling and pulsing its target", () => {
+    const scrollIntoView = mockScrollIntoView();
+    const onNavigationFailure = vi.fn();
+
+    const { container } = render(
+      <PresentationCanvas
+        canvas={canvas}
+        navigation={nav("nav-1", "idea:pressure", { kind: "highlight" })}
+        onNavigationFailure={onNavigationFailure}
+      />,
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(
+      container.querySelector('[data-canvas-target="idea:pressure"]'),
+    ).toHaveAttribute("data-canvas-attention", "highlight");
+    expect(onNavigationFailure).toHaveBeenCalledOnce();
+    expect(onNavigationFailure).toHaveBeenCalledWith(
+      "Highlight text is unavailable.",
+    );
+  });
+
   it("registers a descendant-spanning range and cleans it on replacement, expiry, and unmount", () => {
     vi.useFakeTimers();
     mockScrollIntoView();
