@@ -31,6 +31,7 @@ export function useDisplayPublisher(snapshot: DisplaySnapshot) {
   const [readySignal, setReadySignal] = useState(0);
   const channelRef = useRef<BroadcastChannel>(null);
   const snapshotRef = useRef(snapshot);
+  const navigation = snapshot.navigation;
 
   useEffect(() => {
     const channel = new BroadcastChannel(CHANNEL_NAME);
@@ -63,13 +64,13 @@ export function useDisplayPublisher(snapshot: DisplaySnapshot) {
   }, [snapshot]);
 
   useEffect(() => {
-    if (!snapshot.navigation) return;
+    if (!navigation) return;
     channelRef.current?.postMessage({
       version: 1,
       type: "navigation",
-      payload: snapshot.navigation,
+      payload: navigation,
     });
-  }, [snapshot.navigation?.requestId]);
+  }, [navigation]);
 
   return { connected, readySignal };
 }
