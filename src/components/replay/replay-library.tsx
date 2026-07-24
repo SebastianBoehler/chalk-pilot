@@ -9,14 +9,14 @@ export function ReplayLibrary({
   error?: string;
 }) {
   return (
-    <main className="mx-auto min-h-screen w-full max-w-5xl px-6 py-10">
+    <main className="mx-auto min-h-[calc(100svh-4rem)] w-full max-w-5xl px-6 py-10">
       <header className="mb-10 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-semibold tracking-tight">
             Replay Studio
           </h1>
           <p className="text-muted mt-2 text-lg">
-            Revisit the board, canvas, conversation, and room audio together.
+            Review synchronized views, conversation, and room audio.
           </p>
         </div>
         <Link

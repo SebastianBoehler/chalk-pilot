@@ -26,10 +26,13 @@ export function ReplayMediaStage({
   onPictureInPicture(kind?: ReplayVideoKind): void;
 }) {
   return (
-    <section aria-label="Recorded views">
+    <section
+      aria-label="Recorded views"
+      className="flex min-h-0 flex-1 flex-col"
+    >
       {available.length ? (
         <>
-          <div className="bg-foreground relative aspect-video overflow-hidden rounded-3xl shadow-sm">
+          <div className="bg-foreground relative aspect-video min-h-64 overflow-hidden rounded-2xl shadow-sm lg:aspect-auto lg:min-h-0 lg:flex-1">
             {available.map((kind) => (
               <video
                 className={videoClass(kind, primary, pictureInPicture)}
@@ -42,27 +45,30 @@ export function ReplayMediaStage({
               />
             ))}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {available.map((kind) => (
-              <button
-                aria-pressed={primary === kind}
-                className={
-                  primary === kind
-                    ? "bg-primary rounded-xl px-4 py-2 font-semibold text-white"
-                    : "border-border bg-surface rounded-xl border px-4 py-2 font-semibold"
-                }
-                key={kind}
-                onClick={() => onPrimary(kind)}
-                type="button"
-              >
-                {`Show ${label(kind).toLowerCase()} as primary`}
-              </button>
-            ))}
+          <div className="border-border bg-surface mt-3 flex flex-wrap items-center gap-2 rounded-xl border p-2">
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              {available.map((kind) => (
+                <button
+                  aria-label={`Show ${label(kind).toLowerCase()} as primary`}
+                  aria-pressed={primary === kind}
+                  className={
+                    primary === kind
+                      ? "bg-foreground rounded-lg px-3 py-2 text-sm font-semibold text-white"
+                      : "hover:bg-surface-muted rounded-lg px-3 py-2 text-sm font-semibold"
+                  }
+                  key={kind}
+                  onClick={() => onPrimary(kind)}
+                  type="button"
+                >
+                  {label(kind)}
+                </button>
+              ))}
+            </div>
             {available.length > 1 && (
-              <label className="text-muted ml-auto flex items-center gap-2 text-sm">
+              <label className="text-muted flex items-center gap-2 text-sm">
                 Second view
                 <select
-                  className="border-border bg-surface rounded-lg border px-3 py-2"
+                  className="border-border bg-background text-foreground rounded-lg border px-3 py-2"
                   onChange={(event) =>
                     onPictureInPicture(
                       (event.target.value || undefined) as
@@ -85,7 +91,7 @@ export function ReplayMediaStage({
           </div>
         </>
       ) : (
-        <div className="border-border bg-surface grid aspect-video place-items-center rounded-3xl border">
+        <div className="border-border bg-surface grid aspect-video place-items-center rounded-2xl border lg:flex-1">
           <p className="text-muted">No video track is recoverable.</p>
         </div>
       )}
@@ -101,7 +107,7 @@ function videoClass(
   if (kind === primary)
     return "absolute inset-0 h-full w-full bg-black object-contain";
   if (kind === pictureInPicture)
-    return "border-surface absolute right-4 bottom-4 z-10 h-[32%] w-[32%] rounded-xl border-4 bg-black object-cover shadow-xl";
+    return "border-surface absolute right-3 bottom-3 z-10 h-[34%] min-h-24 w-[34%] min-w-40 rounded-xl border-4 bg-black object-cover shadow-xl";
   return "pointer-events-none absolute h-px w-px opacity-0";
 }
 

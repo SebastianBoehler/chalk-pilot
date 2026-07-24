@@ -166,8 +166,12 @@ test("keeps five-track recording alive across sidebar collapse and opens replay"
 
   await expect(page).toHaveURL(new RegExp(`/replay/${session.id}$`));
   await expect(
-    page.getByRole("heading", { name: "Session replay" }),
+    page.getByRole("heading", { name: "Replay Studio" }),
   ).toBeVisible();
+  await page
+    .getByRole("region", { name: "Downloads" })
+    .getByText("Downloads")
+    .click();
   for (const track of TRACKS) {
     await expect(
       page.getByRole("link", {

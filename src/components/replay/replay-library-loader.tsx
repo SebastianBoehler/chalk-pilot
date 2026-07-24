@@ -34,7 +34,7 @@ export function ReplayLibraryLoader({
 
   if (!summaries && !error) {
     return (
-      <main className="grid min-h-screen place-items-center">
+      <main className="grid min-h-[calc(100svh-4rem)] place-items-center">
         <p className="text-muted">Loading recordings…</p>
       </main>
     );

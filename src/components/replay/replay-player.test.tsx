@@ -101,6 +101,7 @@ describe("ReplayPlayer", () => {
   });
 
   beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
     vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(
       async () => undefined,
     );
@@ -117,7 +118,7 @@ describe("ReplayPlayer", () => {
     fireEvent.seeking(canvasVideo);
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Show board as primary" }),
+      screen.getByRole("button", { name: "Show canvas as primary" }),
     );
 
     expect(screen.getByTestId("track-board")).toBe(board);
@@ -131,17 +132,28 @@ describe("ReplayPlayer", () => {
   });
 
   it("adds a second view without reloading either mounted source", () => {
-    render(<ReplayPlayer manifest={manifest()} timeline={timeline} />);
+    const complete = manifest();
+    complete.tracks.speaker.byteSize = 100;
+    complete.tracks.speaker.durationMs = 10_000;
+    complete.tracks.speaker.health = "complete";
+    complete.tracks.speaker.interruption = null;
+    render(<ReplayPlayer manifest={complete} timeline={timeline} />);
     const board = screen.getByTestId("track-board");
+    const speaker = screen.getByTestId("track-speaker");
     const canvasVideo = screen.getByTestId("track-canvas");
 
+    expect(
+      screen.getByRole("button", { name: "Show board as primary" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(speaker).toHaveClass("rounded-xl");
+
     fireEvent.change(screen.getByRole("combobox", { name: "Second view" }), {
-      target: { value: "board" },
+      target: { value: "canvas" },
     });
 
     expect(screen.getByTestId("track-board")).toBe(board);
     expect(screen.getByTestId("track-canvas")).toBe(canvasVideo);
-    expect(board).toHaveClass("rounded-xl");
+    expect(canvasVideo).toHaveClass("rounded-xl");
   });
 
   it("shows interrupted tracks and remains usable with a partial recording", () => {
@@ -183,7 +195,7 @@ describe("ReplayPlayer", () => {
     fireEvent.timeUpdate(microphone);
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Show board as primary" }),
+      screen.getByRole("button", { name: "Show canvas as primary" }),
     );
 
     expect(screen.getByText("1:15 / 2:00")).toBeVisible();
@@ -232,6 +244,7 @@ describe("ReplayPlayer", () => {
       .getByText("What does this mean?")
       .closest("button");
     expect(activeCue).toHaveAttribute("aria-current", "true");
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
 
     fireEvent.click(screen.getByText("Look at the second step."));
     expect(canvasVideo.currentTime).toBe(3);
@@ -253,6 +266,14 @@ describe("ReplayPlayer", () => {
       screen.getByRole("button", { name: /Mute desktop audio/i }),
     );
 
+    expect(
+      screen.getByRole("button", { name: "Unmute Desktop audio" }),
+    ).not.toHaveTextContent("Unmute Desktop audio");
+    expect(
+      screen
+        .getByRole("button", { name: "Unmute Desktop audio" })
+        .querySelector("svg"),
+    ).toBeInTheDocument();
     expect(microphone.volume).toBe(0.35);
     expect(desktop.muted).toBe(true);
     expect(microphone.muted).toBe(false);
@@ -261,6 +282,7 @@ describe("ReplayPlayer", () => {
   it("offers individual and portable downloads", () => {
     render(<ReplayPlayer manifest={manifest()} timeline={timeline} />);
     const downloads = screen.getByRole("region", { name: "Downloads" });
+    fireEvent.click(within(downloads).getByText("Downloads"));
 
     expect(
       within(downloads).getByRole("link", { name: "Download board" }),
@@ -268,5 +290,17 @@ describe("ReplayPlayer", () => {
     expect(
       within(downloads).getByRole("link", { name: "Download session package" }),
     ).toHaveAttribute("href", "/api/sessions/session-1/recording/export");
+  });
+
+  it("keeps replay in a bounded studio without rebuilding semantic artifacts", () => {
+    const view = render(
+      <ReplayPlayer manifest={manifest()} timeline={timeline} />,
+    );
+
+    expect(view.container.querySelector("[data-replay-studio]")).toHaveClass(
+      "lg:h-[calc(100svh-4rem)]",
+    );
+    expect(screen.queryByText("Canvas at this moment")).not.toBeInTheDocument();
+    expect(screen.queryByText("First concept")).not.toBeInTheDocument();
   });
 });

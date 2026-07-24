@@ -12,7 +12,7 @@ export function ReplayTrackHealth({
   return (
     <section
       aria-label="Recording recovery"
-      className="border-danger/25 bg-surface mt-5 rounded-2xl border p-5"
+      className="border-danger/25 bg-surface rounded-2xl border p-4"
     >
       <h2 className="font-semibold">Some recording evidence is incomplete</h2>
       <ul className="text-muted mt-2 list-disc space-y-1 pl-5 text-sm">

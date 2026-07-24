@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { SiteNavigation } from "@/components/navigation/site-navigation";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 
@@ -17,7 +18,10 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <SiteNavigation />
+        {children}
+      </body>
     </html>
   );
 }

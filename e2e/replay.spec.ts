@@ -7,13 +7,6 @@ import {
   type Page,
 } from "@playwright/test";
 import { installMediaFixture } from "./support/media-fixture";
-import { addNavigableTimeline, seekReplay } from "./support/replay-navigation";
-
-declare global {
-  interface Window {
-    replayNavigationScrollCalls?: string[];
-  }
-}
 
 const TRACKS = [
   "board",
@@ -28,7 +21,8 @@ test.beforeEach(async ({ page }) => {
   await installMediaFixture(page, { height: 180, width: 320 });
 });
 
-test.afterEach(async () => {
+test.afterEach(async ({ page }) => {
+  await page.goto("about:blank");
   await Promise.all(
     [...createdSessions].map((sessionId) =>
       rm(join(process.cwd(), ".chalkpilot", "sessions", sessionId), {
@@ -53,7 +47,7 @@ test("switches synchronized views, seeks transcript, controls audio, and exports
   await expect(card).toBeVisible();
   await card.click();
   await expect(
-    page.getByRole("heading", { name: "Session replay" }),
+    page.getByRole("heading", { name: "Replay Studio" }),
   ).toBeVisible();
 
   const canvas = page.getByTestId("track-canvas");
@@ -62,9 +56,9 @@ test("switches synchronized views, seeks transcript, controls audio, and exports
     media.dispatchEvent(new Event("timeupdate"));
   });
   await expect(page.getByText("0:04 / 0:08")).toBeVisible();
-  await page.getByRole("button", { name: "Show board as primary" }).click();
+  await page.getByRole("button", { name: "Show canvas as primary" }).click();
   const board = page.getByTestId("track-board");
-  await expect(board).toHaveClass(/inset-0/);
+  await expect(canvas).toHaveClass(/inset-0/);
   await expect
     .poll(() => board.evaluate((media: HTMLMediaElement) => media.currentTime))
     .toBe(4.2);
@@ -77,7 +71,7 @@ test("switches synchronized views, seeks transcript, controls audio, and exports
     .toBe(2);
   await expect(page.getByText("0:02 / 0:08")).toBeVisible();
 
-  await page.getByRole("button", { name: "Mute Microphone" }).click();
+  await page.getByRole("button", { name: "Mute Microphone" }).press("Enter");
   await page.getByLabel("Microphone volume").fill("0.35");
   await expect
     .poll(() =>
@@ -97,6 +91,10 @@ test("switches synchronized views, seeks transcript, controls audio, and exports
     )
     .toBe(false);
 
+  await page
+    .getByRole("region", { name: "Downloads" })
+    .getByText("Downloads")
+    .click();
   for (const track of TRACKS) {
     await expect(
       page.getByRole("link", { name: `Download ${trackLabel(track)}` }),
@@ -126,6 +124,10 @@ test("surfaces interrupted tracks while preserving recovered downloads", async (
     }),
   ).toBeVisible();
   await expect(page.getByText("Speaker: No chunks acknowledged")).toBeVisible();
+  await page
+    .getByRole("region", { name: "Downloads" })
+    .getByText("Downloads")
+    .click();
   await expect(
     page.getByRole("link", { name: "Download board" }),
   ).toBeVisible();
@@ -134,39 +136,18 @@ test("surfaces interrupted tracks while preserving recovered downloads", async (
   ).toHaveCount(0);
 });
 
-test("replays navigation once when seeking past it, not when only canvas changes", async ({
+test("uses the recorded canvas stream without rebuilding semantic artifacts", async ({
   page,
   request,
 }) => {
   const sessionId = await createRecording(request, TRACKS);
-  await addNavigableTimeline(request, sessionId);
+  await addTimeline(request, sessionId);
   await finalizeRecording(request, sessionId);
 
   await page.goto(`/replay/${sessionId}`);
-  await page.evaluate(() => {
-    const calls: string[] = [];
-    Element.prototype.scrollIntoView = function () {
-      if (this instanceof HTMLElement)
-        calls.push(this.dataset.canvasTarget ?? "");
-    };
-    window.replayNavigationScrollCalls = calls;
-  });
-  const canvas = page.getByTestId("track-canvas");
-
-  await seekReplay(canvas, 1);
-  await expect
-    .poll(() => page.evaluate(() => window.replayNavigationScrollCalls ?? []))
-    .toEqual([]);
-
-  await seekReplay(canvas, 2.5);
-  await expect
-    .poll(() => page.evaluate(() => window.replayNavigationScrollCalls ?? []))
-    .toEqual(["explanation"]);
-
-  await seekReplay(canvas, 3.5);
-  await expect
-    .poll(() => page.evaluate(() => window.replayNavigationScrollCalls ?? []))
-    .toEqual(["explanation"]);
+  await expect(page.getByTestId("track-canvas")).toBeAttached();
+  await expect(page.getByText("Canvas at this moment")).toHaveCount(0);
+  await expect(page.locator("[data-canvas-target]")).toHaveCount(0);
 });
 
 async function createRecording(

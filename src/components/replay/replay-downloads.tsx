@@ -14,28 +14,32 @@ export function ReplayDownloads({
   return (
     <section
       aria-label="Downloads"
-      className="border-border bg-surface mt-8 rounded-2xl border p-5"
+      className="border-border bg-surface rounded-2xl border"
     >
-      <h2 className="text-xl font-semibold">Downloads</h2>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {tracks.map((track) => (
+      <details>
+        <summary className="cursor-pointer px-4 py-3 font-semibold">
+          Downloads
+        </summary>
+        <div className="border-border grid max-h-52 gap-2 overflow-y-auto border-t p-3">
+          {tracks.map((track) => (
+            <a
+              className="border-border rounded-lg border px-3 py-2 text-sm font-semibold"
+              download={`${manifest.sessionId}-${track.kind}.webm`}
+              href={client.trackUrl(manifest.sessionId, track.kind)}
+              key={track.kind}
+            >
+              Download {trackLabel(track.kind)}
+            </a>
+          ))}
           <a
-            className="border-border rounded-lg border px-3 py-2 text-sm font-semibold"
-            download={`${manifest.sessionId}-${track.kind}.webm`}
-            href={client.trackUrl(manifest.sessionId, track.kind)}
-            key={track.kind}
+            className="bg-primary rounded-lg px-3 py-2 text-sm font-semibold text-white"
+            download={`${manifest.sessionId}.chalkpilot.zip`}
+            href={client.exportUrl(manifest.sessionId)}
           >
-            Download {trackLabel(track.kind)}
+            Download session package
           </a>
-        ))}
-        <a
-          className="bg-primary rounded-lg px-3 py-2 text-sm font-semibold text-white"
-          download={`${manifest.sessionId}.chalkpilot.zip`}
-          href={client.exportUrl(manifest.sessionId)}
-        >
-          Download session package
-        </a>
-      </div>
+        </div>
+      </details>
     </section>
   );
 }

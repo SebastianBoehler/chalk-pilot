@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type RefCallback } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefCallback,
+} from "react";
 import type { TrackKind } from "@/features/recording/schema";
 
 type AudioKind = Extract<TrackKind, "microphone" | "desktop-audio">;
@@ -48,15 +55,15 @@ export function ReplayAudioControls({
   return (
     <section
       aria-label="Audio tracks"
-      className="border-border bg-surface mt-5 rounded-2xl border p-5"
+      className="border-border bg-surface mt-3 rounded-xl border px-3 py-2"
     >
-      <h2 className="text-xl font-semibold">Audio</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <h2 className="sr-only">Audio</h2>
+      <div className="grid gap-2 sm:grid-cols-2">
         {available.map((kind) => {
           const setting = settings[kind];
           const name = label(kind);
           return (
-            <div className="flex items-center gap-3" key={kind}>
+            <div className="flex min-w-0 items-center gap-2" key={kind}>
               <audio
                 data-testid={`track-${kind}`}
                 muted={setting.muted}
@@ -65,7 +72,8 @@ export function ReplayAudioControls({
                 src={sourceFor(kind)}
               />
               <button
-                className="border-border min-w-20 rounded-lg border px-3 py-2 text-sm font-semibold"
+                aria-label={setting.muted ? `Unmute ${name}` : `Mute ${name}`}
+                className="border-border hover:bg-surface-muted grid size-9 shrink-0 place-items-center rounded-lg border"
                 onClick={() =>
                   setSettings((current) => ({
                     ...current,
@@ -74,13 +82,15 @@ export function ReplayAudioControls({
                 }
                 type="button"
               >
-                {setting.muted ? `Unmute ${name}` : `Mute ${name}`}
+                {setting.muted ? <MutedIcon /> : <VolumeIcon />}
               </button>
-              <label className="text-muted flex flex-1 items-center gap-2 text-sm">
-                <span className="sr-only">{name} volume</span>
+              <label className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="text-muted w-20 shrink-0 truncate text-xs font-semibold">
+                  {name}
+                </span>
                 <input
                   aria-label={`${name} volume`}
-                  className="accent-primary w-full"
+                  className="replay-range w-full"
                   max={1}
                   min={0}
                   onChange={(event) =>
@@ -95,6 +105,11 @@ export function ReplayAudioControls({
                   step={0.05}
                   type="range"
                   value={setting.volume}
+                  style={
+                    {
+                      "--range-progress": `${setting.volume * 100}%`,
+                    } as CSSProperties
+                  }
                 />
               </label>
             </div>
@@ -102,6 +117,34 @@ export function ReplayAudioControls({
         })}
       </div>
     </section>
+  );
+}
+
+function VolumeIcon() {
+  return (
+    <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 20 20">
+      <path
+        d="M3.5 8h3l4-3.25v10.5L6.5 12h-3V8Zm9.5-.5a4 4 0 0 1 0 5m1.75-7.25a7 7 0 0 1 0 9.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
+}
+
+function MutedIcon() {
+  return (
+    <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 20 20">
+      <path
+        d="M3.5 8h3l4-3.25v10.5L6.5 12h-3V8Zm9.25.25 4 4m0-4-4 4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
+    </svg>
   );
 }
 

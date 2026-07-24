@@ -12,7 +12,6 @@ import type {
 import { ReplayAudioControls } from "./replay-audio-controls";
 import { ReplayDownloads } from "./replay-downloads";
 import { ReplayMediaStage, type ReplayVideoKind } from "./replay-media-stage";
-import { ReplaySemanticCanvas } from "./replay-semantic-canvas";
 import { ReplayTimelineControls } from "./replay-timeline-controls";
 import { ReplayTrackHealth } from "./replay-track-health";
 import { ReplayTranscript } from "./replay-transcript";
@@ -50,22 +49,29 @@ function FinalizedReplay({
   const [primary, setPrimary] = useState<ReplayVideoKind | undefined>(
     preferredPrimary(videos),
   );
-  const [pictureInPicture, setPictureInPicture] = useState<ReplayVideoKind>();
+  const [pictureInPicture, setPictureInPicture] = useState<
+    ReplayVideoKind | undefined
+  >(() => preferredSecondary(videos, preferredPrimary(videos)));
   const leaderKind = selectReplayLeader(manifest);
   const controller = useReplayController(manifest, leaderKind);
   const client = useMemo(() => new ReplayClient(), []);
   const sourceFor = (kind: TrackKind) =>
     client.trackUrl(manifest.sessionId, kind);
   const changePrimary = (kind: ReplayVideoKind) => {
-    setPrimary(kind);
-    if (pictureInPicture === kind) setPictureInPicture(undefined);
+    setPrimary((current) => {
+      if (pictureInPicture === kind) setPictureInPicture(current);
+      return kind;
+    });
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[96rem] px-5 py-6">
+    <main
+      className="mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-[96rem] flex-col px-5 py-4 lg:h-[calc(100svh-4rem)] lg:overflow-hidden"
+      data-replay-studio
+    >
       <ReplayHeader startedAt={manifest.startedAt} />
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div>
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="flex min-h-0 flex-col">
           <ReplayMediaStage
             available={videos}
             onPictureInPicture={setPictureInPicture}
@@ -105,20 +111,17 @@ function FinalizedReplay({
             refs={controller.refs}
             sourceFor={sourceFor}
           />
-          <ReplayTrackHealth manifest={manifest} />
         </div>
-        <ReplayTranscript
-          cues={timeline.transcript}
-          currentMs={controller.currentMs}
-          onSeek={controller.seek}
-        />
+        <aside className="flex min-h-0 flex-col gap-3">
+          <ReplayTranscript
+            cues={timeline.transcript}
+            currentMs={controller.currentMs}
+            onSeek={controller.seek}
+          />
+          <ReplayTrackHealth manifest={manifest} />
+          <ReplayDownloads client={client} manifest={manifest} />
+        </aside>
       </div>
-      <ReplaySemanticCanvas
-        currentMs={controller.currentMs}
-        events={timeline.canvasEvents}
-        navigationEvents={timeline.navigationEvents}
-      />
-      <ReplayDownloads client={client} manifest={manifest} />
     </main>
   );
 }
@@ -140,12 +143,10 @@ function RecordingInProgress({ manifest }: { manifest: RecordingManifest }) {
 
 function ReplayHeader({ startedAt }: { startedAt: string }) {
   return (
-    <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <header className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-4">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Session replay
-        </h1>
-        <p className="text-muted mt-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Replay Studio</h1>
+        <p className="text-muted text-sm">
           {new Intl.DateTimeFormat("en-GB", {
             dateStyle: "medium",
             timeStyle: "short",
@@ -163,5 +164,18 @@ function ReplayHeader({ startedAt }: { startedAt: string }) {
 }
 
 function preferredPrimary(available: ReplayVideoKind[]) {
-  return available.includes("canvas") ? "canvas" : available[0];
+  return available.includes("board")
+    ? "board"
+    : available.includes("canvas")
+      ? "canvas"
+      : available[0];
+}
+
+function preferredSecondary(
+  available: ReplayVideoKind[],
+  primary?: ReplayVideoKind,
+) {
+  return (["speaker", "canvas", "board"] as const).find(
+    (kind) => kind !== primary && available.includes(kind),
+  );
 }
