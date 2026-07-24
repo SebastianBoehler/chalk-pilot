@@ -38,6 +38,7 @@ test("renders persisted typed artifacts on the synchronized display", async ({
     focusId: "retrieval-check",
     order: [
       "recall-growth",
+      "learning-mechanism",
       "retrieval-loop",
       "retrieval-check",
       "compare-recall",
@@ -45,6 +46,7 @@ test("renders persisted typed artifacts on the synchronized display", async ({
     ],
     sections: {
       "recall-growth": { kind: "chart" },
+      "learning-mechanism": { kind: "flow" },
       "retrieval-loop": { kind: "sequence" },
       "retrieval-check": { kind: "checkpoint" },
       "compare-recall": { kind: "comparison" },
@@ -70,6 +72,11 @@ test("renders persisted typed artifacts on the synchronized display", async ({
     page.getByRole("figure", { name: "Recall growth" }),
   ).toBeVisible();
   await expect(page.getByLabel("Chart legend")).toContainText("Recall");
+  await expect(page.getByLabel("Concept flow")).toBeVisible();
+  await expect(
+    page.getByRole("article", { name: "Connect the mechanism" }),
+  ).toHaveAttribute("aria-current", "true");
+  await expect(page.getByText("supports")).toBeVisible();
   await expect(page.getByLabel("Learning sequence")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Retrieve from memory" }),
@@ -85,6 +92,9 @@ test("renders persisted typed artifacts on the synchronized display", async ({
     "2026-07-23T10:01:00.000Z";
   updatedCanvas.sections["retrieval-check"].data.status = "correct";
   updatedCanvas.sections["retrieval-check"].data.showAnswer = true;
+  updatedCanvas.sections["learning-mechanism"].updatedAt =
+    "2026-07-23T10:01:00.000Z";
+  updatedCanvas.sections["learning-mechanism"].data.activeNodeId = "transfer";
   await page.evaluate(async (nextCanvas) => {
     const channel = new BroadcastChannel("chalkpilot-display-v1");
     channel.postMessage({
@@ -99,6 +109,9 @@ test("renders persisted typed artifacts on the synchronized display", async ({
     "Correct",
   );
   await expect(page.getByText("Retrieve from memory.")).toBeVisible();
+  await expect(
+    page.getByRole("article", { name: "Try a new case" }),
+  ).toHaveAttribute("aria-current", "true");
 
   await expect(
     page.getByText("This diagram could not be rendered."),
@@ -145,6 +158,36 @@ const artifactSections = [
             { x: 3, y: 8 },
           ],
         },
+      ],
+    },
+  },
+  {
+    id: "learning-mechanism",
+    kind: "flow",
+    title: "From evidence to transfer",
+    data: {
+      orientation: "horizontal",
+      activeNodeId: "connect",
+      nodes: [
+        {
+          id: "observe",
+          title: "Observe evidence",
+          detail: "Notice the part that changes.",
+        },
+        {
+          id: "connect",
+          title: "Connect the mechanism",
+          detail: "Explain why the evidence produces the result.",
+        },
+        {
+          id: "transfer",
+          title: "Try a new case",
+          detail: "Use the same mechanism in a different situation.",
+        },
+      ],
+      edges: [
+        { from: "observe", to: "connect", label: "supports" },
+        { from: "connect", to: "transfer", label: "generalizes to" },
       ],
     },
   },
