@@ -12,15 +12,22 @@ describe("canvas artifact playbook", () => {
     const kinds = curatedArtifactExamples.map((example) => example.kind);
 
     expect(kinds).toEqual(
-      expect.arrayContaining(["sequence", "comparison", "chart", "checkpoint"]),
+      expect.arrayContaining([
+        "flow",
+        "sequence",
+        "comparison",
+        "chart",
+        "checkpoint",
+      ]),
     );
-    expect(curatedArtifactExamples).toHaveLength(4);
+    expect(curatedArtifactExamples).toHaveLength(5);
     for (const example of curatedArtifactExamples) {
       expect(canvasSectionInputSchema.parse(example)).toEqual(example);
     }
   });
 
-  it("makes the examples concrete learning interactions rather than renamed prose", () => {
+  it("uses cross-domain learning interactions rather than a subject template", () => {
+    const examples = JSON.stringify(curatedArtifactExamples).toLowerCase();
     const chart = curatedArtifactExamples.find(
       (example) => example.kind === "chart",
     );
@@ -34,10 +41,11 @@ describe("canvas artifact playbook", () => {
         variant: "scatter",
         series: [{ points: expect.any(Array) }],
         annotations: expect.arrayContaining([
-          { x: -1.2, y: 0.9, label: "cat" },
-          { x: -0.8, y: 1.1, label: "dog" },
-          { x: 1, y: -0.7, label: "run" },
-          { x: 1.3, y: -1, label: "walk" },
+          {
+            x: 80,
+            y: 60,
+            label: "Four times the 20 km/h distance",
+          },
         ]),
       },
     });
@@ -45,6 +53,37 @@ describe("canvas artifact playbook", () => {
       kind: "checkpoint",
       data: { mode: "prediction", showAnswer: false, status: "unanswered" },
     });
+    expect(examples).not.toMatch(/token|embedding|nlp|language model/);
+  });
+
+  it("distinguishes a conceptual mechanism flow from a progressive procedure", () => {
+    const flow = curatedArtifactExamples.find(
+      (example) => example.kind === "flow",
+    );
+    const sequence = curatedArtifactExamples.find(
+      (example) => example.kind === "sequence",
+    );
+
+    expect(flow).toMatchObject({
+      kind: "flow",
+      data: {
+        nodes: expect.any(Array),
+        edges: expect.any(Array),
+      },
+    });
+    expect(sequence).toMatchObject({
+      kind: "sequence",
+      data: {
+        steps: expect.any(Array),
+        reveal: "through-active",
+      },
+    });
+    expect(artifactPlaybookInstructions).toContain(
+      "mechanism, transformation, causal chain, or architecture",
+    );
+    expect(artifactPlaybookInstructions).toContain(
+      "progressively revealed procedure",
+    );
   });
 
   it("directs the worker toward one focused, safe visual update", () => {
