@@ -86,6 +86,9 @@ function targetsForSection(section: CanvasSection): CanvasTarget[] {
 }
 
 function sectionText(section: CanvasSection) {
+  if (section.kind === "image" || section.kind === "youtube") {
+    return section.title;
+  }
   if ("content" in section) return joinText(section.title, section.content);
 
   switch (section.kind) {
@@ -96,7 +99,10 @@ function sectionText(section: CanvasSection) {
         section.data.yLabel,
         ...section.data.series.flatMap((series) => [
           series.name,
-          ...series.points.flatMap(({ label }) => (label ? [label] : [])),
+          ...series.points.flatMap(({ label, x }) => [
+            typeof x === "string" ? x : undefined,
+            label,
+          ]),
         ]),
         ...(section.data.annotations ?? []).map(({ label }) => label),
       );

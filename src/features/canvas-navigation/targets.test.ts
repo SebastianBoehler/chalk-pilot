@@ -123,6 +123,75 @@ describe("semantic canvas targets", () => {
     });
   });
 
+  it("keeps media source URLs out of section target text", () => {
+    const imageUrl = "https://example.com/pressure-diagram.png";
+    const videoUrl = "https://youtu.be/dQw4w9WgXcQ";
+    const mediaCanvas: CanvasState = {
+      version: 1,
+      focusId: null,
+      order: ["diagram", "lecture"],
+      sections: {
+        diagram: {
+          id: "diagram",
+          kind: "image",
+          title: "Pressure diagram",
+          content: imageUrl,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        lecture: {
+          id: "lecture",
+          kind: "youtube",
+          title: "Pressure lecture",
+          content: videoUrl,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      },
+    };
+
+    const targets = listCanvasTargets(mediaCanvas);
+    expect(targets.map(({ text }) => text)).toEqual([
+      "Pressure diagram",
+      "Pressure lecture",
+    ]);
+    expect(targets.map(({ text }) => text).join("\n")).not.toContain(imageUrl);
+    expect(targets.map(({ text }) => text).join("\n")).not.toContain(videoUrl);
+  });
+
+  it("includes categorical chart x-values in section target text", () => {
+    const categoricalCanvas: CanvasState = {
+      version: 1,
+      focusId: null,
+      order: ["categories"],
+      sections: {
+        categories: {
+          id: "categories",
+          kind: "chart",
+          title: "Pressure categories",
+          data: {
+            variant: "bar",
+            series: [
+              {
+                name: "Pressure",
+                points: [
+                  { x: "Low", y: 1 },
+                  { x: "High", y: 3 },
+                ],
+              },
+            ],
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      },
+    };
+
+    expect(resolveCanvasTarget(categoricalCanvas, "categories").text).toContain(
+      "Low\nHigh",
+    );
+  });
+
   it("rejects unavailable targets", () => {
     expect(() => resolveCanvasTarget(canvas, "missing")).toThrow(
       "Canvas target is unavailable.",
