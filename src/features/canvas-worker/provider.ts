@@ -73,6 +73,7 @@ export function createCanvasModel(
     appName: "ChalkPilot",
     appUrl: "https://github.com/SebastianBoehler/chalk-pilot",
   })(config.model, {
+    reasoning: { effort: "low" },
     provider: {
       sort: "throughput",
       require_parameters: true,

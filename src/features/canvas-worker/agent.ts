@@ -1,5 +1,4 @@
 import {
-  Output,
   ToolLoopAgent,
   stepCountIs,
   tool,
@@ -19,9 +18,7 @@ import { createCanvasJobActions } from "./canvas-job-actions";
 import { projectCanvasSnapshot } from "./canvas-snapshot";
 import type { CanvasJobRequest } from "./schema";
 
-const completionSchema = z.object({
-  summary: z.string().trim().min(1).max(500),
-});
+const completionSchema = z.string().trim().min(1).max(500);
 
 export const canvasWorkerInstructions = `
 You are ChalkPilot's canvas specialist. Turn a teaching goal into concise,
@@ -60,7 +57,21 @@ export async function runCanvasAgent(input: RunCanvasAgentInput) {
     instructions: canvasWorkerInstructions,
     maxOutputTokens: 4_096,
     stopWhen: stepCountIs(6),
-    output: Output.object({ schema: completionSchema }),
+    prepareStep: ({ stepNumber }) => {
+      if (stepNumber === 0) {
+        return {
+          activeTools: ["upsert_section"] as const,
+          toolChoice: { type: "tool" as const, toolName: "upsert_section" },
+        };
+      }
+      if (stepNumber === 1) {
+        return {
+          activeTools: ["focus_section"] as const,
+          toolChoice: { type: "tool" as const, toolName: "focus_section" },
+        };
+      }
+      return { activeTools: [] as const, toolChoice: "none" as const };
+    },
     tools: {
       read_canvas: tool({
         description: "Read the latest persisted ChalkPilot canvas.",
@@ -84,7 +95,7 @@ export async function runCanvasAgent(input: RunCanvasAgentInput) {
     messages: buildCanvasAgentMessages(input.request, input.canvas, evidence),
   });
   actions.assertComplete();
-  return result.output.summary;
+  return completionSchema.parse(result.text);
 }
 
 export function buildCanvasAgentMessages(
